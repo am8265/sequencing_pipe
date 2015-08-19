@@ -81,11 +81,11 @@ def submit(best_seqsata,run_date,machine,FCID,pwd,address):
 	seqsata_drive = best_seqsata.split('/')[2]
 
     #stage1
-	os.system('python2.7 /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/bcl.py --output %s' % (best_seqsata))
-	logger.info('python2.7 /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/bcl.py --output %s' % (best_seqsata))
+	os.system('python2.7 ~/github/sequencing_pipe/bcl.py --output %s' % (best_seqsata))
+	logger.info('python2.7 ~/github/sequencing_pipe/bcl.py --output %s' % (best_seqsata))
 
-	os.system('python2.7 /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/bcl_mysql.py --seqsata %s' % (best_seqsata))
-	logger.info('Ran python2.7 /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/bcl_mysql.py --seqsata %s' % (best_seqsata))
+	os.system('python2.7 ~/github/sequencing_pipe/bcl_mysql.py --seqsata %s' % (best_seqsata))
+	logger.info('Ran python2.7 ~/github/sequencing_pipe/bcl_mysql.py --seqsata %s' % (best_seqsata))
 
 	#stage2 wrapper
 	stage2(best_seqsata,run_date,machine,FCID,pwd,seqsata_drive,address)
@@ -111,10 +111,10 @@ def stage2(best_seqsata,run_date,machine,FCID,pwd,seqsata_drive,address):
 	header(stage2_script)
 
 	logger = logging.getLogger('stage2')
-	stage2_script.write('cd %s; python2.7 /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/post_bcl.py --input %s/%s_%s_%s_Unaligned -s /nfs/%s \n' % (pwd,best_seqsata,run_date,machine,FCID,seqsata_drive))
+	stage2_script.write('cd %s; python2.7 ~/github/sequencing_pipe/post_bcl.py --input %s/%s_%s_%s_Unaligned -s /nfs/%s \n' % (pwd,best_seqsata,run_date,machine,FCID,seqsata_drive))
 	stage2_script.write('if [ "$(tail -1 /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log | grep Failure -o)" == Failure ]; then /usr/local/bin/mutt -s "Post_BCL failure: %s %s" %s < /dev/null; exit ; fi\n' % (seqsata_drive,machine,FCID,seqsata_drive,machine,FCID,address))
-	stage2_script.write('sh /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/storage.sh %s %s %s\n' % (FCID,best_seqsata,pwd))
-	stage2_script.write('cd %s; python2.7 /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/fastqc.py --input %s -f %s\n' % (pwd,best_seqsata,FCID))
+	stage2_script.write('sh ~/github/sequencing_pipe/storage.sh %s %s %s\n' % (FCID,best_seqsata,pwd))
+	stage2_script.write('cd %s; python2.7 ~/github/sequencing_pipe/fastqc.py --input %s -f %s\n' % (pwd,best_seqsata,FCID))
 	stage2_script.close()
 
 def checkSeqsata(seqsata):
@@ -188,12 +188,12 @@ def Machine_check(sequenceDB,FCID,machine):
 def print_commands(best_seqsata,run_date,machine,FCID,pwd):
 	print
 	print "="*35+'Scripts Commands'+"="*35
-	print 'python2.7 /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/bcl.py --output %s' % (best_seqsata)
-	print 'python2.7 /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/bcl_mysql.py --seqsata %s' % (best_seqsata)
-	print 'python2.7 /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/post_bcl.py --input %s/%s_%s_%s_Unaligned -s %s' % (best_seqsata,run_date,machine,FCID,best_seqsata)
-	print 'sh /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/storage.sh %s %s %s' % (FCID,best_seqsata,pwd)
-	print 'python2.7 /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/fastqc.py --input %s -f %s' % (best_seqsata,FCID)
-	print 'python2.7 /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/fastqc_mysql.py -s %s' % (best_seqsata)
+	print 'python2.7 ~/github/sequencing_pipe/bcl.py --output %s' % (best_seqsata)
+	print 'python2.7 ~/github/sequencing_pipe/bcl_mysql.py --seqsata %s' % (best_seqsata)
+	print 'python2.7 ~/github/sequencing_pipe/post_bcl.py --input %s/%s_%s_%s_Unaligned -s %s' % (best_seqsata,run_date,machine,FCID,best_seqsata)
+	print 'sh ~/github/sequencing_pipe/storage.sh %s %s %s' % (FCID,best_seqsata,pwd)
+	print 'python2.7 ~/github/sequencing_pipe/fastqc.py --input %s -f %s' % (best_seqsata,FCID)
+	print 'python2.7 ~/github/sequencing_pipe/fastqc_mysql.py -s %s' % (best_seqsata)
 	print "="*86
 	print
 
