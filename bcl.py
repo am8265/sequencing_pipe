@@ -22,7 +22,7 @@ from sss_check import sss_qc
 def bcl(info,sata_loc,seqsata,machine,sequenceDB):
     logger = logging.getLogger('bcl')
     in_dir = 'Data/Intensities/BaseCalls/'
-    script_dir = '/nfs/goldstein/goldsteinlab/GAF/scripts'
+    script_dir = '/home/jb3816/github/sequencing_pipe'
     pwd = os.getcwd()
 
     #Name of folder contains flow cell info, machine info etc.  Parsing
