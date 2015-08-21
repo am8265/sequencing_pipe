@@ -114,10 +114,28 @@ def checkLaneFractions(sequenceDB,FCID,Machine):
     lane = 1
     email_switch = 0
     demulti_d = collections.defaultdict(list)
-        
-    email.write("SampleID\tSeqType\tLnFrac_pM\tLnFracAct\tClustDen\tPool\tKapa\tMachine\tcbot\n")
-    email.write('='*90+'\n')
-    email.write("\n")
+
+    email.write("<style>\n")
+    email.write("table, th, td {border: 1px solid black;border-collapse:collapse;}\n")
+    email.write("th, td {padding: 5px;}\n")
+    email.write("td {text-align: center;}\n")
+    email.write("</style>\n")
+
+
+
+    email.write('<table>\n')
+
+    email.write("<tr>\n")
+    email.write("<th>SampleID</th>\n")
+    email.write("<th>SeqType</th>\n")
+    email.write("<th>LnFrac_pM</th>\n")
+    email.write("<th>LnFracAct</th>\n")
+    email.write("<th>ClustDen</th>\n")
+    email.write("<th>Pool</th>\n")
+    email.write("<th>Kapa</th>\n")
+    #email.write("<th>Machine</th>\n")
+    email.write("<th>cbot </th>\n")
+    email.write("</tr>\n")
 
     #iterate over Demultiplex.txt
     for d in Demulti.readlines():
@@ -150,31 +168,37 @@ def checkLaneFractions(sequenceDB,FCID,Machine):
     for num in range(1,TotalLanes+1):
         lanes = demulti_d[str(num)]
         lane_switch = 0
+        highlightRowNumber = ''
         for samp in lanes:
             ClusterDensity = getClusterDensity(sequenceDB,FCID,lanes[0][5])
             #print ClusterDensity,ClusterDensity == None,ClusterDensity == ''
             if ClusterDensity == '' or ClusterDensity == None:
                 email_switch = 1
                 lane_switch = 1
+                highlightRowNumber = 999
+    
             elif samp[0][0:4] == 'lane':
                 if float(samp[1]) > 5:
                     email_switch = 1
                     lane_switch = 1
-            elif (float(samp[3])*100 > 1.153 or float(samp[3])*100 < 0.85):
+                    highlightRowNumber = 10
+
+            elif (float(samp[3])*100 > 1.25 or float(samp[3])*100 < 0.80):
                 email_switch = 1
                 lane_switch = 1
-            elif float(ClusterDensity) > 925 and ('H8' not in Machine or 'H10' not in Machine):
+                highlightRowNumber = 3
+
+            elif float(ClusterDensity) > 1375:
                 email_switch = 1
                 lane_switch = 1
-            elif float(ClusterDensity) > 1100 and ('H2' not in Machine or 'H7' not in Machine or 'H4' not in Machine or 'H5' not in Machine or 'H6' not in Machine or 'H9' not in Machine):
-                email_switch = 1
-                lane_switch = 1
+                highlightRowNumber = 4
+
             #print samp,lane_switch,samp[0][0:4] == 'lane' and samp[1] > 5 
         if lane_switch == 1:
-            EmailLane(sequenceDB,Machine,FCID,lanes,email)
+            EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber)
 
     email.close()
-    send_email(email_switch,FCID,Machine)
+    #send_email(email_switch,FCID,Machine)
 
 def send_email(email_switch,FCID,Machine):
     if email_switch ==1 and os.path.isfile('EmailSent.txt') == False:
@@ -209,11 +233,10 @@ def getPoolName(sequenceDB,DBID):
     poolName = sequenceDB.fetchone()
     return poolName[0]
 
-def EmailLane(sequenceDB,Machine,FCID,lanes,email):
+def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
     logger = logging.getLogger('EmailLane')
     logger.info('Lane fraction problem with lane: %s' % lanes[0][5])
-    email.write('Lane '+lanes[0][5]+'\n')
-    email.write('='*90+'\n')
+    email.write('<tr><td colspan="8">Lane %s</td></tr>\n' %lanes[0][5]+'\n')
     ClusterDensity = getClusterDensity(sequenceDB,FCID,lanes[0][5])
     cbot = getCbot(sequenceDB,FCID)
 
@@ -224,19 +247,36 @@ def EmailLane(sequenceDB,Machine,FCID,lanes,email):
             kapaPicoDBID = getKapaPicoDBID(sequenceDB,FCID,samp[0])
            
             poolName = getPoolName(sequenceDB,kapaPicoDBID[2])
-            logging.info('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' %
-                    (samp[0],samp[4],samp[6],samp[1],ClusterDensity,poolName,kapaPicoDBID[0],Machine,cbot))
-            email.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' % 
-                    (samp[0],samp[4],samp[6],samp[1],ClusterDensity,poolName,kapaPicoDBID[0],Machine,cbot))
+            logging.info('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' %
+                    (samp[0],samp[4],samp[6],samp[1],ClusterDensity,poolName,kapaPicoDBID[0],cbot))
+
+
+            email.write("<tr>\n")
+            highlightRowCount = 0
+            for column in (samp[0],samp[4],samp[6],samp[1],ClusterDensity,poolName,kapaPicoDBID[0],cbot):
+                #print highlightRowNumber,highlightRowCount
+                if highlightRowNumber != highlightRowCount:
+                    email.write("<td>%s</td>\n" % column)
+                else:
+                    email.write('<td bgcolor="#FFFF00">%s</td>\n' % column)
+                highlightRowCount += 1
+
+                 
+            email.write("</tr>\n")
+
 
     for samp in lanes:
         if samp[0][0:4] == 'lane':
             logging.info("Lane %s's unmatched reads percent: %s" % (lanes[0][5],samp[1]))
-            email.write("Lane %s's unmatched reads percent: %s\n" % (lanes[0][5],samp[1]))
-           
-    email.write('='*90+'\n')
-    email.write("\n")
+            if highlightRowNumber == 10:
+                email.write('<tr><td colspan="8" align="center" bgcolor="#FFFF00">Lane %s\'s unmatched reads percent: %s</td></tr>\n' %
+                    (lanes[0][5],samp[1]))
 
+            else:
+                email.write('<tr><td colspan="8" align="center">Lane %s\'s unmatched reads percent: %s</td></tr>\n' %
+                    (lanes[0][5],samp[1]))
+            email.write('<tr><td colspan="8" align="center">&nbsp</td></tr>\n') 
+          
 def opts(argv):
         global verbose
         verbose = False
