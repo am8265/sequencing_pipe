@@ -116,14 +116,15 @@ def checkLaneFractions(sequenceDB,FCID,Machine):
     demulti_d = collections.defaultdict(list)
 
     email.write("<style>\n")
-    email.write("table, th, td {border: 1px solid black;border-collapse:collapse;}\n")
     email.write("th, td {padding: 5px;}\n")
-    email.write("td {text-align: center;}\n")
+    email.write("th, td {text-align: center;}\n")
+    email.write("th ding: 5px;}\n")
+
     email.write("</style>\n")
 
 
 
-    email.write('<table>\n')
+    email.write('<table border="1" style="border:1px solid black;border-collapse:collapse;width:95%">\n')
 
     email.write("<tr>\n")
     email.write("<th>SampleID</th>\n")
@@ -168,43 +169,51 @@ def checkLaneFractions(sequenceDB,FCID,Machine):
     for num in range(1,TotalLanes+1):
         lanes = demulti_d[str(num)]
         lane_switch = 0
-        highlightRowNumber = ''
+        highlightRowNumber = []
         for samp in lanes:
             ClusterDensity = getClusterDensity(sequenceDB,FCID,lanes[0][5])
             #print ClusterDensity,ClusterDensity == None,ClusterDensity == ''
+            """
             if ClusterDensity == '' or ClusterDensity == None:
                 email_switch = 1
                 lane_switch = 1
                 highlightRowNumber = 999
-    
-            elif samp[0][0:4] == 'lane':
+            """
+            if samp[0][0:4] == 'lane':
                 if float(samp[1]) > 5:
                     email_switch = 1
                     lane_switch = 1
-                    highlightRowNumber = 10
+                    highlightRowNumber.append(10)
 
             elif (float(samp[3])*100 > 1.25 or float(samp[3])*100 < 0.80):
                 email_switch = 1
                 lane_switch = 1
-                highlightRowNumber = 3
+                highlightRowNumber.append(3)
 
-            elif float(ClusterDensity) > 1375:
+            elif float(ClusterDensity) > 1375 or float(ClusterDensity) < 1100:
                 email_switch = 1
                 lane_switch = 1
-                highlightRowNumber = 4
+                highlightRowNumber.append(4)
 
             #print samp,lane_switch,samp[0][0:4] == 'lane' and samp[1] > 5 
         if lane_switch == 1:
             EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber)
 
     email.close()
-    #send_email(email_switch,FCID,Machine)
+    send_email(email_switch,FCID,Machine)
 
 def send_email(email_switch,FCID,Machine):
     if email_switch ==1 and os.path.isfile('EmailSent.txt') == False:
         address = "igm-hts@columbia.edu"
-        print "mail -s 'Problem with Lane Fractions for flowcell %s %s' %s < LnFractionEmail.txt" % (FCID,Machine,address)
-        os.system("mail -s 'Problem with Lane Fractions for flowcell %s %s' %s < LnFractionEmail.txt" % (FCID,Machine,address))
+        #address = 'jb3816@cumc.columbia.edu'
+        emailProgramLocation = '/nfs/goldstein/software/mutt-1.5.23/bin/mutt '
+        emailCmd = emailProgramLocation + '-e "set content_type=text/html" '
+        emailCmd += '-s \"Problem with Lane Fractions for flowcell %s %s\" ' % (FCID,Machine)
+        emailCmd += address
+        emailCmd += " < LnFractionEmail.txt"
+
+        print emailCmd
+        os.system(emailCmd)
         os.system("touch EmailSent.txt")
 
 def getClusterDensity(sequenceDB,FCID,LaneNum):
@@ -255,7 +264,7 @@ def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
             highlightRowCount = 0
             for column in (samp[0],samp[4],samp[6],samp[1],ClusterDensity,poolName,kapaPicoDBID[0],cbot):
                 #print highlightRowNumber,highlightRowCount
-                if highlightRowNumber != highlightRowCount:
+                if highlightRowCount not in  highlightRowNumber:
                     email.write("<td>%s</td>\n" % column)
                 else:
                     email.write('<td bgcolor="#FFFF00">%s</td>\n' % column)
@@ -268,7 +277,7 @@ def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
     for samp in lanes:
         if samp[0][0:4] == 'lane':
             logging.info("Lane %s's unmatched reads percent: %s" % (lanes[0][5],samp[1]))
-            if highlightRowNumber == 10:
+            if 10 in highlightRowNumber:
                 email.write('<tr><td colspan="8" align="center" bgcolor="#FFFF00">Lane %s\'s unmatched reads percent: %s</td></tr>\n' %
                     (lanes[0][5],samp[1]))
 
@@ -328,7 +337,7 @@ def main():
     try:
         UpdateSampleLane(sequenceDB,Unaligned,FCID)
         UpdateFC(sequenceDB,FCID,Unaligned)
-        UpdateSample(sequenceDB,FCID)
+        #UpdateSample(sequenceDB,FCID)
         checkLaneFractions(sequenceDB,FCID,Machine)
         
         sequenceDB.execute('COMMIT;')
