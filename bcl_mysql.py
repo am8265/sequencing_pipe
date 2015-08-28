@@ -119,8 +119,25 @@ def updateLane(sequenceDB,FCID,Machine,pwd):
             print "UPDATE Lane l join Flowcell f on l.FCID=f.FCID SET ClustDen='%s',ClustDenStDev='%s',ClusterPF='%s',ClusterPFStDev=round('%s',3) WHERE LaneNum='%s' AND f.FCillumID='%s'" % (ClustDen,ClustDenStDev,ClustPF,ClustPFStDev,str(LaneNum),FCID)
         sequenceDB.execute("UPDATE Lane l join Flowcell f on l.FCID=f.FCID SET ClustDen=%s,ClustDenStDev=%s,ClusterPF=%s,ClusterPFStDev=round(%s,3) WHERE LaneNum=%s AND f.FCillumID=%s", (ClustDen,ClustDenStDev,ClustPF,ClustPFStDev,str(LaneNum),FCID))
         logger.info("UPDATE Lane l join Flowcell f on l.FCID=f.FCID SET ClustDen='%s',ClustDenStDev='%s',ClusterPF='%s',ClusterPFStDev=round('%s',3) WHERE LaneNum='%s' AND f.FCillumID='%s'" % (ClustDen,ClustDenStDev,ClustPF,ClustPFStDev,str(LaneNum),FCID))
-    qmets(sequenceDB,pwd,len(sss_lanes),Machine,FCID)
+
+    totalNumLanes = totalLanesCheck(sss_lanes,FCID)
+    qmets(sequenceDB,pwd,totalNumLanes,Machine,FCID)
     updateLnFraction(sequenceDB,FCID)
+
+def totalLanesCheck(sss_lanes,FCID):
+    """Check if # of lanes in generated sequencing sample sheet matches actual
+    number"""
+    if FCID[-3] == 'N': #Normal Flowcells
+        actualNumLanes = 8
+    elif FCID[0] == 'H': #Rapid Runs
+        actualNumLanes = 2
+    else:
+        raise Exception, 'Unhandled FCID for flowcell %s' % FCID
+
+    if len(sss_lanes) != actualNumLanes:
+        raise Exception, 'Number of lanes in SSS is incorrect!'
+    else:
+        return len(sss_lanes)
 
 def updateLnFraction(sequenceDB,FCID):
 	logger = logging.getLogger('updateLnFraction')

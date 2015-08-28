@@ -81,6 +81,31 @@ def getSamYield(gaf_curs,idnum):
 		SamYield = '0'
         return str(SamYield[0])
 
+def MachineCheck(sequenceDB,Machine,FCID):
+    sql = """SELECT MACHINE
+            FROM Flowcell
+            WHERE FCIllumID like'%{0}%'
+            """.format(FCID)
+
+    sequenceDB.execute(sql)
+    MachineFromDB = sequenceDB.fetchall()
+    
+    if len(MachineFromDB) != 1:
+        raise Exception, "Incorrect number of FCIDs found!"
+    else:
+        if MachineFromDB[0][0] != Machine:
+
+            #Updates database entry if incorrect.  Need to add logging
+            sql = """UPDATE Flowcell
+                    SET Machine='{0}' 
+                    WHERE FCIllumID = '{1}'
+                    """.format(Machine,FCID)
+
+            sequenceDB.execute(sql)
+            sequenceDB.execute('COMMIT;')
+
+    return Machine
+
 def getPredYield(gaf_curs,idnum):
         gaf_curs.execute("SELECT PredYield FROM Sample WHERE idnum=%s", (idnum))
         PredYield = gaf_curs.fetchone()

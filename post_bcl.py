@@ -190,7 +190,7 @@ def checkLaneFractions(sequenceDB,FCID,Machine):
                 lane_switch = 1
                 highlightRowNumber.append(3)
 
-            elif float(ClusterDensity) > 1375 or float(ClusterDensity) < 1100:
+            elif float(ClusterDensity) > 1375 or float(ClusterDensity) < 1000:
                 email_switch = 1
                 lane_switch = 1
                 highlightRowNumber.append(4)
@@ -337,7 +337,7 @@ def main():
     try:
         UpdateSampleLane(sequenceDB,Unaligned,FCID)
         UpdateFC(sequenceDB,FCID,Unaligned)
-        #UpdateSample(sequenceDB,FCID)
+        UpdateSample(sequenceDB,FCID)
         checkLaneFractions(sequenceDB,FCID,Machine)
         
         sequenceDB.execute('COMMIT;')

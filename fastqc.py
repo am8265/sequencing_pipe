@@ -14,7 +14,7 @@ import sys
 
 def fastqc(script,sample,seqsata,FCID,seqtype):
     #print seqsata,sample,FCID,seqtype
-    print 'cd %s/%s/%s/%s' % (seqsata,seqtype,sample,FCID)
+    #print 'cd %s/%s/%s/%s' % (seqsata,seqtype,sample,FCID)
     os.chdir('%s/%s/%s/%s' % (seqsata,seqtype,sample,FCID))
 
     #print script,sample,seqsata,FCID
@@ -25,7 +25,7 @@ def fastqc(script,sample,seqsata,FCID,seqtype):
             numFile = getoutput('ls %s*L00%s_R%s_*.fastq.gz | wc -l' % (sample,lane,read))
             first = '001'
 
-            print 'ls %s*L00%s_R%s_*.fastq.gz | wc -l' % (sample,lane,read)
+            #print 'ls %s*L00%s_R%s_*.fastq.gz | wc -l' % (sample,lane,read)
 
             #gets penultimate fastq.gz in the chance that the last fastq.gz has few reads 
             last = str(int(numFile)-1).zfill(3)
@@ -99,7 +99,7 @@ def main():
             raise excecption, 'Too many seqtypes returned for sample %s' % samp
         fastqc(script,samp,seqsata,FCID,seqtype[0][0])
 
-    script.write('cd %s; python2.7 /nfs/goldstein/goldsteinlab/GAF/scripts/GAF_PIPELINE/fastqc_mysql.py -s %s\n' % (pwd,seqsata))
+    script.write('cd %s; python2.7 ~/github/sequencing_pipe/fastqc_mysql.py -s %s\n' % (pwd,seqsata))
     script.close()
-    submit(seqsata,FCID,seqsata_drive)
+    #submit(seqsata,FCID,seqsata_drive)
 main()

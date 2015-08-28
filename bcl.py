@@ -17,6 +17,8 @@ from CHGV_mysql import getGAFdb
 from CHGV_mysql import setup_logging
 from CHGV_mysql import getSequenceDB
 from CHGV_mysql import getUserID
+from CHGV_mysql import MachineCheck
+
 from sss_check import sss_qc
 
 def bcl(info,sata_loc,seqsata,machine,sequenceDB):
@@ -75,6 +77,7 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
 def dir_check(sata_loc,FCID):
     logger = logging.getLogger('dir_check')
     dir_path = glob.glob('/nfs/%s/*%s*Unaligned' % (sata_loc,FCID))
+    print '/nfs/%s/*%s*Unaligned' % (sata_loc,FCID)
     if dir_path != []:
         logger.warn('BCL directory already exists! %s' % dir_path)
         raise Exception, 'BCL directory already exists! %s' % dir_path
@@ -116,6 +119,7 @@ def check_sss(FCID):
 def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
     sequenceDB.execute("SELECT SeqType FROM Lane l  JOIN SeqType st ON st.prepID=l.prepID JOIN Flowcell f on l.FCID=f.FCID WHERE l.DBID=%s AND LaneNum=%s AND FCillumID=%s", (DBID,LaneNum,FCID))
     seqtype = sequenceDB.fetchone()[0]
+
     sequenceDB.execute("SELECT laneFraction FROM Lane l JOIN Flowcell f ON f.FCID=l.FCID JOIN samplesTOrun s2r ON l.seqID = s2r.seqID WHERE l.DBID=%s AND FCIllumID=%s AND laneNum=%s", (DBID,FCID,LaneNum))
     laneFraction = sequenceDB.fetchone()[0]
 
@@ -169,7 +173,8 @@ def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
     elif seqtype == 'RNAseq':
         SampleLaneFraction = float(laneFraction)/(numPools+1)/NumPoolSamples/NumLanesSampleOn
     elif seqtype == 'Exome':
-        SampleLaneFraction = float(laneFraction)/NumLanesSampleOn/NumPoolSamples/(NumOtherSamples+1)
+        SampleLaneFraction = float(laneFraction)/NumPoolSamples/(NumOtherSamples+1)
+        print float(laneFraction),NumPoolSamples,(NumOtherSamples+1)
     elif seqtype == 'Custom Capture':
         SampleLaneFraction = float(laneFraction)/NumPoolSamples/(NumOtherSamples+1+numPools-1)
         #SampleLaneFraction = float(laneFraction)/NumPoolSamples
@@ -185,7 +190,15 @@ def create_sss(FCID,Machine,date,sequenceDB):
     if FCID[0] == 'H':
         lane_num = 2
     for LaneNum in range(1,lane_num+1):
-        sequenceDB.execute("SELECT DBID FROM Lane l join Flowcell f ON l.FCID=f.FCID where FCillumID=%s AND f.Machine=%s AND l.laneNum=%s ORDER BY LaneNum", (FCID,Machine,LaneNum))
+        sql = """SELECT DBID 
+            FROM Lane l 
+            JOIN Flowcell f 
+            ON l.FCID=f.FCID 
+            WHERE FCillumID='{0}' AND f.Machine='{1}' AND l.laneNum='{2}' 
+            ORDER BY LaneNum""".format(FCID,Machine,LaneNum)
+
+
+        sequenceDB.execute(sql)
         ss_samples = sequenceDB.fetchall()
         if len(ss_samples) == 0:
             print FCID,Machine,LaneNum
@@ -194,46 +207,49 @@ def create_sss(FCID,Machine,date,sequenceDB):
         for DBID in ss_samples:
             DBID = str(DBID[0])
             laneFraction = getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB)
-            logger.info("SELECT f.FCillumID FCID,l.LaneNum Lane,pt.CHGVID SampleID,'human' SampleReference,(case when f.recipe=2 then '' when s.SeqType='Exome' then pm.adapterlet when s.Seqtype='RNAseq' then s2r.adapterlet when s.Seqtype='Genome' then s2r.adapterlet when s.SeqType='Custom Capture' then pm.adapterlet END) 'Index',CONCAT('%s','_',round(s2r.picomoles,1),'pM) Description,'N' Control,(case when f.recipe=1 then '101x7x101' when f.recipe=2 then '101x101' when f.recipe=3 then '101x7x7x101' END) Recipe,replace(u.name,' ','') Operator,replace(s.GAFbin,' ','') Project FROM Lane l join Flowcell f ON f.FCID=l.FCID join prepT pt ON l.prepID=pt.prepID join samplesTOrun s2r ON s2r.seqID=l.seqID join users u ON u.userID=f.userID join SampleT s ON s.DBID=pt.DBID LEFT JOIN poolMembers pm ON (pm.DBID=pt.DBID AND pm.poolID=l.poolID) where l.dbid='%s' AND f.FCillumID='%s' AND LaneNum='%s'" % (laneFraction,DBID,FCID,LaneNum))
 
-            sequenceDB.execute("SELECT f.FCillumID FCID,\
+            sql = "SELECT f.FCillumID FCID,\
                 l.LaneNum Lane,\
                 pt.CHGVID SampleID,\
                 'human' SampleReference,\
                 (case \
-                    when f.recipe=2 then '' \
-                    when st.SeqType='Exome' then pm.adapterlet \
-                    when st.Seqtype='RNAseq' then s2r.adapterlet \
-                    when st.Seqtype='Genome' then s2r.adapterlet \
-                    when st.SeqType='Custom Capture' then pm.adapterlet \
+                    WHEN f.recipe=2 THEN '' \
+                    WHEN st.SeqType='Exome' THEN pm.adapterlet \
+                    WHEN st.Seqtype='RNAseq' THEN s2r.adapterlet \
+                    WHEN st.Seqtype='Genome' THEN s2r.adapterlet \
+                    WHEN st.SeqType='Custom Capture' THEN pm.adapterlet \
                 END) 'Index',\
-                CONCAT(round(%s,4),'_',round(s2r.picomoles,1),'pM') Description, \
+                CONCAT(round('{0}',4),'_',round(s2r.picomoles,1),'pM') Description, \
                 'N' Control,\
                 (case \
-                    when f.recipe=1 then '101x7x101'\
-                    when f.recipe=2 then '101x101'\
-                    when f.recipe=3 then '101x7x7x101'\
-                    when f.recipe=4 then '100x9x100'\
-                    when f.recipe=5 then '126x7x126'\
-                    when f.recipe=6 then '101x8x101'\
-                    when f.recipe=7 then '151x7x151'\
+                    WHEN f.recipe=1 THEN '101x7x101'\
+                    WHEN f.recipe=2 THEN '101x101'\
+                    WHEN f.recipe=3 THEN '101x7x7x101'\
+                    WHEN f.recipe=4 THEN '100x9x100'\
+                    WHEN f.recipe=5 THEN '126x7x126'\
+                    WHEN f.recipe=6 THEN '101x8x101'\
+                    WHEN f.recipe=7 THEN '151x7x151'\
                 END) Recipe,\
                 replace(u.name,' ','') Operator,\
                 replace(s.GAFbin,' ','') Project \
                 FROM Lane l \
-                    join Flowcell f ON f.FCID=l.FCID \
-                    join prepT pt ON l.prepID=pt.prepID \
-                    join samplesTOrun s2r ON s2r.seqID=l.seqID \
-                    join users u ON u.userID=f.userID \
-                    join SeqType st ON l.prepID=st.prepID \
-                    join SampleT s ON s.DBID=pt.DBID \
+                    JOIN Flowcell f ON f.FCID=l.FCID \
+                    JOIN prepT pt ON l.prepID=pt.prepID \
+                    JOIN samplesTOrun s2r ON s2r.seqID=l.seqID \
+                    JOIN users u ON u.userID=f.userID \
+                    JOIN SeqType st ON l.prepID=st.prepID \
+                    JOIN SampleT s ON s.DBID=pt.DBID \
                     LEFT JOIN poolMembers pm ON \
                         (pm.DBID=pt.DBID AND pm.poolID=l.poolID) \
-                where \
-                    l.dbid=%s AND \
-                    f.FCillumID=%s AND \
-                    LaneNum=%s", \
-            (laneFraction,DBID,FCID,LaneNum))
+                WHERE \
+                    l.dbid='{1}' AND \
+                    f.FCillumID='{2}' AND \
+                    LaneNum='{3}'".format(laneFraction,DBID,FCID,LaneNum)
+            #print sql
+
+            logger.info(sql)
+            sequenceDB.execute(sql)
+
             ss_line = sequenceDB.fetchone()
 
             sample_sheet.append(ss_line)
@@ -301,14 +317,16 @@ def RTA_check():
 	else:
 		logger.info('RTA has already completed')
 		print "RTA has already completed"
+   
 
 def main():
     pwd = os.getcwd()
+    sequenceDB = getSequenceDB()
     opts(sys.argv[1:])
     info = pwd.split('/')[4].split('_')
     Date = info[0]
     FCID = info[3]
-    Machine = info[1]
+    Machine = MachineCheck(sequenceDB,info[1],FCID)
     seqsata_drive = sata_loc.split('/')[2]
 
     setup_logging(Machine,FCID,seqsata_drive)
@@ -318,10 +336,9 @@ def main():
     logger.info("Starting BCL job creation...")
 
     RTA_check()
-    sequenceDB = getSequenceDB()
     if noSSS == False:
         create_sss(FCID,Machine,Date,sequenceDB)
-    #check_sss(FCID)
+    check_sss(FCID)
     storage(info,sata_loc,seqsata_drive,Machine,sequenceDB)
     updateSamples(sequenceDB,FCID)
 
