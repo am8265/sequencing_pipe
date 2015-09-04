@@ -203,6 +203,8 @@ def checkLaneFractions(sequenceDB,FCID,Machine):
     send_email(email_switch,FCID,Machine)
 
 def send_email(email_switch,FCID,Machine):
+    logger = logging.getLogger('send_email')
+
     if email_switch ==1 and os.path.isfile('EmailSent.txt') == False:
         address = "igm-hts@columbia.edu"
         #address = 'jb3816@cumc.columbia.edu'
@@ -212,6 +214,7 @@ def send_email(email_switch,FCID,Machine):
         emailCmd += address
         emailCmd += " < LnFractionEmail.txt"
 
+        logger.info(emailCmd)
         print emailCmd
         os.system(emailCmd)
         os.system("touch EmailSent.txt")

@@ -88,7 +88,7 @@ def main():
     for samp in Samples:
 
         query = ' '.join((
-            "SELECT UPPER(st.seqtype) FROM Lane l JOIN Flowcell",
+            "SELECT distinct(UPPER(st.seqtype)) FROM Lane l JOIN Flowcell",
             "f ON l.fcid=f.fcid JOIN SeqType st ON l.prepid=st.prepid JOIN",
             "prepT p ON l.prepid=p.prepid WHERE FCILLUMID='"+FCID+"' AND",
             "CHGVID='"+samp+"'"))
@@ -96,10 +96,11 @@ def main():
         sequenceDB.execute(query)
         seqtype=sequenceDB.fetchall()
         if len(seqtype) > 1:
+            print seqtype
             raise excecption, 'Too many seqtypes returned for sample %s' % samp
         fastqc(script,samp,seqsata,FCID,seqtype[0][0])
 
     script.write('cd %s; python2.7 ~/github/sequencing_pipe/fastqc_mysql.py -s %s\n' % (pwd,seqsata))
     script.close()
-    #submit(seqsata,FCID,seqsata_drive)
+    submit(seqsata,FCID,seqsata_drive)
 main()

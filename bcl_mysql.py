@@ -82,14 +82,21 @@ def updateFC(sequenceDB,sataloc,FCID,Machine):
     sataloc = sataloc.split('/')[2]
     DateBcl = cur_datetime()
     DateRTA = getRTAdate()
-    DateRead1 = getRead1Date(FCID) 
+    DateRead1 = getRead1Date(FCID)
     #ChemVer = getChemVer(Machine)
     RTAVer,HCSver = ver_num()
     Read_SQL_Command = getReads(sequenceDB,FCID)
+
+    sql = ("UPDATE Flowcell "
+        "SET {0} RTAVer='{1}', HCSVer='{2}', DateRead1='{3}', DateRTA='{4}', "
+        "DateBcl='{5}', SeqsataLoc='{6}' "
+        "WHERE FCillumID='{7}'" 
+        ).format(Read_SQL_Command,RTAVer,HCSver,DateRead1,DateRTA,DateBcl,sataloc,FCID)
     if verbose == True:
-        print "UPDATE Flowcell SET %s RTAVer='%s', HCSVer='%s', DateRead1='%s', DateRTA='%s', DateBcl='%s', SeqsataLoc='%s' WHERE FCillumID='%s'" % (Read_SQL_Command,RTAVer,HCSver,DateRead1,DateRTA,DateBcl,sataloc,FCID)
-    sequenceDB.execute("UPDATE Flowcell SET "+Read_SQL_Command+" RTAVer=%s, HCSVer=%s, DateRead1=%s, DateRTA=%s, DateBcl=%s, SeqsataLoc=%s WHERE FCillumID=%s", (RTAVer,HCSver,DateRead1,DateRTA,DateBcl,sataloc,FCID))
-    logger.info("UPDATE Flowcell SET %s RTAVer='%s', HCSVer='%s', DateRead1='%s', DateRTA='%s', DateBcl='%s', SeqsataLoc='%s' WHERE FCillumID='%s'" % (Read_SQL_Command,RTAVer,HCSver,DateRead1,DateRTA,DateBcl,sataloc,FCID))
+        print sql
+
+    sequenceDB.execute(sql)
+    logger.info(sql)
 
 #Updates ClusterDensity for Lane Entries
 def updateLane(sequenceDB,FCID,Machine,pwd):
@@ -115,10 +122,17 @@ def updateLane(sequenceDB,FCID,Machine,pwd):
         AvgKDen = (float(Read1KDen[LaneNum])+float(Read2KDen[LaneNum]))/2
         ApproxClustDen = str(1.1296*AvgKDen+237.4)
         #print ClustPF,ClustPFStDev
+        sql = ("UPDATE Lane l "
+            "JOIN Flowcell f on l.FCID=f.FCID "
+            "SET ClustDen='{0}',ClustDenStDev='{1}',"
+            "ClusterPF='{2}',ClusterPFStDev=round('{3}',3) "
+            "WHERE LaneNum={4} AND f.FCillumID='{5}'" 
+            ).format(ClustDen,ClustDenStDev,ClustPF,ClustPFStDev,str(LaneNum),FCID)
+
         if verbose == True:
-            print "UPDATE Lane l join Flowcell f on l.FCID=f.FCID SET ClustDen='%s',ClustDenStDev='%s',ClusterPF='%s',ClusterPFStDev=round('%s',3) WHERE LaneNum='%s' AND f.FCillumID='%s'" % (ClustDen,ClustDenStDev,ClustPF,ClustPFStDev,str(LaneNum),FCID)
-        sequenceDB.execute("UPDATE Lane l join Flowcell f on l.FCID=f.FCID SET ClustDen=%s,ClustDenStDev=%s,ClusterPF=%s,ClusterPFStDev=round(%s,3) WHERE LaneNum=%s AND f.FCillumID=%s", (ClustDen,ClustDenStDev,ClustPF,ClustPFStDev,str(LaneNum),FCID))
-        logger.info("UPDATE Lane l join Flowcell f on l.FCID=f.FCID SET ClustDen='%s',ClustDenStDev='%s',ClusterPF='%s',ClusterPFStDev=round('%s',3) WHERE LaneNum='%s' AND f.FCillumID='%s'" % (ClustDen,ClustDenStDev,ClustPF,ClustPFStDev,str(LaneNum),FCID))
+            print sql
+        sequenceDB.execute(sql)
+        logger.info(sql)
 
     totalNumLanes = totalLanesCheck(sss_lanes,FCID)
     qmets(sequenceDB,pwd,totalNumLanes,Machine,FCID)
@@ -140,17 +154,28 @@ def totalLanesCheck(sss_lanes,FCID):
         return len(sss_lanes)
 
 def updateLnFraction(sequenceDB,FCID):
-	logger = logging.getLogger('updateLnFraction')
-	logger.debug('Running updateLnFraction')
-	sequenceDB.execute("SELECT l.DBID,s.CHGVID,l.FCID,l.lanenum,FCillumID from Lane l join Flowcell f on l.FCID=f.FCID join SampleT s on s.DBID=l.DBID where FCillumID=%s", FCID)
-	info = sequenceDB.fetchall()
-	#print info
-	for samp in info:
-		LnFraction = getoutput("grep %s *%s*.csv | grep ,%s, | cut -d, -f6 | cut -d_ -f1" % (samp[1],samp[4],samp[3]))
-		logger.info("UPDATE Lane l SET LnFraction='%s' WHERE FCID='%s' and Lanenum='%s' and DBID='%s'" % (LnFraction,samp[2],samp[3],samp[0]))
-		if verbose == True:
-			print "UPDATE Lane l SET LnFraction='%s' WHERE FCID='%s' and Lanenum='%s' and DBID='%s'" % (LnFraction,samp[2],samp[3],samp[0])
-		sequenceDB.execute("UPDATE Lane l SET LnFraction=%s WHERE FCID=%s and Lanenum=%s and DBID=%s", (LnFraction,samp[2],samp[3],samp[0]))
+    logger = logging.getLogger('updateLnFraction')
+    logger.debug('Running updateLnFraction')
+    sql = ("SELECT l.DBID,s.CHGVID,l.FCID,l.lanenum,FCillumID "
+        "FROM Lane l "
+        "JOIN Flowcell f on l.FCID=f.FCID "
+        "JOIN SampleT s on s.DBID=l.DBID "
+        "WHERE FCillumID='{0}'"
+        ).format(FCID)
+    sequenceDB.execute(sql)
+    info = sequenceDB.fetchall()
+
+    #print info
+    for samp in info:
+        LnFraction = getoutput("grep %s *%s*.csv | grep ,%s, | cut -d, -f6 | cut -d_ -f1" % (samp[1],samp[4],samp[3]))
+        sql = ("UPDATE Lane l "
+            "SET LnFraction={0} "
+            "WHERE FCID={1} and Lanenum={2} and DBID={3}" 
+            ).format(LnFraction,samp[2],samp[3],samp[0])
+        logger.info(sql)
+        if verbose == True:
+            print sql
+        sequenceDB.execute(sql)
 
 #gets average of cluster density values from all tiles and also calcs standard deviation 
 def getClustPF(LaneNum):
@@ -193,7 +218,7 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID):
         #V4 Flowcell
         if FCID[-3] == 'N':
             if cycle > 134:
-                met_dictR2[int(lane)] = [sum(x) for x in zip(met_dictR2[int(lane)],qscores)]        
+                met_dictR2[int(lane)] = [sum(x) for x in zip(met_dictR2[int(lane)],qscores)]
             elif cycle > 126:
                 met_dictI1[int(lane)] = [sum(x) for x in zip(met_dictI1[int(lane)],qscores)]
             elif cycle > 0:
@@ -201,7 +226,7 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID):
 
         else:
             if cycle > 108:
-                met_dictR2[int(lane)] = [sum(x) for x in zip(met_dictR2[int(lane)],qscores)]        
+                met_dictR2[int(lane)] = [sum(x) for x in zip(met_dictR2[int(lane)],qscores)]
             elif cycle > 101:
                 met_dictI1[int(lane)] = [sum(x) for x in zip(met_dictI1[int(lane)],qscores)]
             elif cycle > 0:
@@ -224,7 +249,7 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID):
                 q30R1 += met_dictR1[int(lane)][pos]
                 
             totalI1 += met_dictI1[int(lane)][pos]
-            qsumI1 += met_dictI1[int(lane)][pos]*pos  
+            qsumI1 += met_dictI1[int(lane)][pos]*pos
             if pos >= 29:
                 q30I1 += met_dictI1[int(lane)][pos]
                                 
@@ -244,9 +269,16 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID):
             avgQ30R1 = avgQ30I1 = avgQ30I2 = perQ30R1 = perQ30R2 = perQ30I1 = 0
         
         if verbose == True:
-            print "UPDATE Lane l join Flowcell f on l.FCID=f.FCID SET mnQscR1='%s',mnQscI1='%s',mnQscR2='%s',perQ30R1='%s',perQ30I1='%s',perQ30R2='%s' WHERE LaneNum='%s' AND f.FCillumID='%s'" % (avgQ30R1,avgQ30I1,avgQ30R2,perQ30R1,perQ30I1,perQ30R2,lane,FCID)
-        sequenceDB.execute("UPDATE Lane l join Flowcell f on l.FCID=f.FCID SET mnQscR1=%s,mnQscI1=%s,mnQscR2=%s,perQ30R1=%s,perQ30I1=%s,perQ30R2=%s WHERE LaneNum=%s AND f.FCillumID=%s", (avgQ30R1,avgQ30I1,avgQ30R2,perQ30R1,perQ30I1,perQ30R2,lane,FCID))
-        logger.info("UPDATE Lane l join Flowcell f on l.FCID=f.FCID SET mnQscR1='%s',mnQscI1='%s',mnQscR2='%s',perQ30R1='%s',perQ30I1='%s',perQ30R2='%s' WHERE LaneNum='%s' AND f.FCillumID='%s'" % (avgQ30R1,avgQ30I1,avgQ30R2,perQ30R1,perQ30I1,perQ30R2,lane,FCID))
+            sql = ("UPDATE Lane l "
+                "join Flowcell f on l.FCID=f.FCID "
+                "SET mnQscR1='{0}',mnQscI1='{1}',mnQscR2='{2}',"
+                "perQ30R1='{3}',perQ30I1='{4}',perQ30R2='{5}' "
+                "WHERE LaneNum='{6}' AND f.FCillumID='{7}'"
+                ).format(avgQ30R1,avgQ30I1,avgQ30R2,perQ30R1,perQ30I1,perQ30R2,lane,FCID)
+
+            print(sql)
+            sequenceDB.execute(sql)
+            logger.info(sql)
 
 def usage():
 	print '-h, --help\t\tShows this help message and exit'
@@ -255,7 +287,7 @@ def usage():
 
 
 def opts(argv):
-	global verbose 
+	global verbose
 	verbose = False
         global sata_loc
 	sata_loc = ''

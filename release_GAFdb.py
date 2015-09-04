@@ -90,7 +90,19 @@ def getFastqLoc(sequenceDB,SampleID,prepID,seqtype):
     return FastqLoc
 
 def getPoolID(sequenceDB,prepID):
-    sequenceDB.execute("SELECT (SELECT CHGVID FROM SampleT WHERE dbid=(SELECT poolID FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s ORDER BY FCtime DESC LIMIT 1)) poolID,exomeKit,libKit FROM prepT WHERE prepID=%s;", (prepID,prepID))
+    sql=("SELECT "
+        "(SELECT CHGVID FROM SampleT "
+        "WHERE dbid="
+            "(SELECT poolID FROM Lane l "
+            "JOIN Flowcell f ON l.FCID=f.FCID "
+            "WHERE l.prepID={0} ORDER BY FCtime DESC LIMIT 1)) "
+        "poolID,exomeKit,libKit FROM prepT "
+        "WHERE prepID={0};"
+        ).format(prepID)
+
+    #print sql
+    #raw_input('test')
+    sequenceDB.execute(sql)
     info = sequenceDB.fetchone()
     return info
 
@@ -142,6 +154,8 @@ def process_exomekit(sequencing_info,seqtype,sequenceDB):
             ExomeSamPrepKit = 'DILIN'
         elif 'MattHaloplex2015' in sequencing_info[1]:
             ExomeSamPrepKit = 'MattHaloplex2015'
+        elif 'MCD_MTOR' in sequencing_info[1]:
+            ExomeSamPrepKit = 'MCDMTOR'
         else:
             ExomeSamPrepKit =  sequencing_info[1]
 
@@ -458,6 +472,8 @@ def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
         fail_switch = raw_input("%s has yield < 150.  Is this ok to release (Y)es or (N)o? " % (SampleID))
         if fail_switch.lower() != 'y' and status[0] != 'External Data Submitted':
             failYield = SampleID
+            poolID = getPoolID(sequenceDB,prepID)
+
             #raise Exception, "%s has yield of %s!" % (SampleID,info[0])
 
     #print SampleID,prepID
@@ -486,7 +502,7 @@ def check_Storage(sequenceDB,prepID,SeqType):
         #checks how many files are there for that FC, LaneNum and Sample.  If 0 warning sent out
         #/nfs/fastq15/whole_exome/fetal0036M
     
-        SeqType=SeqType.upper()
+        SeqType=SeqType.upper().replace(' ','_')
         r1files = len(glob.glob("/nfs/fastq15/%s/%s/%s/%s*L00%s*R1*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
         r2files = len(glob.glob("/nfs/fastq15/%s/%s/%s/%s*L00%s*R2*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
 
@@ -788,7 +804,8 @@ def main():
                     failedSamples.append((failYieldSample,poolID,seqYield))
                 #print completeStatus
                 if completeStatus != 'External Data Submitted' and skipStorageCheck == False:
-                    check_Storage(sequenceDB,prepID,SeqType)
+                    pass
+                    #check_Storage(sequenceDB,prepID,SeqType)
                 check_Lane(sequenceDB,prepID,SampleID)
                 checkS2R(sequenceDB,SampleID,prepID)
             #fixReleaseStatusT(SequenceDB,SampleID,SeqType,prepID)

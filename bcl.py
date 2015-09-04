@@ -77,7 +77,6 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
 def dir_check(sata_loc,FCID):
     logger = logging.getLogger('dir_check')
     dir_path = glob.glob('/nfs/%s/*%s*Unaligned' % (sata_loc,FCID))
-    print '/nfs/%s/*%s*Unaligned' % (sata_loc,FCID)
     if dir_path != []:
         logger.warn('BCL directory already exists! %s' % dir_path)
         raise Exception, 'BCL directory already exists! %s' % dir_path
@@ -117,55 +116,77 @@ def check_sss(FCID):
 
 
 def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
-    sequenceDB.execute("SELECT SeqType FROM Lane l  JOIN SeqType st ON st.prepID=l.prepID JOIN Flowcell f on l.FCID=f.FCID WHERE l.DBID=%s AND LaneNum=%s AND FCillumID=%s", (DBID,LaneNum,FCID))
+
+    #get seqtype
+    sql = ("SELECT SeqType FROM Lane l  "
+        "JOIN SeqType st ON st.prepID=l.prepID "
+        "JOIN Flowcell f on l.FCID=f.FCID "
+        "WHERE l.DBID={0} AND LaneNum={1} AND FCillumID='{2}'"
+        ).format(DBID,LaneNum,FCID)
+    sequenceDB.execute(sql)
     seqtype = sequenceDB.fetchone()[0]
 
-    sequenceDB.execute("SELECT laneFraction FROM Lane l JOIN Flowcell f ON f.FCID=l.FCID JOIN samplesTOrun s2r ON l.seqID = s2r.seqID WHERE l.DBID=%s AND FCIllumID=%s AND laneNum=%s", (DBID,FCID,LaneNum))
+    #get the laneFraction from samplesToRun
+    sql = ("SELECT laneFraction FROM Lane l "
+        "JOIN Flowcell f ON f.FCID=l.FCID "
+        "JOIN samplesTOrun s2r ON l.seqID = s2r.seqID "
+        "WHERE l.DBID={0} AND FCIllumID='{1}' AND laneNum={2}"
+        ).format(DBID,FCID,LaneNum)
+    sequenceDB.execute(sql)
     laneFraction = sequenceDB.fetchone()[0]
+    if float(laneFraction) == 0:
+        raise Exception, ("Missing laneFraction values from samplesToRun for "
+            "DBID: {0} on Lane: {1} ").format(DBID,LaneNum)
 
-    sequenceDB.execute("SELECT COUNT(DISTINCT(PoolID)) FROM Lane l JOIN Flowcell f ON f.FCID=l.FCID WHERE FCIllumID=%s AND laneNum=%s AND poolID!=0", (FCID,LaneNum))
+    #get the number of pools in a lane
+    sql = ("SELECT COUNT(DISTINCT(PoolID)) FROM Lane l "
+        "JOIN Flowcell f ON f.FCID=l.FCID "
+        "WHERE FCIllumID='{0}' AND laneNum={1} AND poolID!=0"
+        ).format(FCID,LaneNum)
+    sequenceDB.execute(sql)
     numPools = sequenceDB.fetchone()[0]
 
-    sequenceDB.execute("SELECT COUNT(PoolID) FROM Lane l JOIN Flowcell f ON f.FCID=l.FCID WHERE FCIllumID=%s AND laneNum=%s AND poolID=0", (FCID,LaneNum))
+    #get any other samples that might be on a lane ex. genome/RNAseq
+    sql = ("SELECT COUNT(PoolID) FROM Lane l "
+        "JOIN Flowcell f ON f.FCID=l.FCID "
+        "WHERE FCIllumID='{0}' AND laneNum={1} AND poolID=0"
+        ).format(FCID,LaneNum)
+    sequenceDB.execute(sql)
     NumOtherSamples = sequenceDB.fetchone()[0]
 
-    sequenceDB.execute("SELECT COUNT(*) FROM Lane l join Flowcell f ON l.FCID=f.FCID WHERE l.prepID=(SELECT prepID FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.LaneNum=%s AND f.FCillumID=%s AND DBID=%s) AND FCillumID=%s", (LaneNum,FCID,DBID,FCID))
-    NumLanesSampleOn = sequenceDB.fetchone()[0] #The number of times a sample is on a flowcell (for genomes and RNASeq)
+    #get the number of times a samples is on a flowcell.  Used for genomes and
+    #RNASeq
+    sql = ("SELECT COUNT(*) FROM Lane l "
+        "JOIN Flowcell f ON l.FCID=f.FCID "
+        "WHERE l.prepID="
+            "(SELECT prepID FROM Lane l "
+            "JOIN Flowcell f ON l.FCID=f.FCID "
+            "WHERE l.LaneNum={0} AND f.FCillumID='{1}' AND DBID={2}) "
+        "AND FCillumID='{3}'"
+        ).format(LaneNum,FCID,DBID,FCID)
+    sequenceDB.execute(sql)
+    NumLanesSampleOn = sequenceDB.fetchone()[0]
 
-    """
-    sequenceDB.execute("SELECT poolID FROM Lane l JOIN Flowcell f on l.fcid=f.fcid WHERE LaneNum=%s AND FCIllumID=%s AND DBID=%s", (LaneNum,FCID,DBID))
-    poolID = sequenceDB.fetchone()[0]
-    sequenceDB.execute("select count(distinct LaneNum) from Lane l JOIN Flowcell f on l.fcid=f.fcid where FCillumID=%s and poolID=%s", (FCID,poolID))
-    NumLanesExomeSampleOn = sequenceDB.fetchone()[0] #The number of times a sample is on a flowcell for Exomes and Custom Capture samples
-    """
-    #            JOIN poolMembers pM ON l.dbid=pM.dbid \
-
-    #print DBID,FCID,LaneNum,DBID,FCID,LaneNum
     if numPools > 0:
-        sequenceDB.execute("SELECT \
-            (CASE \
-                WHEN l.poolID=0 THEN 1 \
-                WHEN l.poolID!=0 THEN \
-                    (SELECT COUNT(DISTINCT pM.prepID) FROM poolMembers pM WHERE pM.poolid=\
-                        (SELECT DISTINCT l.poolID FROM Lane l JOIN Flowcell f ON f.FCID=l.FCID WHERE l.DBID=%s AND FCillumID=%s AND LaneNum=%s)) \
-            END) \
-            FROM Lane l \
-                JOIN Flowcell f ON f.FCID=l.FCID \
-            WHERE \
-                l.DBID=%s AND \
-                FCIllumid=%s AND \
-                LaneNum=%s", \
-                (DBID,FCID,LaneNum,DBID,FCID,LaneNum))
+        sql =("SELECT "
+            "(CASE "
+                "WHEN l.poolID=0 THEN 1 "
+                "WHEN l.poolID!=0 THEN "
+                    "(SELECT COUNT(DISTINCT pM.prepID) FROM poolMembers pM "
+                    "WHERE pM.poolid="
+                        "(SELECT DISTINCT l.poolID FROM Lane l "
+                        "JOIN Flowcell f ON f.FCID=l.FCID "
+                        "WHERE l.DBID={0} AND FCillumID='{1}' AND LaneNum={2})) "
+            "END) "
+            "FROM Lane l "
+            "JOIN Flowcell f ON f.FCID=l.FCID "
+            "WHERE l.DBID={3} AND FCIllumid='{4}' AND LaneNum={5}"
+            ).format(DBID,FCID,LaneNum,DBID,FCID,LaneNum)
+        sequenceDB.execute(sql)
         NumPoolSamples = sequenceDB.fetchone()[0]
     else:
         numPools = 0
         NumPoolSamples = 1
-    """
-    if LaneNum==3:
-        print DBID,seqtype,LaneNum,float(laneFraction),numPools,NumPoolSamples,NumOtherSamples,NumLanesSampleOn,seqtype
-        print laneFraction,NumPoolSamples,NumOtherSamples+1
-    #SampleLaneFraction = 1.0/numPools/NumPoolSamples
-    """
 
     if seqtype == 'Genome':
         SampleLaneFraction = float(laneFraction)/(numPools+1)/NumPoolSamples/NumLanesSampleOn
@@ -174,9 +195,10 @@ def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
         SampleLaneFraction = float(laneFraction)/(numPools+1)/NumPoolSamples/NumLanesSampleOn
     elif seqtype == 'Exome':
         SampleLaneFraction = float(laneFraction)/NumPoolSamples/(NumOtherSamples+1)
-        print float(laneFraction),NumPoolSamples,(NumOtherSamples+1)
+        #print float(laneFraction),NumPoolSamples,(NumOtherSamples+1)
     elif seqtype == 'Custom Capture':
-        SampleLaneFraction = float(laneFraction)/NumPoolSamples/(NumOtherSamples+1+numPools-1)
+        #print float(laneFraction),NumPoolSamples,NumOtherSamples+1,numPools-1
+        SampleLaneFraction = float(laneFraction)/NumPoolSamples/(NumOtherSamples+1)
         #SampleLaneFraction = float(laneFraction)/NumPoolSamples
 
     return SampleLaneFraction
@@ -190,18 +212,17 @@ def create_sss(FCID,Machine,date,sequenceDB):
     if FCID[0] == 'H':
         lane_num = 2
     for LaneNum in range(1,lane_num+1):
-        sql = """SELECT DBID 
-            FROM Lane l 
-            JOIN Flowcell f 
-            ON l.FCID=f.FCID 
-            WHERE FCillumID='{0}' AND f.Machine='{1}' AND l.laneNum='{2}' 
-            ORDER BY LaneNum""".format(FCID,Machine,LaneNum)
-
+        sql = ("SELECT DBID " 
+            "FROM Lane l "
+            "JOIN Flowcell f "
+            "ON l.FCID=f.FCID "
+            "WHERE FCillumID='{0}' AND f.Machine='{1}' AND l.laneNum='{2}' "
+            "ORDER BY LaneNum").format(FCID,Machine,LaneNum)
 
         sequenceDB.execute(sql)
         ss_samples = sequenceDB.fetchall()
         if len(ss_samples) == 0:
-            print FCID,Machine,LaneNum
+            #print FCID,Machine,LaneNum
             raise Exception, "No Samples were found with FCillumID: %s" % FCID
         #print ss_samples
         for DBID in ss_samples:
