@@ -45,17 +45,15 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
         base_script += '--sample-sheet *%s*.csv ' % FCID
 
     if tiles != False:
-        GAFdb = getGAFdb()
 
-        print "UPDATE Flowcell SET TileCommand=CONCAT_WS(';',TileCommand,'%s') WHERE FCID='%s'" % (tiles,FCID)
-        GAFdb.execute("UPDATE Flowcell SET TileCommand=CONCAT_WS(';',TileCommand,%s) WHERE FCID=%s", (tiles,FCID))
-        print "UPDATE Flowcell SET TileCommand=CONCAT_WS(';',TileCommand,'%s') WHERE FCillumID='%s'" % (tiles,FCID)
-        sequenceDB.execute("UPDATE Flowcell SET TileCommand=CONCAT_WS(';',TileCommand,%s) WHERE FCillumID=%s", (tiles,FCID))
+        sql = ("UPDATE Flowcell "
+            "SET TileCommand=CONCAT_WS(';',TileCommand,'{0}') "
+            "WHERE FCillumID='{1}'"
+            ).format(tiles,FCID)
 
-        GAFdb.execute('COMMIT;')
-        sequenceDB.execute('COMMIT;')
-        GAFdb.close()
-        sequenceDB.close()
+        if verbose == True:
+            print sql
+        sequenceDB.execute(sql)
 
         base_script = base_script + '--tiles='+tiles+' '
         os.system('echo %s > tiles.txt' % tiles)
@@ -70,6 +68,7 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
     os.system('cp '+script_dir+'/run_C1.8.sh '+out_dir+'/'+Script)
     #print 'echo "cd %s ; qsub -N %s_bcl -pe make 32 %s/%s" | ssh solexa3.lsrc.duke.edu ' % (out_dir,FCID,out_dir,Script)
     logger.info('cd %s ; qsub -cwd -v PATH -N %s_%s_%s_bcl %s/%s' % (out_dir,machine,FCID,seqsata,out_dir,Script))
+    
     os.system('cd %s ; qsub -cwd -v PATH -N %s_%s_%s_bcl %s/%s' % (out_dir,machine,FCID,seqsata,out_dir,Script))
 
 
@@ -99,6 +98,7 @@ def usage():
     print '-h, --help\t\tShows this help message and exit'
     print '-o, --output\t\tPath to output folder'
     print '-s, --sampleSheet\tAllows user-specified sample sheet'
+    print '-v, --verbose\t\tVerbose output'
     print '--noSSS\t\t\tForbids creation of a sample sheet'
     print '--tiles\t\t\tSpecifies what tiles you want BCL performed on.  Ex: s_[12]_1[123]0[1-7]'
     print '--use-bases-mask\tSpecifies what bases you want to mask.  Ex: y100n,I6n,y50n'
@@ -118,7 +118,7 @@ def check_sss(FCID):
 def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
 
     #get seqtype
-    sql = ("SELECT SeqType FROM Lane l  "
+    sql = ("SELECT SeqType FROM Lane l "
         "JOIN SeqType st ON st.prepID=l.prepID "
         "JOIN Flowcell f on l.FCID=f.FCID "
         "WHERE l.DBID={0} AND LaneNum={1} AND FCillumID='{2}'"
@@ -167,6 +167,7 @@ def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
     sequenceDB.execute(sql)
     NumLanesSampleOn = sequenceDB.fetchone()[0]
 
+    #get number of samples in a pool
     if numPools > 0:
         sql =("SELECT "
             "(CASE "
@@ -185,9 +186,12 @@ def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
         sequenceDB.execute(sql)
         NumPoolSamples = sequenceDB.fetchone()[0]
     else:
-        numPools = 0
+        #numPools = 0
         NumPoolSamples = 1
 
+        
+    #print LaneNum,DBID,seqtype,float(laneFraction),numPools,NumOtherSamples,NumLanesSampleOn,NumPoolSamples
+ 
     if seqtype == 'Genome':
         SampleLaneFraction = float(laneFraction)/(numPools+1)/NumPoolSamples/NumLanesSampleOn
         #SampleLaneFraction = float(laneFraction)
@@ -195,11 +199,9 @@ def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
         SampleLaneFraction = float(laneFraction)/(numPools+1)/NumPoolSamples/NumLanesSampleOn
     elif seqtype == 'Exome':
         SampleLaneFraction = float(laneFraction)/NumPoolSamples/(NumOtherSamples+1)
-        #print float(laneFraction),NumPoolSamples,(NumOtherSamples+1)
     elif seqtype == 'Custom Capture':
-        #print float(laneFraction),NumPoolSamples,NumOtherSamples+1,numPools-1
         SampleLaneFraction = float(laneFraction)/NumPoolSamples/(NumOtherSamples+1)
-        #SampleLaneFraction = float(laneFraction)/NumPoolSamples
+
 
     return SampleLaneFraction
 
@@ -285,11 +287,20 @@ def create_sss(FCID,Machine,date,sequenceDB):
 def updateSamples(sequenceDB,FCID):
     logger = logging.getLogger('updateSamples')
     userID = getUserID()
-    if verbose == True:
-        print "INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'BCL',pt.DBID,pt.prepID,'%s' FROM Flowcell f join Lane l ON l.FCID=f.FCID join prepT pt ON pt.prepID=l.prepID where FCillumid='%s'" % (userID,FCID)
-    sequenceDB.execute("INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'BCL',pt.DBID,pt.prepID,%s FROM Flowcell f join Lane l ON l.FCID=f.FCID join prepT pt ON pt.prepID=l.prepID where FCillumid=%s", (userID,FCID))
-    logger.info("INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'BCL',pt.DBID,pt.prepID,'%s' FROM Flowcell f join Lane l ON l.FCID=f.FCID join prepT pt ON pt.prepID=l.prepID where FCillumid='%s'" % (userID,FCID))
+    sql = ("INSERT INTO statusT "
+        "(CHGVID,status_time,status,DBID,prepID,userID) "
+        "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'BCL',pt.DBID,pt.prepID,{0} "
+        "FROM Flowcell f "
+        "JOIN Lane l ON l.FCID=f.FCID "
+        "JOIN prepT pt ON pt.prepID=l.prepID "
+        "WHERE FCillumid='{1}'"
+        ).format(userID,FCID)
 
+
+    if verbose == True:
+        print sql
+        sequenceDB.execute(sql)
+        logger.info(sql)
 
 def opts(argv):
     global tiles
@@ -327,6 +338,7 @@ def opts(argv):
                 sata_loc = a.rstrip('/')
             else:
                 raise Exception, 'Output location %s is not in the whole_genome folder within a seqsata drive!' % a
+            
         else:
             assert False, "Unhandled argument present"
 

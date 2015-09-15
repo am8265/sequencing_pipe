@@ -31,8 +31,8 @@ echo "SUM of fastq.gz files: $O_filesize" >> $LOG_FILE
 for s in $seqsata/*$FCID*/Project*/Sample*; do
 
 	sampleID=$(echo $s | awk -F/ '{print $NF}' | cut -d_ -f2-)
-	seqtype=$(~/sequenceDB.sh "SELECT st.seqtype FROM Lane l JOIN Flowcell f ON l.fcid=f.fcid JOIN SeqType st ON l.prepid=st.prepid JOIN prepT p ON l.prepid=p.prepid WHERE FCILLUMID='$FCID' AND CHGVID='$sampleID'" -NB | tr '[:lower:]' '[:upper:]' | sed 's/ /_/g')
-	echo "~/sequenceDB.sh \"SELECT st.seqtype FROM Lane l JOIN Flowcell f ON l.fcid=f.fcid JOIN SeqType st ON l.prepid=st.prepid JOIN prepT p ON l.prepid=p.prepid WHERE FCILLUMID='$FCID' AND CHGVID='$sampleID'\" -NB | tr '[:lower:]' '[:upper:]' | sed 's/ /_/g'" >> $LOG_FILE
+	seqtype=$(~/sequenceDB.sh "SELECT distinct(st.seqtype) FROM Lane l JOIN Flowcell f ON l.fcid=f.fcid JOIN SeqType st ON l.prepid=st.prepid JOIN prepT p ON l.prepid=p.prepid WHERE FCILLUMID='$FCID' AND CHGVID='$sampleID'" -NB | tr '[:lower:]' '[:upper:]' | sed 's/ /_/g')
+	echo "~/sequenceDB.sh \"SELECT distinct(st.seqtype) FROM Lane l JOIN Flowcell f ON l.fcid=f.fcid JOIN SeqType st ON l.prepid=st.prepid JOIN prepT p ON l.prepid=p.prepid WHERE FCILLUMID='$FCID' AND CHGVID='$sampleID'\" -NB | tr '[:lower:]' '[:upper:]' | sed 's/ /_/g'" >> $LOG_FILE
 
 	mkdir -p $seqsata/$seqtype/$sampleID/$FCID
 	chmod 775 $seqsata/$seqtype/$sampleID

@@ -165,9 +165,21 @@ def process_exomekit(sequencing_info,seqtype,sequenceDB):
     return ExomeSamPrepKit
 
 def getSampleTinfo(sequenceDB,prepID):
-	sequenceDB.execute("SELECT s.CHGVID,s.Phenotype,s.FamilyID,s.DNASrc,s.GwasID,s.FinalRepLoc,s.Topstrandfile,AKA,ProjName,Protocol,AvaiContUsed,SelfDeclEthnic,SelfDeclEthnicDetail,SelfDeclGender,GwasGender,GwasEthnic,GenoChip,GAFbin,FundCode,RepConFamMem,FamilyRelationProband,priority,OrigID,CurrProjLeader,AlignedBuild36,priority from SampleT s join prepT pt on s.DBID=pt.DBID where pt.prepID=%s", prepID)
-	SampleT_info = sequenceDB.fetchone()
-	return SampleT_info
+    sql = ("SELECT s.CHGVID,s.Phenotype,s.FamilyID,s.DNASrc,s.GwasID,"
+        "s.FinalRepLoc,s.Topstrandfile,AKA,ProjName,Protocol,AvaiContUsed,"
+        "SelfDeclEthnic,SelfDeclEthnicDetail,SelfDeclGender,GwasGender,"
+        "GwasEthnic,GenoChip,GAFbin,FundCode,RepConFamMem,"
+        "FamilyRelationProband,priority,OrigID,CurrProjLeader,AlignedBuild36,"
+        "priority "
+        "from SampleT s "
+        "JOIN prepT pt on s.DBID=pt.DBID "
+        "WHERE pt.prepID={0}"
+        ).format(prepID)
+
+    sequenceDB.execute(sql)
+    SampleT_info = sequenceDB.fetchone()
+    #print SampleT_info
+    return SampleT_info
 
 def constructMySql(qType,tableName,columns):
     if qType != 'UPDATE' and qType != 'INSERT':
@@ -230,7 +242,8 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
         columns.append(('PrepKit',PrepKit,0))
         columns.append(('SamMultiplex',SamMultiplex,0))
         columns.append(('StatusChangeDate','curdate()',1))
-        columns.append(('Phenotype',sInfo[1],0))
+
+        columns.append(('Phenotype',sInfo[1].replace("'","\\'"),0))
         columns.append(('FamilyID',sInfo[2],0))
         columns.append(('DNASrc',sInfo[3],0))
         columns.append(('GwasID',sInfo[4],0))
@@ -283,7 +296,7 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
             columns.append(('Status','Released to Bioinformatics Team',0))
             columns.append(('CHGVID',sInfo[0],0))
             columns.append(('Seqtype',seqtype,0))
-            columns.append(('Phenotype',sInfo[1],0))
+            columns.append(('Phenotype',sInfo[1].replace("'","\\'"),0))
             columns.append(('FamilyID',sInfo[2],0))
             columns.append(('DNASrc',sInfo[3],0))
             columns.append(('GwasID',sInfo[4],0))
@@ -334,7 +347,8 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
 
     elif old == True:
         logger.info("UPDATE seqdbClone SET Status='Released to Bioinformatics Team', SeqCoreRelDate=curdate() WHERE prepID='%s'" % prepID)
-        sequenceDB.execute("UPDATE seqdbClone SET Status='Released to Bioinformatics Team',SeqCoreRelDate=curdate() WHERE prepID=%s", prepID)
+        if statusOn == True:
+            sequenceDB.execute("UPDATE seqdbClone SET Status='Released to Bioinformatics Team',SeqCoreRelDate=curdate() WHERE prepID=%s", prepID)
         if verbose == True:
             print "UPDATE seqdbClone SET Status='Released to Bioinformatics Team',SeqCoreRelDate=curdate() WHERE prepID='%s'" % prepID
 
@@ -419,6 +433,8 @@ def email_PL(sequenceDB,samples,name):
     os.system("/usr/local/bin/mutt -s 'Sample Release' "+address+" < email.tmp")
 
 def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
+    
+    
     sequenceDB.execute("SELECT status from statusT WHERE (prepID=%s and Status='Sequencing Complete') or (prepID=%s and Status='External Data Submitted')", (prepID,prepID))
     complete = sequenceDB.fetchone()
     if complete is None:
@@ -545,15 +561,7 @@ def updateStatus(sequenceDB,prepID,SampleID,DBID):
     sequenceDB.execute("INSERT INTO statusT(CHGVID,status_time,status,DBID,prepID,userID) VALUES(%s,unix_timestamp(),'Released to Bioinformatics Team',%s,%s,%s)", (SampleID,DBID,prepID,userID))
 
 def get_release_var():
-        """
-	tRelease_loc = raw_input('(L)SRC or (D)SCR? ')
-	if tRelease_loc.lower() == 'l':
-		release_loc = 'LSRC'
-		Summary_Path = '/nfs/sva01/Summaries/'
-	elif tRelease_loc.lower() == 'd':
-		release_loc = 'DSCR'
-		Summary_Path = '/nfs/chgv/seqpipe01/summaries/'
-        """
+
     #release_loc = 'IGMC'
 	release_loc = 'LSRC'
 
@@ -606,6 +614,9 @@ def release_email(sequenceDB,SeqType,IDs,failedSamples):
     for samp in IDs.keys():
         prepID = IDs[samp][1]
         release_email.write("%s\t%s\n" % (prepID,samp))
+        if statusOn == True:
+            updateStatus(sequenceDB,prepID,SampleID,DBID)
+
         SampleID = str(samp.strip())
         #print samp,prepID
         if verbose == True:
@@ -814,15 +825,17 @@ def main():
                 getPL(sequenceDB,SampleID,release_list,prepID)
 
             updateDB(sequenceDB,prepID,SampleID,SeqType,DBID)
-            if statusOn == True:
-                updateStatus(sequenceDB,prepID,SampleID,DBID)
         #print SeqType
+        for failedSample in failedSamples:
+            IDs.pop(failedSample[0],None)
+
         release_email(sequenceDB,SeqType,IDs,failedSamples)
         if sendemail == True:
             raw_input('Please hit Enter to continue')
             convert_release_list(sequenceDB,release_list)
         sampleList.close()
         sequenceDB.execute('COMMIT')
+
 
         #Release checking
         for samps in IDs:
