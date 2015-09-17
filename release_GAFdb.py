@@ -586,8 +586,6 @@ def release_email(sequenceDB,SeqType,IDs,failedSamples):
     info = subject_header(SeqType,today,today2,release_loc,Version)
     Subject = info[0]
     run_sum = info[1]
-    sequenceDB.execute("SELECT name FROM users WHERE userid=%s", userID)
-    name = sequenceDB.fetchone()[0]
 
     sampleNumber = len(IDs) - len(failedSamples)
 
@@ -597,33 +595,33 @@ def release_email(sequenceDB,SeqType,IDs,failedSamples):
 
     RunSumPath = Summary_Path+run_sum
     #print RunSumPath,SeqType
+    """
     if os.path.isfile(RunSumPath) == True:
         pass
     elif release_loc == 'DSCR':
         pass
-        """
-        if RunSumPath != getoutput('ssh dscr-login-02.oit.duke.edu "ls %s"' % (RunSumPath)):
-            os.system('ssh dscr-login-02.oit.duke.edu "ls %s"' % (RunSumPath))
-            raise Exception, 'Run Summary file, % does not exist!' % RunSumPath
-        """
 
     else:
         print RunSumPath
         raise Exception, 'Run Summary file does not exist!'
-
+    """
     for samp in IDs.keys():
         prepID = IDs[samp][1]
+        DBID = IDs[samp][0]
         release_email.write("%s\t%s\n" % (prepID,samp))
+        SampleID = str(samp.strip())
+
         if statusOn == True:
             updateStatus(sequenceDB,prepID,SampleID,DBID)
 
-        SampleID = str(samp.strip())
         #print samp,prepID
         if verbose == True:
             print "UPDATE seqdbClone SET CoreSeqSoftware='%s', ReadSummaryFileLoc='%s' WHERE prepID='%s'" % (CoreSeqSoftware,RunSumPath,prepID)
         sequenceDB.execute("UPDATE seqdbClone SET CoreSeqSoftware=%s, ReadSummaryFileLoc=%s WHERE prepID=%s",(CoreSeqSoftware,RunSumPath,prepID))
         logger.info("UPDATE seqdbClone SET CoreSeqSoftware='%s', ReadSummaryFileLoc='%s' WHERE prepID='%s'" % (CoreSeqSoftware,RunSumPath,prepID))
 
+    sequenceDB.execute("SELECT name FROM users WHERE userid=%s", userID)
+    name = sequenceDB.fetchone()[0]
 
     print; print '==========Release Email=========='
     print Subject;print
