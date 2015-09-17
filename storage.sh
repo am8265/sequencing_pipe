@@ -75,8 +75,9 @@ then
 else
 	touch $runfolder/rsync_complete.txt
 	#"rm -rf $seqsata/*$FCID*"
-
-	echo "rm -rf $seqsata/*$FCID*"
+	rm -rf $seqsata/*$FCID*
+	echo "Removing BCL Unaligned folder" >> $LOG_FILE
+	echo "rm -rf $seqsata/*$FCID*" >> $LOG_FILE
 	echo "Done"
 fi
 

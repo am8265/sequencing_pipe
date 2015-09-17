@@ -299,8 +299,8 @@ def updateSamples(sequenceDB,FCID):
 
     if verbose == True:
         print sql
-        sequenceDB.execute(sql)
-        logger.info(sql)
+    sequenceDB.execute(sql)
+    logger.info(sql)
 
 def opts(argv):
     global tiles
