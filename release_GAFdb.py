@@ -662,6 +662,7 @@ def opts(argv):
         #print str(err)
         usage()
 
+    #options
     for o,a in opts:
         if o in ('-e','--email'): #Send email to PL
             sendemail = True
