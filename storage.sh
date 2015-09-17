@@ -58,7 +58,7 @@ for s in $seqsata/*$FCID*/Project*/Sample*; do
 
 done
 
-mv_filesize=`du -c $seqsata/$seqtype/*/$FCID/*fastq.gz |tail -1 | cut -f1` 
+mv_filesize=`du -c $seqsata/*/*/$FCID/*fastq.gz | tail -1 | cut -f1` 
 zip $runfolder/${FCID}_$(echo $runfolder | awk -F/ '{print $NF}' | cut -d_ -f1,2)_SAV.zip $runfolder/RunInfo.xml $runfolder/runParameters.xml $runfolder/InterOp/
 zip $seqsata/$FCID.bcl.nohup.zip $seqsata/*$FCID*/nohup.sge
 mv $seqsata/$FCID.bcl.nohup.zip $seqsata/summary/bcl_nohup
