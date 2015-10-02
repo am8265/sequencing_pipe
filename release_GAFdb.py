@@ -440,11 +440,11 @@ def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
     #sequenceDB.execute("SELECT status from statusT WHERE prepID=%s AND status='External Data Submitted'", prepID)
     #externalCheck = sequenceDB.fetchone()
 
+    """
     sequenceDB.execute("SELECT Status,VarCallProgVer FROM seqdbClone WHERE prepID=%s", (prepID))
     info2 = sequenceDB.fetchone()
     print info2,prepID
 
-    """
     if info2 == None:
         pass
     elif 'Released' in info2[0]:
@@ -728,18 +728,18 @@ def getIDs(SampleID,SeqType,sequenceDB,capturekit):
         raise Exception, "Incorrect number of DBID's found for Sample %s" % SampleID
 
     if capturekit =='':
-            sequenceDB.execute("SELECT prepID FROM SeqType where DBID=%s and SeqType=%s", (DBID[0][0],SeqType))
-
-            #Grabs most recent prepID
-            #sequenceDB.execute("SELECT prepID FROM SeqType where DBID=%s and SeqType=%s order by prepID desc limit 1", (DBID[0][0],SeqType))
+        sequenceDB.execute("SELECT p.prepID FROM SeqType st join prepT p on st.prepid=p.prepid where p.DBID=%s and SeqType=%s and failedPrep!=1", (DBID[0][0],SeqType))
+        #Grabs most recent prepID
+        #sequenceDB.execute("SELECT prepID FROM SeqType where DBID=%s and SeqType=%s order by prepID desc limit 1", (DBID[0][0],SeqType))
 
     else:
         if ignore == False:
-            sequenceDB.execute("SELECT p.prepID FROM prepT p JOIN SeqType s ON p.prepID=s.prepID where p.DBID=%s and s.SeqType=%s and p.exomeKit=%s", (DBID[0][0],SeqType,capturekit))
+            sequenceDB.execute("SELECT p.prepID FROM prepT p JOIN SeqType s ON p.prepID=s.prepID where p.DBID=%s and s.SeqType=%s and p.exomeKit=%s and failedPrep!=1", (DBID[0][0],SeqType,capturekit))
         else: #Grabs most recent prepID
             sequenceDB.execute("SELECT p.prepID FROM prepT p JOIN SeqType s ON p.prepID=s.prepID where p.DBID=%s and s.SeqType=%s and p.exomeKit=%s order by prepID desc limit 1", (DBID[0][0],SeqType,capturekit))
 
     prepID = sequenceDB.fetchall()
+
     if len(prepID) != 1:
         print prepID,SeqType,capturekit
         raise Exception, "Incorrect number of prepID's found for Sample %s.  Try using -k or --ignoreMultiPrepIDs option." % SampleID
