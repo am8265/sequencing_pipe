@@ -13,6 +13,10 @@ import re
 import sys
 
 def fastqc(script,sample,seqsata,FCID,seqtype):
+    if 'seqscratch' in seqsata:
+        seqsata_drive = 'fastq15'
+        seqsata = '/nfs/fastq15/'
+
     #print seqsata,sample,FCID,seqtype
     #print 'cd %s/%s/%s/%s' % (seqsata,seqtype,sample,FCID)
     os.chdir('%s/%s/%s/%s' % (seqsata,seqtype,sample,FCID))
@@ -38,22 +42,31 @@ def fastqc(script,sample,seqsata,FCID,seqtype):
 
 
 def script_header(seqsata,FCID):
-	seqsata_drive = seqsata.split('/')[2]
-	script = open("%s/fastqc/%s_%s_fastqc_script.sh" % (seqsata,FCID,seqsata_drive),'w')
-	script.write('#! /bin/bash\n')
-	script.write('#\n')
-	script.write('#$ -S /bin/bash -cwd\n')
-	script.write('#$ -o %s/fastqc/%s_%s_fastqc_complete.sge\n' % (seqsata,FCID,seqsata_drive))
-	script.write('#$ -e %s/fastqc/%s_%s_fastqc_out.sge\n' % (seqsata,FCID,seqsata_drive))
-	script.write('#$ -V\n')
-	script.write('#$ -M jb3816@cumc.columbia.edu\n')
-	script.write('#$ -m bea\n')
-	script.write('#\n')
-	script.write('\n')
-	
-	return script,seqsata_drive
+    if 'seqscratch' in seqsata:
+        seqsata_drive = 'fastq15'
+        seqsata = '/nfs/fastq15/'
+    else:
+        seqsata_drive = seqsata.split('/')[2]
+
+    script = open("%s/fastqc/%s_%s_fastqc_script.sh" % (seqsata,FCID,seqsata_drive),'w')
+    script.write('#! /bin/bash\n')
+    script.write('#\n')
+    script.write('#$ -S /bin/bash -cwd\n')
+    script.write('#$ -o %s/fastqc/%s_%s_fastqc_complete.sge\n' % (seqsata,FCID,seqsata_drive))
+    script.write('#$ -e %s/fastqc/%s_%s_fastqc_out.sge\n' % (seqsata,FCID,seqsata_drive))
+    script.write('#$ -V\n')
+    script.write('#$ -M jb3816@cumc.columbia.edu\n')
+    script.write('#$ -m bea\n')
+    script.write('#\n')
+    script.write('\n')
+
+    return script,seqsata_drive
 
 def submit(seqsata,FCID,seqsata_drive):
+    if 'seqscratch' in seqsata:
+        seqsata_drive = 'fastq15'
+        seqsata = '/nfs/fastq15/'
+
 	print 'qsub -N %s_%s_fastqc %s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata_drive,seqsata,FCID,seqsata_drive)
 	os.system('qsub -N %s_%s_fastqc %s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata_drive,seqsata,FCID,seqsata_drive))
 
@@ -69,7 +82,7 @@ def opts(argv):
                 print str(err)
                 usage()
 	for o,a in opts:
-		if o in ('-i','--input'): 
+		if o in ('-i','--input'):
 			seqsata = a
 		elif o in ('-f','--FCID'):
 			FCID = a
@@ -82,7 +95,10 @@ def main():
     sequenceDB = getSequenceDB()
 
     #print 'ls %s/*%s*/Project_*/Sample_*/ -d | cut -d/ -f6 | cut -d_ -f2' % (seqsata,FCID)
-    Samples = getoutput('ls %s/*%s*/Project_*/Sample_*/ -d | cut -d/ -f6 | cut -d_ -f2-' % (seqsata,FCID)).split('\n')
+    if 'seqscratch' in seqsata:
+        Samples = getoutput('ls %s/*%s*/Project_*/Sample_*/ -d | cut -d/ -f8 | cut -d_ -f2-' % (seqsata,FCID)).split('\n')
+    else:
+        Samples = getoutput('ls %s/*%s*/Project_*/Sample_*/ -d | cut -d/ -f6 | cut -d_ -f2-' % (seqsata,FCID)).split('\n')
 
     script,seqsata_drive = script_header(seqsata,FCID)
     for samp in Samples:

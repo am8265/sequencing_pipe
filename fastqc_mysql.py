@@ -43,24 +43,46 @@ def fastqc_mysql(sequenceDB,samp,seqsata,read,FCID):
     if glob.glob('%s/%s/%s/%s/%s_*L00%s_R%s*_fastqc/fastqc_data.txt' %
             (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)) != []:
         if r == 'R1':
+            sql= ("UPDATE Lane l "
+                "join prepT pt on l.prepID=pt.prepID "
+                "join Flowcell f on l.FCID=f.FCID "
+                "SET l.BasicStatR1='{0}',l.PerBaseQualR1='{1}',"
+                "l.PerSeqQualR1='{2}',l.PerBaseContentR1='{3}',"
+                "l.PerBaseGCContentR1='{4}',l.PerSeqGCContentR1='{5}',"
+                "l.SeqDupR1='{6}',l.OverRepSeqR1='{7}',l.KmerContentR1='{8}' "
+                "where pt.chgvid='{9}' and f.FCillumID='{10}' and "
+                "l.LaneNum='{11}'"
+                ).format(BasicStat,PerBaseQual,PerSeqQual,PerBaseContent,PerBaseGCContent,PerSeqGCContent,PCRDup,OverRepSeq,KmerContent,SampleID,FCID,Lane)
+
             if verbose == True:
-                print "UPDATE Lane l join prepT pt on l.prepID=pt.prepID join Flowcell f on l.FCID=f.FCID SET l.BasicStatR1='%s',l.PerBaseQualR1='%s',l.PerSeqQualR1='%s',l.PerBaseContentR1='%s',l.PerBaseGCContentR1='%s',l.PerSeqGCContentR1='%s',l.SeqDupR1='%s',l.OverRepSeqR1='%s',l.KmerContentR1='%s' where pt.chgvid='%s' and f.FCillumID='%s' and l.LaneNum='%s'" % (BasicStat,PerBaseQual,PerSeqQual,PerBaseContent,PerBaseGCContent,PerSeqGCContent,PCRDup,OverRepSeq,KmerContent,SampleID,FCID,Lane)
-            sequenceDB.execute('UPDATE Lane l join prepT pt on l.prepID=pt.prepID join Flowcell f on l.FCID=f.FCID SET l.BasicStatR1=%s,l.PerBaseQualR1=%s,l.PerSeqQualR1=%s,l.PerBaseContentR1=%s,l.PerBaseGCContentR1=%s,l.PerSeqGCContentR1=%s,l.SeqDupR1=%s,l.OverRepSeqR1=%s,l.KmerContentR1=%s where pt.chgvid=%s and f.FCillumID=%s and l.LaneNum=%s', (BasicStat,PerBaseQual,PerSeqQual,PerBaseContent,PerBaseGCContent,PerSeqGCContent,PCRDup,OverRepSeq,KmerContent,SampleID,FCID,Lane))
-            logger.info("UPDATE Lane l join prepT pt on l.prepID=pt.prepID join Flowcell f on l.FCID=f.FCID SET l.BasicStatR1='%s',l.PerBaseQualR1='%s',l.PerSeqQualR1='%s',l.PerBaseContentR1='%s',l.PerBaseGCContentR1='%s',l.PerSeqGCContentR1='%s',l.SeqDupR1='%s',l.OverRepSeqR1='%s',l.KmerContentR1='%s' where pt.chgvid='%s' and f.FCillumID='%s' and l.LaneNum='%s'" % (BasicStat,PerBaseQual,PerSeqQual,PerBaseContent,PerBaseGCContent,PerSeqGCContent,PCRDup,OverRepSeq,KmerContent,SampleID,FCID,Lane))
+                print sql
+            sequenceDB.execute(sql)
+            logger.info(sql)
         elif r == 'R2':
+            sql = ("UPDATE Lane l "
+                "join prepT pt on l.prepID=pt.prepID "
+                "join Flowcell f on l.FCID=f.FCID "
+                "SET l.BasicStatR2='{0}',l.PerBaseQualR2='{1}',"
+                "l.PerSeqQualR2='{2}',l.PerBaseContentR2='{3}',"
+                "l.PerBaseGCContentR2='{4}',l.PerSeqGCContentR2='{5}',"
+                "l.SeqDupR2='{6}',l.OverRepSeqR2='{7}',l.KmerContentR2='{8}' "
+                "where pt.chgvid='{9}' and f.FCillumID='{10}' and "
+                "l.LaneNum='{11}'"
+                ).format(BasicStat,PerBaseQual,PerSeqQual,PerBaseContent,PerBaseGCContent,PerSeqGCContent,PCRDup,OverRepSeq,KmerContent,SampleID,FCID,Lane)
+
             if verbose == True:
-                print "UPDATE Lane l join prepT pt on l.prepID=pt.prepID join Flowcell f on l.FCID=f.FCID SET l.BasicStatR2='%s',l.PerBaseQualR2='%s',l.PerSeqQualR2='%s',l.PerBaseContentR2='%s',l.PerBaseGCContentR2='%s',l.PerSeqGCContentR2='%s',l.SeqDupR2='%s',l.OverRepSeqR2='%s',l.KmerContentR2='%s' where pt.chgvid='%s' and f.FCillumID='%s' and l.LaneNum='%s'" % (BasicStat,PerBaseQual,PerSeqQual,PerBaseContent,PerBaseGCContent,PerSeqGCContent,PCRDup,OverRepSeq,KmerContent,SampleID,FCID,Lane)
-            sequenceDB.execute('UPDATE Lane l join prepT pt on l.prepID=pt.prepID join Flowcell f on l.FCID=f.FCID SET l.BasicStatR2=%s,l.PerBaseQualR2=%s,l.PerSeqQualR2=%s,l.PerBaseContentR2=%s,l.PerBaseGCContentR2=%s,l.PerSeqGCContentR2=%s,l.SeqDupR2=%s,l.OverRepSeqR2=%s,l.KmerContentR2=%s where pt.chgvid=%s and f.FCillumID=%s and l.LaneNum=%s', (BasicStat,PerBaseQual,PerSeqQual,PerBaseContent,PerBaseGCContent,PerSeqGCContent,PCRDup,OverRepSeq,KmerContent,SampleID,FCID,Lane))
-            logger.info("UPDATE Lane l join prepT pt on l.prepID=pt.prepID join Flowcell f on l.FCID=f.FCID SET l.BasicStatR2='%s',l.PerBaseQualR2='%s',l.PerSeqQualR2='%s',l.PerBaseContentR2='%s',l.PerBaseGCContentR2='%s',l.PerSeqGCContentR2='%s',l.SeqDupR2='%s',l.OverRepSeqR2='%s',l.KmerContentR2='%s' where pt.chgvid='%s' and f.FCillumID='%s' and l.LaneNum='%s'" % (BasicStat,PerBaseQual,PerSeqQual,PerBaseContent,PerBaseGCContent,PerSeqGCContent,PCRDup,OverRepSeq,KmerContent,SampleID,FCID,Lane))
+                print sql
+            sequenceDB.execute(sql)
+            logger.info(sql)
 
         else:
             raise Exception, "Could not find fastqc_data in %s!" % seqsata
 
 
     else:
-        #print os.path.isfile('%s/%s/%s/%s_*L00%s_R%s*_fastqc/fastqc_data.txt' % (seqsata,SampleID,FCID,SampleID,Lane,read))
-        #print '%s/%s/%s/%s_*L00%s_R%s_fastqc/fastqc_data.txt' % (seqsata,SampleID,FCID,SampleID,Lane,read)
-        #print seqsata,SampleID,FCID,SampleID,Lane,read
+        print os.path.isfile('%s/%s/%s/%s_*L00%s_R%s*_fastqc/fastqc_data.txt' % (seqsata,SampleID,FCID,SampleID,Lane,read))
+        print '%s/%s/%s/%s_*L00%s_R%s_fastqc/fastqc_data.txt' % (seqsata,SampleID,FCID,SampleID,Lane,read)
+        print seqsata,SampleID,FCID,SampleID,Lane,read
         raise Exception
     #print SampleID,Seqtype
     #alerts for fastqc checks
@@ -108,45 +130,50 @@ def usage():
 
 
 def opts(argv):
-	global verbose
-	verbose = False
-        global sata_loc
-	sata_loc = ''
-
-	try:
-		opts,args = getopt.getopt(argv, "hvs:", ['help','verbose','seqsata='])
-	except getopt.GetoptError, err:
-		print str(err)
-		usage()
-	for o,a in opts:
-		if o in ('-v','--verbose'):
-			verbose = True
-		elif o in ('-h','--help'):
-			usage()
-		elif o in ('-s','--seqsata'):
-			sata_loc = a
-		else:
-			assert False, "Unhandled argument present"
+    global verbose
+    verbose = False
+    global sata_loc
+    sata_loc = ''
+    try:
+        opts,args = getopt.getopt(argv, "hvs:", ['help','verbose','seqsata='])
+    except getopt.GetoptError, err:
+        print str(err)
+        usage()
+    for o,a in opts:
+        if o in ('-v','--verbose'):
+            verbose = True
+        elif o in ('-h','--help'):
+            usage()
+        elif o in ('-s','--seqsata'):
+            sata_loc = a
+        else:
+            assert False, "Unhandled argument present"
 
 def main():
-	pwd = os.getcwd()
-	info = pwd.split('_')
-	Machine = info[1]
-	FCID = info[3]
-	sequenceDB = getSequenceDB()
-	email = 'igm-hts@columbia.edu'
-	opts(sys.argv[1:])
-	seqsata_drive = sata_loc.split('/')[2]
-	setup_logging(Machine,FCID,seqsata_drive)
-	logger = logging.getLogger('main')
-	logger.info("Starting Mysql injection of Fastqc results...")
-	fastqc(sequenceDB,sata_loc,FCID)
-	xenlims_cp(FCID,sata_loc)
+    pwd = os.getcwd()
+    info = pwd.split('_')
+    Machine = info[1]
+    FCID = info[3]
+    sequenceDB = getSequenceDB()
+    email = 'igm-hts@columbia.edu'
+    opts(sys.argv[1:])
+    if 'seqscratch' in sata_loc:
+        seqsata_drive = 'fastq15'
+        global sata_loc
+        sata_loc = '/nfs/fastq15'
+    else:
+        seqsata_drive = sata_loc.split('/')[2]
 
-	if os.path.isfile('fastqc_failures.txt'):
-		os.system('cat fastqc_failures.txt | mail -s "FASTQC failure `pwd`" %s' % email)
+    setup_logging(Machine,FCID,seqsata_drive)
+    logger = logging.getLogger('main')
+    logger.info("Starting Mysql injection of Fastqc results...")
+    fastqc(sequenceDB,sata_loc,FCID)
+    xenlims_cp(FCID,sata_loc)
 
-	sequenceDB.execute('COMMIT;')
-	sequenceDB.close()
-	logger.info("Fastqc result upload completed")
+    if os.path.isfile('fastqc_failures.txt'):
+        os.system('cat fastqc_failures.txt | mail -s "FASTQC failure `pwd`" %s' % email)
+
+    sequenceDB.execute('COMMIT;')
+    sequenceDB.close()
+    logger.info("Fastqc result upload completed")
 main()

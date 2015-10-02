@@ -61,9 +61,15 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
     if base_mask != False:
         base_script = base_script + '--use-bases-mask '+base_mask+' '
     print base_script
+
+
     #raw_input(base_script + ' 2>> %s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % (sata_loc,machine,FCID,seqsata))
     logger.info(base_script)
-    os.system(base_script + ' 2>> %s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % (sata_loc,machine,FCID,seqsata))
+    #print seqsata
+    #print base_script + ' 2>> /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % (seqsata,machine,FCID,seqsata)
+    #raw_input()
+
+    os.system(base_script + ' 2>> /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % (seqsata,machine,FCID,seqsata))
     #Submit bcl job to the cluster
     os.system('cp '+script_dir+'/run_C1.8.sh '+out_dir+'/'+Script)
     #print 'echo "cd %s ; qsub -N %s_bcl -pe make 32 %s/%s" | ssh solexa3.lsrc.duke.edu ' % (out_dir,FCID,out_dir,Script)
@@ -84,7 +90,6 @@ def storage(info,sata_loc,seqsata,machine,sequenceDB):
     if sata_loc == '':
         raise exception, 'Storage Location not specified!'
     checkSataLoc(sata_loc)
-    bcl(info,sata_loc,seqsata,machine,sequenceDB)
 
 
 def checkSataLoc(sata_loc):
@@ -334,7 +339,7 @@ def opts(argv):
         elif o in ('-n','--noSSS'):
             noSSS = True
         elif o in ('-o','--output'):
-            if 'fastq' not in sata_loc:
+            if 'seqscratch' not in sata_loc:
                 sata_loc = a.rstrip('/')
             else:
                 raise Exception, 'Output location %s is not in the whole_genome folder within a seqsata drive!' % a
@@ -362,6 +367,9 @@ def main():
     Machine = MachineCheck(sequenceDB,info[1],FCID)
     seqsata_drive = sata_loc.split('/')[2]
 
+    if seqsata_drive == 'seqscratch09':
+        seqsata_drive = 'fastq15'
+
     setup_logging(Machine,FCID,seqsata_drive)
     logger = logging.getLogger('main')
     logger.debug('Initializing Parameters: pwd:%s, FCID:%s, Machine:%s, seqsata_drive:%s, tiles:%s, base_mask:%s', (pwd,FCID,Machine,seqsata_drive,tiles,base_mask))
@@ -373,6 +381,7 @@ def main():
         create_sss(FCID,Machine,Date,sequenceDB)
     check_sss(FCID)
     storage(info,sata_loc,seqsata_drive,Machine,sequenceDB)
+    bcl(info,sata_loc,seqsata_drive,Machine,sequenceDB)
     updateSamples(sequenceDB,FCID)
 
     logger.info("BCL successfully started")

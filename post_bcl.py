@@ -34,7 +34,7 @@ def UpdateFC(sequenceDB,FCID,Unaligned):
 
 def UpdateSampleLane(sequenceDB,Unaligned,FCID):
     logger = logging.getLogger('UpdateSampleLane')
-    os.system('cat '+Unaligned+'/Basecall_Stats_'+FCID+'/Demultiplex_Stats.htm | w3m -dump -T text/html | egrep ^[12345678] > Demultiplex_Stats.txt')
+    os.system('cat '+Unaligned+'/Basecall_Stats_'+FCID+'/Demultiplex_Stats.htm | w3m -dump -T text/html | egrep "^[12345678] " > Demultiplex_Stats.txt')
     os.system('chmod 775 Demultiplex_Stats.txt')
     Demulti = open('Demultiplex_Stats.txt','r')
     for D in Demulti.readlines():
@@ -86,19 +86,24 @@ def checkStatus(sequenceDB,FCID):
 def UpdateSample(sequenceDB,FCID):
     """gafdb Sample Update"""
     logger = logging.getLogger('UpdateSample')
-    checkStatus(sequenceDB,FCID)
+    if noStatusCheck == False:
+        checkStatus(sequenceDB,FCID)
     userID = getUserID()
 
     #Status update for entire flowcell
-    if verbose == True:
-        print "INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,'%s' FROM Flowcell f join Lane l on l.FCID=f.FCID join prepT pt on pt.prepID=l.prepID where FCillumid='%s'" % (userID,FCID)
-    logger.info("INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,'%s' FROM Flowcell f join Lane l on l.FCID=f.FCID join prepT pt on pt.prepID=l.prepID where FCillumid='%s'" % (userID,FCID))
-    sequenceDB.execute("INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,%s FROM Flowcell f join Lane l on l.FCID=f.FCID join prepT pt on pt.prepID=l.prepID where FCillumid=%s", (userID,FCID))
+    if noStatusUpdate == False:
+
+        if verbose == True:
+            print "INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,'%s' FROM Flowcell f join Lane l on l.FCID=f.FCID join prepT pt on pt.prepID=l.prepID where FCillumid='%s'" % (userID,FCID)
+        logger.info("INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,'%s' FROM Flowcell f join Lane l on l.FCID=f.FCID join prepT pt on pt.prepID=l.prepID where FCillumid='%s'" % (userID,FCID))
+        sequenceDB.execute("INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,%s FROM Flowcell f join Lane l on l.FCID=f.FCID join prepT pt on pt.prepID=l.prepID where FCillumid=%s", (userID,FCID))
 
 def usage():
     print '-i, --input\t\tParameter is the location of the Unaligned folder'
     print '-h, --help\t\tShows this help message and exit'
     print '-v, --verbose\t\tPrints out MYSQL injection commands'
+    print '--noStatusCheck\t\tDoes not perform a status check of all samples in the flowcell'
+    print '--noStatusUpdate\tDoes not update the status of all samples in the flowcell'
     sys.exit(2)
 
 def getTotalLanes(FCID):
@@ -169,6 +174,7 @@ def checkLaneFractions(sequenceDB,FCID,Machine):
     for num in range(1,TotalLanes+1):
         lanes = demulti_d[str(num)]
         lane_switch = 0
+        
         highlightRowNumber = []
         for samp in lanes:
             ClusterDensity = getClusterDensity(sequenceDB,FCID,lanes[0][5])
@@ -287,33 +293,44 @@ def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
             else:
                 email.write('<tr><td colspan="8" align="center">Lane %s\'s unmatched reads percent: %s</td></tr>\n' %
                     (lanes[0][5],samp[1]))
-            email.write('<tr><td colspan="8" align="center">&nbsp</td></tr>\n') 
+            email.write('<tr><td colspan="8" align="center">&nbsp</td></tr>\n')
           
 def opts(argv):
-        global verbose
-        verbose = False
-	global Unaligned
-	Unaligned = os.getcwd()
-        global sata_loc
-	sata_loc = ''
+    global verbose
+    verbose = False
+    global Unaligned
+    Unaligned = os.getcwd()
+    global sata_loc
+    sata_loc = ''
+    global noStatusUpdate
+    noStatusUpdate = False
+    global noStatusCheck
+    noStatusCheck = False
 
-	try:
-		opts,args = getopt.getopt(argv, "ahvi:s:", ['input=','help','seqsata=','verbose'])
-        except getopt.GetoptError, err:
-                print str(err)
-                usage()
+    try:
+        opts,args = getopt.getopt(argv, "ahvi:s:", ['input=','help','seqsata=','verbose','noStatusUpdate','noStatusCheck'])
+    except getopt.GetoptError, err:
+        print str(err)
+        usage()
 
-        for o,a in opts:
-                if o in ('-v','--verbose'):
-                        verbose = True
-                elif o in ('-h','--help'):
-                        usage()
-		elif o in ('-i','--input'):
-			Unaligned = a
-		elif o in ('-s','--seqsata'):
-			sata_loc = a
-                else:
-                        assert False, "Unhandled argument present"
+    for o,a in opts:
+        if o in ('-v','--verbose'):
+            verbose = true
+        elif o in ('-h','--help'):
+            usage()
+        elif o in ('-i','--input'):
+            Unaligned = a
+        elif o in ('--noStatusUpdate'):
+            noStatusUpdate = True
+
+        elif o in ('--noStatusCheck'):
+            noStatusCheck = True
+
+
+        elif o in ('-s','--seqsata'):
+            sata_loc = a
+        else:
+            assert False, "Unhandled argument present"
 
 def pwdcheck():
 	pwd = os.getcwd()
@@ -324,7 +341,10 @@ def main():
     #accessing mysql gaf database
     sequenceDB = getSequenceDB()
     opts(sys.argv[1:])
-    info = Unaligned.split('/')[3].split('_')
+    if 'seqscratch' in Unaligned:
+        info = Unaligned.split('/')[4].split('_')
+    else:
+        info = Unaligned.split('/')[3].split('_')
     FCID = info[2]
     Machine = info[1]
     Date = info[0]

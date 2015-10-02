@@ -76,19 +76,19 @@ def getBCLjobs(seqsata_dict):
 	return seqsata_dict
 
 
-def submit(best_seqsata,run_date,machine,FCID,pwd,address):
+def submit(best_seqsata,bcl_drive,run_date,machine,FCID,pwd,address):
 	logger = logging.getLogger('submit')
 	seqsata_drive = best_seqsata.split('/')[2]
 
     #stage1
-	os.system('python2.7 ~/github/sequencing_pipe/bcl.py --output %s' % (best_seqsata))
-	logger.info('python2.7 ~/github/sequencing_pipe/bcl.py --output %s' % (best_seqsata))
+	os.system('python2.7 ~/github/sequencing_pipe/bcl.py --output %s' % (bcl_drive))
+	logger.info('python2.7 ~/github/sequencing_pipe/bcl.py --output %s' % (bcl_drive))
 
-	os.system('python2.7 ~/github/sequencing_pipe/bcl_mysql.py --seqsata %s' % (best_seqsata))
-	logger.info('Ran python2.7 ~/github/sequencing_pipe/bcl_mysql.py --seqsata %s' % (best_seqsata))
+	os.system('python2.7 ~/github/sequencing_pipe/bcl_mysql.py --seqsata %s' % (bcl_drive))
+	logger.info('Ran python2.7 ~/github/sequencing_pipe/bcl_mysql.py --seqsata %s' % (bcl_drive))
 
 	#stage2 wrapper
-	stage2(best_seqsata,run_date,machine,FCID,pwd,seqsata_drive,address)
+	stage2(best_seqsata,bcl_drive,run_date,machine,FCID,pwd,seqsata_drive,address)
 	os.system('qsub -N %s_%s_%s_stage2 -hold_jid %s_%s_%s_bcl %s/%s_%s_%s_stage2.sh' % (machine,FCID,seqsata_drive,machine,FCID,seqsata_drive,pwd,machine,FCID,seqsata_drive))
 	logger.info('Ran qsub -N %s_%s_%s_stage2 -hold_jid %s_%s_%s_bcl %s/%s_%s_%s_stage2.sh"' % (machine,FCID,seqsata_drive,machine,FCID,seqsata_drive,pwd,machine,FCID,seqsata_drive))
 
@@ -106,15 +106,15 @@ def header(file):
         file.write('#\n')
 	file.write('\n')
 
-def stage2(best_seqsata,run_date,machine,FCID,pwd,seqsata_drive,address):
+def stage2(best_seqsata,bcl_drive,run_date,machine,FCID,pwd,seqsata_drive,address):
 	stage2_script = open('%s_%s_%s_stage2.sh' % (machine,FCID,seqsata_drive),'w')
 	header(stage2_script)
 
 	logger = logging.getLogger('stage2')
-	stage2_script.write('cd %s; python2.7 ~/github/sequencing_pipe/post_bcl.py --input %s/%s_%s_%s_Unaligned -s /nfs/%s \n' % (pwd,best_seqsata,run_date,machine,FCID,seqsata_drive))
+	stage2_script.write('cd %s; python2.7 ~/github/sequencing_pipe/post_bcl.py --input %s/%s_%s_%s_Unaligned -s /nfs/%s \n' % (pwd,bcl_drive,run_date,machine,FCID,seqsata_drive))
 	stage2_script.write('if [ "$(tail -1 /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log | grep Failure -o)" == Failure ]; then /usr/local/bin/mutt -s "Post_BCL failure: %s %s" %s < /dev/null; exit ; fi\n' % (seqsata_drive,machine,FCID,seqsata_drive,machine,FCID,address))
-	stage2_script.write('sh ~/github/sequencing_pipe/storage.sh %s %s %s\n' % (FCID,best_seqsata,pwd))
-	stage2_script.write('cd %s; python2.7 ~/github/sequencing_pipe/fastqc.py --input %s -f %s\n' % (pwd,best_seqsata,FCID))
+	stage2_script.write('sh ~/github/sequencing_pipe/storage.sh %s %s %s\n' % (FCID,bcl_drive,pwd))
+	stage2_script.write('cd %s; python2.7 ~/github/sequencing_pipe/fastqc.py --input %s -f %s\n' % (pwd,bcl_drive,FCID))
 	stage2_script.close()
 
 def checkSeqsata(seqsata):
@@ -153,6 +153,7 @@ def opts(argv):
 			_debug = True
 		else:
 			assert False, "Unhandled argument present"
+
 def check_cwd():
 
         pwd = os.getcwd()
@@ -185,15 +186,15 @@ def Machine_check(sequenceDB,FCID,machine):
 	if str(sequenceDB_machine[0][1]) != '1':
 		raise Exception, "Flowcell has not been completed on SequenceDB!"
 
-def print_commands(best_seqsata,run_date,machine,FCID,pwd):
+def print_commands(best_seqsata,bcl_drive,run_date,machine,FCID,pwd):
 	print
 	print "="*35+'Scripts Commands'+"="*35
-	print 'python2.7 ~/github/sequencing_pipe/bcl.py --output %s' % (best_seqsata)
-	print 'python2.7 ~/github/sequencing_pipe/bcl_mysql.py --seqsata %s' % (best_seqsata)
-	print 'python2.7 ~/github/sequencing_pipe/post_bcl.py --input %s/%s_%s_%s_Unaligned -s %s' % (best_seqsata,run_date,machine,FCID,best_seqsata)
-	print 'sh ~/github/sequencing_pipe/storage.sh %s %s %s' % (FCID,best_seqsata,pwd)
-	print 'python2.7 ~/github/sequencing_pipe/fastqc.py --input %s -f %s' % (best_seqsata,FCID)
-	print 'python2.7 ~/github/sequencing_pipe/fastqc_mysql.py -s %s' % (best_seqsata)
+	print 'python2.7 ~/github/sequencing_pipe/bcl.py --output %s' % (bcl_drive)
+	print 'python2.7 ~/github/sequencing_pipe/bcl_mysql.py --seqsata %s' % (bcl_drive)
+	print 'python2.7 ~/github/sequencing_pipe/post_bcl.py --input %s%s_%s_%s_Unaligned -s %s' % (bcl_drive,run_date,machine,FCID,best_seqsata)
+	print 'sh ~/github/sequencing_pipe/storage.sh %s %s %s' % (FCID,bcl_drive,pwd)
+	print 'python2.7 ~/github/sequencing_pipe/fastqc.py --input %s -f %s' % (bcl_drive,FCID)
+	print 'python2.7 ~/github/sequencing_pipe/fastqc_mysql.py -s %s' % (bcl_drive)
 	print "="*86
 	print
 
@@ -214,6 +215,7 @@ def main():
     Machine_check(sequenceDB,FCID,machine)
     seqsata_drive = 'fastq15'
     best_seqsata = '/nfs/fastq15'
+    bcl_drive = '/nfs/seqscratch09/BCL/'
     setup_logging(machine,FCID,seqsata_drive)
     logger = logging.getLogger(__name__)
 
@@ -221,8 +223,8 @@ def main():
     if run_pipeline == True:
         completeCheck(pwd)
         logger.info('GAF_Pipeline.py in automated mode')
-        submit(best_seqsata,run_date,machine,FCID,pwd,address)
+        submit(best_seqsata,bcl_drive,run_date,machine,FCID,pwd,address)
     else:
-        print_commands(best_seqsata,run_date,machine,FCID,pwd)
+        print_commands(best_seqsata,bcl_drive,run_date,machine,FCID,pwd)
 
 main()

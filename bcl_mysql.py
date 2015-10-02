@@ -79,7 +79,10 @@ def getReads(sequenceDB,FCID):
 
 def updateFC(sequenceDB,sataloc,FCID,Machine):
     logger = logging.getLogger('updateFC')
-    sataloc = sataloc.split('/')[2]
+    if 'seqscratch09' in sataloc:
+        sataloc = 'fastq15'
+    else:
+        sataloc = sataloc.split('/')[2]
     DateBcl = cur_datetime()
     DateRTA = getRTAdate()
     DateRead1 = getRead1Date(FCID)
@@ -267,18 +270,18 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID):
             perQ30R2 = float(q30R2)/totalR2
         else:
             avgQ30R1 = avgQ30I1 = avgQ30I2 = perQ30R1 = perQ30R2 = perQ30I1 = 0
-        
+        sql = ("UPDATE Lane l "
+            "join Flowcell f on l.FCID=f.FCID "
+            "SET mnQscR1='{0}',mnQscI1='{1}',mnQscR2='{2}',"
+            "perQ30R1='{3}',perQ30I1='{4}',perQ30R2='{5}' "
+            "WHERE LaneNum='{6}' AND f.FCillumID='{7}'"
+            ).format(avgQ30R1,avgQ30I1,avgQ30R2,perQ30R1,perQ30I1,perQ30R2,lane,FCID)
+
         if verbose == True:
-            sql = ("UPDATE Lane l "
-                "join Flowcell f on l.FCID=f.FCID "
-                "SET mnQscR1='{0}',mnQscI1='{1}',mnQscR2='{2}',"
-                "perQ30R1='{3}',perQ30I1='{4}',perQ30R2='{5}' "
-                "WHERE LaneNum='{6}' AND f.FCillumID='{7}'"
-                ).format(avgQ30R1,avgQ30I1,avgQ30R2,perQ30R1,perQ30I1,perQ30R2,lane,FCID)
 
             print(sql)
-            sequenceDB.execute(sql)
-            logger.info(sql)
+        sequenceDB.execute(sql)
+        logger.info(sql)
 
 def usage():
 	print '-h, --help\t\tShows this help message and exit'
@@ -318,6 +321,9 @@ def main():
     Machine = Info[1]
     opts(sys.argv[1:])
     seqsata_drive = sata_loc.split('/')[2]
+    if seqsata_drive == 'seqscratch09':
+        seqsata_drive = 'fastq15'
+
     setup_logging(Machine,FCID,seqsata_drive)
     print 'BCL MySQL updates started'
     logger = logging.getLogger('main')

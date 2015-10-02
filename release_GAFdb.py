@@ -345,13 +345,6 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
             logger.info(InsertQuery)
             sequenceDB.execute(InsertQuery)
 
-    elif old == True:
-        logger.info("UPDATE seqdbClone SET Status='Released to Bioinformatics Team', SeqCoreRelDate=curdate() WHERE prepID='%s'" % prepID)
-        if statusOn == True:
-            sequenceDB.execute("UPDATE seqdbClone SET Status='Released to Bioinformatics Team',SeqCoreRelDate=curdate() WHERE prepID=%s", prepID)
-        if verbose == True:
-            print "UPDATE seqdbClone SET Status='Released to Bioinformatics Team',SeqCoreRelDate=curdate() WHERE prepID='%s'" % prepID
-
 
 def getSamMultiplex(sequenceDB,prepID):
 	multiplexSamples = []
@@ -449,6 +442,7 @@ def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
 
     sequenceDB.execute("SELECT Status,VarCallProgVer FROM seqdbClone WHERE prepID=%s", (prepID))
     info2 = sequenceDB.fetchone()
+    print info2,prepID
 
     """
     if info2 == None:
@@ -555,10 +549,21 @@ def updateStatus(sequenceDB,prepID,SampleID,DBID):
 
     global userID
     userID = getUserID()
+
+
     logger.info("INSERT INTO statusT(CHGVID,status_time,status,DBID,prepID,userID) VALUES(%s,unix_timestamp(),'Released to Bioinformatics Team',%s,%s,%s)" % (SampleID,DBID,prepID,userID))
     if verbose == True:
         print "INSERT INTO statusT(CHGVID,status_time,status,DBID,prepID,userID) VALUES('%s',unix_timestamp(),'Released to Bioinformatics Team','%s','%s','%s')" % (SampleID,DBID,prepID,userID)
     sequenceDB.execute("INSERT INTO statusT(CHGVID,status_time,status,DBID,prepID,userID) VALUES(%s,unix_timestamp(),'Released to Bioinformatics Team',%s,%s,%s)", (SampleID,DBID,prepID,userID))
+
+    logger.info("UPDATE seqdbClone SET Status='Released to Bioinformatics Team', SeqCoreRelDate=curdate() WHERE prepID='%s'" % prepID)
+    if statusOn == True:
+        sequenceDB.execute("UPDATE seqdbClone SET Status='Released to Bioinformatics Team',SeqCoreRelDate=curdate() WHERE prepID=%s", prepID)
+    if verbose == True:
+        print "UPDATE seqdbClone SET Status='Released to Bioinformatics Team',SeqCoreRelDate=curdate() WHERE prepID='%s'" % prepID
+
+
+
 
 def get_release_var():
 
@@ -587,7 +592,7 @@ def release_email(sequenceDB,SeqType,IDs,failedSamples):
     Subject = info[0]
     run_sum = info[1]
 
-    sampleNumber = len(IDs) - len(failedSamples)
+    sampleNumber = len(IDs)
 
     release_email = open('release_email.txt','w')
     release_email.write('The following %s %s sample(s) are ready for alignment (BUILD37 v%s):\n' % (sampleNumber,SeqType,Version))
@@ -710,8 +715,14 @@ def opts(argv):
 def getIDs(SampleID,SeqType,sequenceDB,capturekit):
     '''Checks SequenceDB then GAFDB to determine which database if any the sample resides in.'''
     #DBID check
-    sequenceDB.execute("SELECT DISTINCT s.DBID FROM SampleT s JOIN SeqType st on s.DBID=st.DBID WHERE CHGVID=%s and st.SeqType=%s", (SampleID,SeqType))
+    sql = ("SELECT DISTINCT s.DBID "
+        "FROM SampleT s "
+        "JOIN SeqType st on s.DBID=st.DBID "
+        "WHERE CHGVID='{0}' and st.SeqType='{1}'"
+        ).format(SampleID,SeqType)
+    sequenceDB.execute(sql)
     DBID = sequenceDB.fetchall()
+    #print sql
     if len(DBID) != 1:
         print SampleID,SeqType,DBID
         raise Exception, "Incorrect number of DBID's found for Sample %s" % SampleID
