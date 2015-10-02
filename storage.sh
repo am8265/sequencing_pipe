@@ -8,12 +8,16 @@ source=$2
 seqsata=/nfs/fastq15
 runfolder=$3
 email=jb3816@cumc.columbia.edu
-O_filesize=`du --apparent-size -c $source/*$FCID*/Project*/Sample*/*fastq.gz | tail -1 | cut -f1`
+
 completed=`grep -o "INFO: all completed" $source/*$FCID*/nohup.sge`
 MACHINE=$(echo $runfolder | cut -d_ -f2)
 DATA_DRIVE=$(echo $seqsata | cut -d/ -f3)
 LOG_FILE=$seqsata/summary/GAF_PIPELINE_LOGS/${MACHINE}_${FCID}_${DATA_DRIVE}.log
 
+#get original sum of fastq.gz file sizes
+O_filesize=`du --apparent-size -c $source/*$FCID*/Project*/Sample*/*fastq.gz | tail -1 | cut -f1`
+
+#Check if BCL finished successfully
 if [ -n "$completed" ] 
 then
 	echo "BCL completed successfully!"
@@ -28,7 +32,7 @@ echo "==========================================================================
 
 echo "SUM of fastq.gz files: $O_filesize" >> $LOG_FILE
 
-
+#Iterate over every sample on the flowcell
 for s in $source/*$FCID*/Project*/Sample*; do
 
 	sampleID=$(echo $s | awk -F/ '{print $NF}' | cut -d_ -f2-)
@@ -60,8 +64,14 @@ for s in $source/*$FCID*/Project*/Sample*; do
 done
 
 mv_filesize=`du --apparent-size -c $seqsata/*/*/$FCID/*fastq.gz | tail -1 | cut -f1` 
+
+#Create SAV file of run
 zip $runfolder/${FCID}_$(echo $runfolder | awk -F/ '{print $NF}' | cut -d_ -f1,2)_SAV.zip $runfolder/RunInfo.xml $runfolder/runParameters.xml $runfolder/InterOp/
-zip $seqsata/$FCID.bcl.nohup.zip $source/*$FCID*/nohup.sge
+
+#Save bcl2fastq output
+zip $source/$FCID.bcl.nohup.zip $source/*$FCID*/nohup.sge
+
+#Copy log files
 rsync -avP $source/$FCID.bcl.nohup.zip $seqsata/summary/bcl_nohup
 rsync -avP $runfolder/$FCID*_SAV.zip $seqsata/summary/SAV/
 

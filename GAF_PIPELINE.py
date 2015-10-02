@@ -133,26 +133,35 @@ def usage():
 	sys.exit(2)
 
 def opts(argv):
-	global run_pipeline
-	run_pipeline = False
-	global test
-	test = True
-	global _debug
-	_debug = False
+    global run_pipeline
+    run_pipeline = False
+    global test
+    test = True
+    global _debug
+    _debug = False
+    global seqsata
+    seqsata = 'fastq15'
+    global BCL_drive
+    BCL_drive = 'seqscratch09'
 
-	try:
-		opts,args = getopt.getopt(argv, "drs:h", ['debug','seqsata=','help','run'])
-	except getopt.GetoptError, err:
-		usage()
-	for o,a in opts:
-		if o in ('-h','--help'):
-			usage()
-		elif o in ('-r','--run'):
-			run_pipeline = True
-		elif o in ('-d','--debug'):
-			_debug = True
-		else:
-			assert False, "Unhandled argument present"
+
+    try:
+        opts,args = getopt.getopt(argv, "b:drs:h", ['bcl=','debug','seqsata=','help','run'])
+    except getopt.GetoptError, err:
+        usage()
+    for o,a in opts:
+        if o in ('-h','--help'):
+            usage()
+        elif o in ('-b','--bcl'):
+            BCL_drive = a
+        elif o in ('-r','--run'):
+            run_pipeline = True
+        elif o in ('-d','--debug'):
+            _debug = True
+        elif o in ('-s','--seqsata'):
+            seqsata = a
+        else:
+            assert False, "Unhandled argument present"
 
 def check_cwd():
 
@@ -208,23 +217,23 @@ def main():
     machine = info[1]
     opts(sys.argv[1:])
     HiSeqs = {'H1A': 1,'H1B': 1,'H2A': 2,'H2B': 2,'H7A': 3,'H7B': 3,'H4A': 4,'H4B': 4,'H5A': 5,'H5B': 5,'H6A': 6,'H6B': 6,'H9A': 7,'H9B': 7,'H8A': 8,'H8B': 8}
-    #seqdb = getseqdb()
     sequenceDB = getSequenceDB()
     address = 'jb3816@cumc.columbia.edu'
 
     Machine_check(sequenceDB,FCID,machine)
-    seqsata_drive = 'fastq15'
-    best_seqsata = '/nfs/fastq15'
-    bcl_drive = '/nfs/seqscratch09/BCL/'
-    setup_logging(machine,FCID,seqsata_drive)
+    best_seqsata = '/nfs/' + seqsata
+    bcl_folder = '/nfs/%s/BCL/' % BCL_drive
+    
+    print seqsata,best_seqsata,bcl_folder
+    setup_logging(machine,FCID,seqsata)
     logger = logging.getLogger(__name__)
 
     logger.info('Running GAF_Pipeline.py')
     if run_pipeline == True:
         completeCheck(pwd)
         logger.info('GAF_Pipeline.py in automated mode')
-        submit(best_seqsata,bcl_drive,run_date,machine,FCID,pwd,address)
+        submit(best_seqsata,bcl_folder,run_date,machine,FCID,pwd,address)
     else:
-        print_commands(best_seqsata,bcl_drive,run_date,machine,FCID,pwd)
+        print_commands(best_seqsata,bcl_folder,run_date,machine,FCID,pwd)
 
 main()
