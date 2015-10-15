@@ -641,7 +641,7 @@ def release_email(sequenceDB,SeqType,IDs,failedSamples):
 
     os.system('cat release_email.txt')
     print
-    print "Samples not release:"
+    print "Samples not released:"
     print
     print "IGMID\t\tPoolID\t\tSeqYield"
     print "=" * 80

@@ -75,10 +75,10 @@ def getSeqType(gaf_curs,idnum):
         return Seqtype[0]
 
 def getSamYield(gaf_curs,idnum):
-        gaf_curs.execute("SELECT SampleYield FROM Sample WHERE idnum=%s", (idnum))
-	SamYield = gaf_curs.fetchone()
-	if SamYield == None:
-		SamYield = '0'
+    gaf_curs.execute("SELECT SampleYield FROM Sample WHERE idnum=%s", (idnum))
+    SamYield = gaf_curs.fetchone()
+    if SamYield == None:
+        SamYield = '0'
         return str(SamYield[0])
 
 def MachineCheck(sequenceDB,Machine,FCID):

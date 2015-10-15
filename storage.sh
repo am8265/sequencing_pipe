@@ -41,25 +41,15 @@ for s in $source/*$FCID*/Project*/Sample*; do
 
 	mkdir -p $seqsata/$seqtype/$sampleID/$FCID
 	chmod 775 $seqsata/$seqtype/$sampleID
-	rsync -avP $s/* $seqsata/$seqtype/$sampleID/$FCID
+	mv $s/* $seqsata/$seqtype/$sampleID/$FCID
 	rsync -avP $source/*$FCID*/Basecall_Stats_$FCID/Demultiplex_Stats.htm $seqsata/$seqtype/$sampleID/$FCID
 	ls -al $seqsata/$seqtype/$sampleID/$FCID > $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt
 	
 	echo mkdir -p $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
 	echo chmod 775 $seqsata/$seqtype/$sampleID >> $LOG_FILE
-	echo rsync -avP  $s/* $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
+	echo mv $s/* $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
 	echo rsync -avP $source/*$FCID*/Basecall_Stats_$FCID/Demultiplex_Stats.htm $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
 	echo ls -al $seqsata/$seqtype/$sampleID/$FCID \> $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt >> $LOG_FILE
-
-
-
-
-	#echo mkdir -p $seqsata/$seqtype/$sampleID/$FCID
-	#echo chmod 775 $seqsata/$seqtype/$sampleID
-	#echo rsync -avP  $s/* $seqsata/$seqtype/$sampleID/$FCID
-	#echo rsync -avP $seqsata/*$FCID*/Basecall_Stats_$FCID/Demultiplex_Stats.htm $seqsata/$seqtype/$sampleID/$FCID
-	#echo ls -al $seqsata/$seqtype/$sampleID/$FCID \> $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt
-
 
 done
 
@@ -72,7 +62,7 @@ zip $runfolder/${FCID}_$(echo $runfolder | awk -F/ '{print $NF}' | cut -d_ -f1,2
 zip $source/$FCID.bcl.nohup.zip $source/*$FCID*/nohup.sge
 
 #Copy log files
-rsync -avP $source/$FCID.bcl.nohup.zip $seqsata/summary/bcl_nohup
+mv $source/$FCID.bcl.nohup.zip $seqsata/summary/bcl_nohup
 rsync -avP $runfolder/$FCID*_SAV.zip $seqsata/summary/SAV/
 
 echo "SUM of fastq.gz files after move: $mv_filesize" >> $LOG_FILE

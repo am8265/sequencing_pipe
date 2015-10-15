@@ -8,4 +8,4 @@
 #$ -m bea
 # 
 
-qmake -cwd -v PATH -- -j 48
+qmake -cwd -v PATH -- -j 24

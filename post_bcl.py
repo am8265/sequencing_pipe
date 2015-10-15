@@ -15,7 +15,6 @@ import sys
 import traceback
 from commands import getoutput
 from datetime import datetime
-from CHGV_mysql import getGAFdb 
 from CHGV_mysql import getSequenceDB
 from CHGV_mysql import setup_logging
 from CHGV_mysql import getUserID
@@ -341,10 +340,13 @@ def main():
     #accessing mysql gaf database
     sequenceDB = getSequenceDB()
     opts(sys.argv[1:])
-    if 'seqscratch' in Unaligned:
-        info = Unaligned.split('/')[4].split('_')
+    print Unaligned
+    #if 'seqscratch' in Unaligned:
+    info = Unaligned.split('/')[4].split('_')
+    """
     else:
         info = Unaligned.split('/')[3].split('_')
+    """
     FCID = info[2]
     Machine = info[1]
     Date = info[0]

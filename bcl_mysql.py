@@ -79,7 +79,7 @@ def getReads(sequenceDB,FCID):
 
 def updateFC(sequenceDB,sataloc,FCID,Machine):
     logger = logging.getLogger('updateFC')
-    if 'seqscratch09' in sataloc:
+    if 'seqscratch' in sataloc:
         sataloc = 'fastq15'
     else:
         sataloc = sataloc.split('/')[2]
@@ -321,7 +321,7 @@ def main():
     Machine = Info[1]
     opts(sys.argv[1:])
     seqsata_drive = sata_loc.split('/')[2]
-    if seqsata_drive == 'seqscratch09':
+    if 'seqscratch' in seqsata_drive:
         seqsata_drive = 'fastq15'
 
     setup_logging(Machine,FCID,seqsata_drive)

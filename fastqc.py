@@ -8,14 +8,14 @@ from CHGV_mysql import *
 from MySQLdb import Connect
 
 import getopt
+import itertools
 import os
 import re
 import sys
 
 def fastqc(script,sample,seqsata,FCID,seqtype):
-    if 'seqscratch' in seqsata:
-        seqsata_drive = 'fastq15'
-        seqsata = '/nfs/fastq15/'
+    seqsata_drive = 'fastq15'
+    seqsata = '/nfs/fastq15/'
 
     #print seqsata,sample,FCID,seqtype
     #print 'cd %s/%s/%s/%s' % (seqsata,seqtype,sample,FCID)
@@ -46,7 +46,9 @@ def script_header(seqsata,FCID):
         seqsata_drive = 'fastq15'
         seqsata = '/nfs/fastq15/'
     else:
-        seqsata_drive = seqsata.split('/')[2]
+        seqsata = '/nfs/fastq15'
+        seqsata_drive = 'fastq15'
+    #print seqsata,seqsata_drive
 
     script = open("%s/fastqc/%s_%s_fastqc_script.sh" % (seqsata,FCID,seqsata_drive),'w')
     script.write('#! /bin/bash\n')
@@ -63,12 +65,11 @@ def script_header(seqsata,FCID):
     return script,seqsata_drive
 
 def submit(seqsata,FCID,seqsata_drive):
-    if 'seqscratch' in seqsata:
-        seqsata_drive = 'fastq15'
-        seqsata = '/nfs/fastq15/'
+    seqsata_drive = 'fastq15'
+    seqsata = '/nfs/fastq15/'
 
-	print 'qsub -N %s_%s_fastqc %s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata_drive,seqsata,FCID,seqsata_drive)
-	os.system('qsub -N %s_%s_fastqc %s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata_drive,seqsata,FCID,seqsata_drive))
+    print 'qsub -N %s_%s_fastqc %s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata_drive,seqsata,FCID,seqsata_drive)
+    os.system('qsub -N %s_%s_fastqc %s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata_drive,seqsata,FCID,seqsata_drive))
 
 def opts(argv):
 	global FCID
@@ -95,12 +96,20 @@ def main():
     sequenceDB = getSequenceDB()
 
     #print 'ls %s/*%s*/Project_*/Sample_*/ -d | cut -d/ -f6 | cut -d_ -f2' % (seqsata,FCID)
-    if 'seqscratch' in seqsata:
-        Samples = getoutput('ls %s/*%s*/Project_*/Sample_*/ -d | cut -d/ -f8 | cut -d_ -f2-' % (seqsata,FCID)).split('\n')
-    else:
-        Samples = getoutput('ls %s/*%s*/Project_*/Sample_*/ -d | cut -d/ -f6 | cut -d_ -f2-' % (seqsata,FCID)).split('\n')
-
+    Samples = getoutput('ls %s/*%s*/Project_*/Sample_*/ -d | cut -d/ -f8 | cut -d_ -f2-' % (seqsata,FCID)).split('\n')
     script,seqsata_drive = script_header(seqsata,FCID)
+    
+    sql = ("SELECT p.CHGVID from Lane l "
+            "join prepT p on l.prepid=p.prepid "
+            "join Flowcell f on l.fcid = f.fcid "
+            "where failr1 = 1 and failr2 = 1 and FCIllumID = '{0}'"
+            ).format(FCID)
+    sequenceDB.execute(sql)
+    failedSamples = sequenceDB.fetchall()
+    failedSamples = list(itertools.chain(*failedSamples))
+    for failSample in failedSamples:
+        Samples.remove(failSample)
+
     for samp in Samples:
 
         query = ' '.join((
@@ -114,6 +123,8 @@ def main():
         if len(seqtype) > 1:
             print seqtype
             raise excecption, 'Too many seqtypes returned for sample %s' % samp
+        #print seqtype,samp,Samples
+
         fastqc(script,samp,seqsata,FCID,seqtype[0][0])
 
     script.write('cd %s; python2.7 ~/github/sequencing_pipe/fastqc_mysql.py -s %s\n' % (pwd,seqsata))

@@ -37,6 +37,7 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
     dir_check(sata_loc,FCID)
     out_dir = sata_loc + '/' + Date_Long + '_' + HiSeq + '_' + FCID + '_Unaligned'
     base_script =  '/nfs/goldstein/software/bcl2fastq_v1.8.4/bin/configureBclToFastq.pl --input-dir %s --output-dir %s --mismatches 1 ' % (in_dir,out_dir)
+    #base_script += ' --force'
 
     #adds tiles parameter to BCL script if specified
     if sampleSheet:
@@ -367,7 +368,7 @@ def main():
     Machine = MachineCheck(sequenceDB,info[1],FCID)
     seqsata_drive = sata_loc.split('/')[2]
 
-    if seqsata_drive == 'seqscratch09':
+    if 'seqscratch' in seqsata_drive:
         seqsata_drive = 'fastq15'
 
     setup_logging(Machine,FCID,seqsata_drive)

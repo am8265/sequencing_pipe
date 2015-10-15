@@ -111,7 +111,7 @@ def stage2(best_seqsata,bcl_drive,run_date,machine,FCID,pwd,seqsata_drive,addres
 	header(stage2_script)
 
 	logger = logging.getLogger('stage2')
-	stage2_script.write('cd %s; python2.7 ~/github/sequencing_pipe/post_bcl.py --input %s/%s_%s_%s_Unaligned -s /nfs/%s \n' % (pwd,bcl_drive,run_date,machine,FCID,seqsata_drive))
+	stage2_script.write('cd %s; python2.7 ~/github/sequencing_pipe/post_bcl.py --input %s%s_%s_%s_Unaligned -s /nfs/%s \n' % (pwd,bcl_drive,run_date,machine,FCID,seqsata_drive))
 	stage2_script.write('if [ "$(tail -1 /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log | grep Failure -o)" == Failure ]; then /usr/local/bin/mutt -s "Post_BCL failure: %s %s" %s < /dev/null; exit ; fi\n' % (seqsata_drive,machine,FCID,seqsata_drive,machine,FCID,address))
 	stage2_script.write('sh ~/github/sequencing_pipe/storage.sh %s %s %s\n' % (FCID,bcl_drive,pwd))
 	stage2_script.write('cd %s; python2.7 ~/github/sequencing_pipe/fastqc.py --input %s -f %s\n' % (pwd,bcl_drive,FCID))
