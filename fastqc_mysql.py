@@ -80,9 +80,9 @@ def fastqc_mysql(sequenceDB,samp,seqsata,read,FCID):
 
 
     else:
-        print os.path.isfile('%s/%s/%s/%s_*L00%s_R%s*_fastqc/fastqc_data.txt' % (seqsata,SampleID,FCID,SampleID,Lane,read))
-        print '%s/%s/%s/%s_*L00%s_R%s_fastqc/fastqc_data.txt' % (seqsata,SampleID,FCID,SampleID,Lane,read)
-        print seqsata,SampleID,FCID,SampleID,Lane,read
+        print os.path.isfile('%s/%s/%s/%s/%s_*L00%s_R%s*_fastqc/fastqc_data.txt' % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read))
+        print '%s/%s/%s/%s/%s_*L00%s_R%s*_fastqc/fastqc_data.txt' % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)
+        print seqsata,SampleID,FCID,SampleID,Lane,read,Seqtype
         raise Exception
     #print SampleID,Seqtype
     #alerts for fastqc checks
@@ -155,20 +155,17 @@ def main():
     Machine = info[1]
     FCID = info[3]
     sequenceDB = getSequenceDB()
-    email = 'igm-hts@columbia.edu'
+    email = 'jb3816@.columbia.edu'
     opts(sys.argv[1:])
-    if 'seqscratch' in sata_loc:
-        seqsata_drive = 'fastq15'
-        global sata_loc
-        sata_loc = '/nfs/fastq15'
-    else:
-        seqsata_drive = sata_loc.split('/')[2]
+    seqsata_drive = 'fastq15'
+    sata_loc = '/nfs/fastq15'
+    seqsata_drive = sata_loc.split('/')[2]
 
     setup_logging(Machine,FCID,seqsata_drive)
     logger = logging.getLogger('main')
     logger.info("Starting Mysql injection of Fastqc results...")
     fastqc(sequenceDB,sata_loc,FCID)
-    xenlims_cp(FCID,sata_loc)
+    #xenlims_cp(FCID,sata_loc)
 
     if os.path.isfile('fastqc_failures.txt'):
         os.system('cat fastqc_failures.txt | mail -s "FASTQC failure `pwd`" %s' % email)

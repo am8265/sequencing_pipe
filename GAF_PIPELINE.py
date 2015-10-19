@@ -142,7 +142,7 @@ def opts(argv):
     global seqsata
     seqsata = 'fastq15'
     global BCL_drive
-    BCL_drive = 'seqscratch09'
+    BCL_drive = 'fastq15'
 
 
     try:
