@@ -19,7 +19,8 @@ import pymysql.cursors
 def main():
     
     sequenceDB = getSequenceDB()
-    flagableStatus = ["Sequencing Queue","External Data Submitted"]
+    flagableStatus = ["Sequencing Queue","External Data Submitted","QC Review Needed","In Annotation DB"]
+    #flagableStatus = ["Passed Bioinfo QC"]
     samplePrefixes = ['EGI']
 
     emails = getEmails()
@@ -55,7 +56,7 @@ def fixSamples(allSamples):
             allSamplesCopy.remove({'CHGVID': items['CHGVID'], 'status':
                 'Sequencing Queue'})
     
-    print(allSamplesCopy)
+    #print(allSamplesCopy)
     return allSamplesCopy
 
 def getSamples(sequenceDB,flagableStatus,samplePrefixes):
@@ -125,7 +126,7 @@ def emailCollaborators(sampleSites,emails,allSamples):
     emailProgramLocation = '/nfs/goldstein/software/mutt-1.5.23/bin/mutt '
     sampleNumber = len(allSamples)
 
-    release_email = open('email.tmp','w')
+    release_email = open('/home/jb3816/email.tmp','w')
     release_email.write('The following %s sample(s) are being processed through SequenceDB\n' % (sampleNumber))
     release_email.write('\n')
     release_email.write('CHGVID\tStatus\n')
@@ -135,7 +136,7 @@ def emailCollaborators(sampleSites,emails,allSamples):
     for sample in allSamples:
 
         release_email.write("{0}\t{1}\n".format(sample['CHGVID'],sample['status']))
-
+    release_email.write('\nFor any questions regarding the status of your samples or this message please email lb2993@cumc.columbia.edu\n')
     release_email.write('\nThanks,\n')
     release_email.write('\n')
     release_email.write('%s\n' % 'Joshua Bridgers')
@@ -149,10 +150,11 @@ def emailCollaborators(sampleSites,emails,allSamples):
         emailCmd = emailProgramLocation
         emailCmd += '-s \"%s\" ' % (subject)
         emailCmd += address
-        emailCmd += " < email.tmp"
+        emailCmd += " < /home/jb3816/email.tmp"
+        print(emailCmd)
+        os.system(emailCmd)
 
-    os.system(emailCmd)
-    os.system('rm email.tmp')
+    #os.system('rm /home/jb3816/email.tmp')
 
 
 def getSequenceDB():

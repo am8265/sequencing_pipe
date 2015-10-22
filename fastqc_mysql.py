@@ -157,8 +157,15 @@ def main():
     sequenceDB = getSequenceDB()
     email = 'jb3816@.columbia.edu'
     opts(sys.argv[1:])
-    seqsata_drive = 'fastq15'
-    sata_loc = '/nfs/fastq15'
+    
+    global sata_loc
+    if 'fastq' not in sata_loc:
+        seqsata_drive = sata_loc.split('/')[2]
+    else:
+        seqsata_drive = 'fastq15'
+        sata_loc = '/nfs/fastq15'
+
+    
     seqsata_drive = sata_loc.split('/')[2]
 
     setup_logging(Machine,FCID,seqsata_drive)
