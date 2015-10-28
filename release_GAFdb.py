@@ -751,13 +751,13 @@ def getIDs(SampleID,SeqType,sequenceDB,capturekit):
 
 def getSeqType():
     tSeqType = raw_input('E(x)ome, (g)enome, (r)NASeq or (c)ustom Capture sample? ')
-    if tSeqType[0].lower == 'g':
+    if tSeqType[0].lower() == 'g':
         SeqType = 'genome'
-    elif tSeqType[0].lower == 'e':
+    elif tSeqType[0].lower() == 'x':
         SeqType = 'exome'
-    elif tSeqType[0].lower == 'r':
+    elif tSeqType[0].lower() == 'r':
         SeqType = 'RNASeq'
-    elif tSeqType[0].lower == 'c':
+    elif tSeqType[0].lower() == 'c':
         SeqType = 'Custom Capture'
     else:
         raise Exception, "Sample type not specified!"

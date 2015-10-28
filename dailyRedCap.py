@@ -84,7 +84,8 @@ def getSamples(sequenceDB,flagableStatus,samplePrefixes):
     return mergedSamples
 
 def updateRedcap(allSamples):
-    TOKEN = sys.argv[1]
+    #TOKEN = sys.argv[1]
+    TOKEN = '3B7C39D9720D72EB8B03CD468B060C1A'
     URL = "https://wchredcap.cumc.columbia.edu/redcap/api/"
 
     #allSamples = [{'status': 'Josh was here', 'CHGVID': 'EGI99.999TEST1'}]
