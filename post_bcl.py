@@ -33,7 +33,7 @@ def UpdateFC(sequenceDB,FCID,Unaligned):
 
 def UpdateSampleLane(sequenceDB,Unaligned,FCID):
     logger = logging.getLogger('UpdateSampleLane')
-    os.system('cat '+Unaligned+'/Basecall_Stats_'+FCID+'/Demultiplex_Stats.htm | w3m -dump -T text/html | egrep "^[12345678] " > Demultiplex_Stats.txt')
+    os.system('cat '+Unaligned+'/Basecall_Stats_'+FCID+'/Demultiplex_Stats.htm | /usr/bin/w3m -dump -T text/html | egrep "^[12345678] " > Demultiplex_Stats.txt')
     os.system('chmod 775 Demultiplex_Stats.txt')
     Demulti = open('Demultiplex_Stats.txt','r')
     for D in Demulti.readlines():

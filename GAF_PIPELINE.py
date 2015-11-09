@@ -224,7 +224,7 @@ def main():
     best_seqsata = '/nfs/' + seqsata
     bcl_folder = '/nfs/%s/BCL/' % BCL_drive
     
-    print seqsata,best_seqsata,bcl_folder
+    #print seqsata,best_seqsata,bcl_folder
     setup_logging(machine,FCID,seqsata)
     logger = logging.getLogger(__name__)
 
@@ -235,5 +235,6 @@ def main():
         submit(best_seqsata,bcl_folder,run_date,machine,FCID,pwd,address)
     else:
         print_commands(best_seqsata,bcl_folder,run_date,machine,FCID,pwd)
-
+        print ('Log file:  /nfs/{0}/summary/GAF_PIPELINE_LOGS/{1}_{2}_{0}.log'
+            ).format(seqsata,machine,FCID)
 main()

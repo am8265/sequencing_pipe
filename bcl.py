@@ -37,7 +37,8 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
     dir_check(sata_loc,FCID)
     out_dir = sata_loc + '/' + Date_Long + '_' + HiSeq + '_' + FCID + '_Unaligned'
     base_script =  '/nfs/goldstein/software/bcl2fastq_v1.8.4/bin/configureBclToFastq.pl --input-dir %s --output-dir %s --mismatches 1 ' % (in_dir,out_dir)
-    #base_script += ' --force'
+    if forceBCL == True:
+        base_script += ' --force'
 
     #adds tiles parameter to BCL script if specified
     if sampleSheet:
@@ -321,9 +322,11 @@ def opts(argv):
     sampleSheet = ''
     global noSSS
     noSSS = False
+    global forceBCL
+    forceBCL = False
 
     try:
-        opts,args = getopt.getopt(argv, "bhno:s:v", ['help','output=','tiles=','use-bases-mask=','verbose','sampleSheet=','noSSS'])
+        opts,args = getopt.getopt(argv, "bfhno:s:v", ['help','force','output=','tiles=','use-bases-mask=','verbose','sampleSheet=','noSSS'])
     except getopt.GetoptError, err:
         usage()
     for o,a in opts:
@@ -335,6 +338,8 @@ def opts(argv):
             base_mask = a
         elif o in ('-v','--verbose'):
             verbose = True
+        elif o in ('-f','--force'):
+            forceBCL = True
         elif o in ('-s','--sampleSheet'):
             sampleSheet = a
         elif o in ('-n','--noSSS'):

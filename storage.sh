@@ -39,24 +39,36 @@ for s in $source/*$FCID*/Project*/Sample*; do
 	seqtype=$(~/sequenceDB.sh "SELECT distinct(st.seqtype) FROM Lane l JOIN Flowcell f ON l.fcid=f.fcid JOIN SeqType st ON l.prepid=st.prepid JOIN prepT p ON l.prepid=p.prepid WHERE FCILLUMID='$FCID' AND CHGVID='$sampleID'" -NB | tr '[:lower:]' '[:upper:]' | sed 's/ /_/g')
 	echo "~/sequenceDB.sh \"SELECT distinct(st.seqtype) FROM Lane l JOIN Flowcell f ON l.fcid=f.fcid JOIN SeqType st ON l.prepid=st.prepid JOIN prepT p ON l.prepid=p.prepid WHERE FCILLUMID='$FCID' AND CHGVID='$sampleID'\" -NB | tr '[:lower:]' '[:upper:]' | sed 's/ /_/g'" >> $LOG_FILE
 
-	mkdir -p $seqsata/$seqtype/$sampleID/$FCID
-	chmod 775 $seqsata/$seqtype/$sampleID
-	mv $s/* $seqsata/$seqtype/$sampleID/$FCID
-	rsync -avP $source/*$FCID*/Basecall_Stats_$FCID/Demultiplex_Stats.htm $seqsata/$seqtype/$sampleID/$FCID
-	ls -al $seqsata/$seqtype/$sampleID/$FCID > $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt
-	
+	echo "starting transfer of $sampleID" >> $LOG_FILE
+	echo "================================================================================" >> $LOG_FILE
+
 	echo mkdir -p $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
+	mkdir -p $seqsata/$seqtype/$sampleID/$FCID
+
 	echo chmod 775 $seqsata/$seqtype/$sampleID >> $LOG_FILE
-	echo mv $s/* $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
+	chmod 775 $seqsata/$seqtype/$sampleID
+	
+	#add if statement 
+	if [ $source == "/nfs/fastq15/BCL/" ] ; then
+		echo $(date) mv $s/* $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
+		mv $s/* $seqsata/$seqtype/$sampleID/$FCID
+	else
+		echo $(date) rsync -avP $s/* $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
+		rsync -avP --remove-source-files $s/* $seqsata/$seqtype/$sampleID/$FCID
+	fi
+
 	echo rsync -avP $source/*$FCID*/Basecall_Stats_$FCID/Demultiplex_Stats.htm $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
+	rsync -avP $source/*$FCID*/Basecall_Stats_$FCID/Demultiplex_Stats.htm $seqsata/$seqtype/$sampleID/$FCID
+
 	echo ls -al $seqsata/$seqtype/$sampleID/$FCID \> $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt >> $LOG_FILE
+	ls -al $seqsata/$seqtype/$sampleID/$FCID > $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt	
 
 done
 
 mv_filesize=`du --apparent-size -c $seqsata/*/*/$FCID/*fastq.gz | tail -1 | cut -f1` 
 
 #Create SAV file of run
-zip $runfolder/${FCID}_$(echo $runfolder | awk -F/ '{print $NF}' | cut -d_ -f1,2)_SAV.zip $runfolder/RunInfo.xml $runfolder/runParameters.xml $runfolder/InterOp/
+zip $runfolder/${FCID}_$(echo $runfolder | xargs -n1 basename | cut -d_ -f1,2)_SAV.zip $runfolder/RunInfo.xml $runfolder/runParameters.xml $runfolder/InterOp/
 
 #Save bcl2fastq output
 zip $source/$FCID.bcl.nohup.zip $source/*$FCID*/nohup.sge

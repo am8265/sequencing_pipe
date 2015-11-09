@@ -107,7 +107,7 @@ def updateLane(sequenceDB,FCID,Machine,pwd):
     logger.debug('Running updateLane')
 
     #tr command: remove everything but printable ascii characters
-    tLaneKDen = getoutput("cat First_Base_Report.htm | w3m -T text/html | tr -cd '\11\12\15\40-\176' | sed 's,(k/mm2),,g' | grep -o Density.*")
+    tLaneKDen = getoutput("cat First_Base_Report.htm | /usr/bin/w3m -T text/html | tr -cd '\11\12\15\40-\176' | sed 's,(k/mm2),,g' | grep -o Density.*")
     LaneKDen = tLaneKDen.split('\n')
     Read1KDen = LaneKDen[0].split()
     Read2KDen = LaneKDen[1].split()

@@ -55,13 +55,13 @@ def getPlatformChemVer(sequenceDB,prepID):
         #print HiSeq,HiSeq[0][0]
         if HiSeq[1][0] == 'H':
             rapid = 1
-	
-	if HiSeq[0] is None:
-	    H2000 = 1
-        elif HiSeq[0] == 'H8A' or HiSeq[0] == 'H8B' or len(HiSeq[0]) > 3:
-            H2500 = 1
-        else:
-            H2000 = 1
+
+    if HiSeq[0] is None:
+        H2500 = 1
+    elif HiSeq[0] == 'H8A' or HiSeq[0] == 'H8B' or len(HiSeq[0]) > 3:
+        H2500 = 1
+    else:
+        H2000 = 1
 
 
     #print rapid,H2500,H2000
@@ -426,8 +426,6 @@ def email_PL(sequenceDB,samples,name):
     os.system("/usr/local/bin/mutt -s 'Sample Release' "+address+" < email.tmp")
 
 def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
-    
-    
     sequenceDB.execute("SELECT status from statusT WHERE (prepID=%s and Status='Sequencing Complete') or (prepID=%s and Status='External Data Submitted')", (prepID,prepID))
     complete = sequenceDB.fetchone()
     if complete is None:
@@ -469,8 +467,8 @@ def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
             failYield = SampleID
             #raise Exception, "%s has yield of %s!" % (SampleID,info[0])
 
-    elif int(info[0]) < 7300 and SeqType.lower() == 'exome':
-        fail_switch = raw_input("%s has yield < 7300 (%s).  Is this ok to release (Y)es or (N)o? " % (SampleID,int(info[0])))
+    elif int(info[0]) < 7500 and SeqType.lower() == 'exome':
+        fail_switch = raw_input("%s has yield < 7500 (%s).  Is this ok to release (Y)es or (N)o? " % (SampleID,int(info[0])))
         if fail_switch.lower() != 'y' and status[0] != 'External Data Submitted':
             failYield = SampleID
             poolID = getPoolID(sequenceDB,prepID)
@@ -549,7 +547,6 @@ def updateStatus(sequenceDB,prepID,SampleID,DBID):
 
     global userID
     userID = getUserID()
-
 
     logger.info("INSERT INTO statusT(CHGVID,status_time,status,DBID,prepID,userID) VALUES(%s,unix_timestamp(),'Released to Bioinformatics Team',%s,%s,%s)" % (SampleID,DBID,prepID,userID))
     if verbose == True:
@@ -764,6 +761,25 @@ def getSeqType():
 
     return SeqType
 
+def checkPoolingRelease(IDs,failedSamples):
+    poolDict= {}
+    for sample in failedSamples:
+        poolDict[sample[1][0]] = []
+    for sample in failedSamples:
+        poolDict[sample[1][0]].append(sample[0])
+
+    #print len(IDs)
+
+    for pool in poolDict.keys():
+        if len(poolDict[pool]) > 1:
+            for sample in IDs.keys():
+                #print IDs[sample][2][0],pool,sample
+                if IDs[sample][2][0] == pool:
+                    print "Sample {0} was removed due to pool {1} having two samples with low sequencing yields".format(sample,pool)
+                    IDs.pop(sample)
+    #print len(IDs)
+    return IDs
+
 def getDBID(sequenceDB,prepID):
 	sequenceDB.execute("select DBID from prepT where prepID=%s", prepID)
 	DBID = sequenceDB.fetchone()
@@ -813,11 +829,11 @@ def main():
             prepID = getIDs(SampleID,SeqType,sequenceDB,capturekit)
             logger.debug('Releasing sample %s %s...' % (SampleID,prepID))
             DBID = getDBID(sequenceDB,prepID)
-
+            poolID = getPoolID(sequenceDB,prepID)
+           
             #print prepID,SampleID
-            IDs[SampleID] = (DBID,long(prepID))
+            IDs[SampleID] = (DBID,long(prepID),poolID)
             logger.debug("Sample %s's prepID and DBID: %s, %s" % (SampleID,prepID,DBID))
-
             #print SampleID,prepID,DBID
             if old == False:
                 status,completeStatus,failYieldSample,poolID,seqYield = check_sequenceDB(sequenceDB,SampleID,prepID,SeqType)
@@ -836,9 +852,13 @@ def main():
 
             updateDB(sequenceDB,prepID,SampleID,SeqType,DBID)
         #print SeqType
+
+        #remove failed Samples from ID list
         for failedSample in failedSamples:
             IDs.pop(failedSample[0],None)
 
+        #check it multiple samples from the same pool need a re-prep
+        IDs = checkPoolingRelease(IDs,failedSamples)
         release_email(sequenceDB,SeqType,IDs,failedSamples)
         if sendemail == True:
             raw_input('Please hit Enter to continue')

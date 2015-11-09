@@ -35,14 +35,15 @@ def main():
 def getEmails():
 
     email = {}
-    email['Melbourne'] = 'aschneider@unimelb.edu.au'
-    email['Boston'] = 'beth.sheidley@childrens.harvard.edu'
-    email['NYU'] = 'patricia.tolete@nyumc.org'
-    email['UCSF'] = 'joseph.sullivan@ucsf.edu'
-    email['CHOP'] = 'dubbsh@email.chop.edu'
-    email['Lurie'] = 'DMiazga@luriechildrens.org'
-    email['Columbia'] = 'lb2993@cumc.columbia.edu'
-
+    email['Melbourne'] = ['aschneider@unimelb.edu.au','06']
+    email['Boston'] = ['beth.sheidley@childrens.harvard.edu','04']
+    email['NYU'] = ['patricia.tolete@nyumc.org','05']
+    email['UCSF'] = ['joseph.sullivan@ucsf.edu','02']
+    email['CHOP'] = ['dubbsh@email.chop.edu','03']
+    email['Lurie'] = ['DMiazga@luriechildrens.org','07']
+    email['Columbia'] = ['lb2993@cumc.columbia.edu','01']
+    
+    return email
 def fixSamples(allSamples):
     '''Fixes double status update for externally submitted samples.  Samples
     that are externally submitted will have both the "External Data Submitted"
@@ -53,7 +54,7 @@ def fixSamples(allSamples):
 
     for items in allSamples:
         if items['status'] == 'External Data Submitted':
-            allSamplesCopy.remove({'CHGVID': items['CHGVID'], 'status':
+            allSamplesCopy.remove({'IGMID': items['IGMID'], 'status':
                 'Sequencing Queue'})
     
     #print(allSamplesCopy)
@@ -88,7 +89,7 @@ def updateRedcap(allSamples):
     TOKEN = '3B7C39D9720D72EB8B03CD468B060C1A'
     URL = "https://wchredcap.cumc.columbia.edu/redcap/api/"
 
-    #allSamples = [{'status': 'Josh was here', 'CHGVID': 'EGI99.999TEST1'}]
+    #allSamples = [{'status': 'Josh was here', 'IGMID': 'EGI99.999TEST1'}]
     payload = {'token': TOKEN, 'format': 'json', 'content': 'metadata'}
     #response = post(URL, data=payload)
     #print(response.status_code)
@@ -99,13 +100,13 @@ def updateRedcap(allSamples):
 
     sampleSites = []
     for sample in allSamples:
-        CHGVID = sample['CHGVID']
+        IGMID = sample['CHGVID']
         status = sample['status']
         for record in data:
             #print(record)
 
-            if record['igm_seq'] == CHGVID:
-                print("Updating sample {0} with status '{1}'".format(CHGVID,status))
+            if record['igm_seq'] == IGMID:
+                print("Updating sample {0} with status '{1}'".format(IGMID,status))
                 #print(record['chgv_seq_status'])
                 record['chgv_seq_status'] = status
                 to_import_json = dumps([record], separators=(',',':'))
@@ -120,8 +121,8 @@ def updateRedcap(allSamples):
     return sampleSites
 def emailCollaborators(sampleSites,emails,allSamples):
 
-
-    emails = ['jb3816@cumc.columbia.edu','lb2993@cumc.columbia.edu']
+    #emails = []
+    #emails = ['jb3816@cumc.columbia.edu','joshbridgers@gmail.com']
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     subject = 'Samples in SequenceDB pipeline %s' % today
     emailProgramLocation = '/nfs/goldstein/software/mutt-1.5.23/bin/mutt '
@@ -130,32 +131,50 @@ def emailCollaborators(sampleSites,emails,allSamples):
     release_email = open('/home/jb3816/email.tmp','w')
     release_email.write('The following %s sample(s) are being processed through SequenceDB\n' % (sampleNumber))
     release_email.write('\n')
-    release_email.write('CHGVID\tStatus\n')
+    release_email.write('IGM SEQ\t\tStatus\n')
     release_email.write('='*80+'\n')
-  
+ 
 
-    for sample in allSamples:
+    for email in emails:
+        sampleList = []
+        for sample in allSamples:
+            #The two digits after 'EGI' denote the site
+            #print(sample['IGMID'][3:5])
+            if sample['CHGVID'][3:5] == emails[email][1]:
+                sampleList.append(sample)
 
-        release_email.write("{0}\t{1}\n".format(sample['CHGVID'],sample['status']))
-    release_email.write('\nFor any questions regarding the status of your samples or this message please email lb2993@cumc.columbia.edu\n')
-    release_email.write('\nThanks,\n')
-    release_email.write('\n')
-    release_email.write('%s\n' % 'Joshua Bridgers')
+        #print(sampleList,emails[email])
+        if len(sampleList) > 0:
 
-    release_email.close()
+            #addresses = [emails[email][0],'jb3816@cumc.columbia.edu','lb2993@cumc.columbia.edu']
+            addresses = ['joshbridgers@gmail.com','jb3816@cumc.columbia.edu','lb2993@cumc.columbia.edu']
+            #addresses = ['joshbridgers@gmail.com','jb3816@cumc.columbia.edu']
 
-    #os.system('cat email.tmp')
+            for sample in sampleList:
+                release_email.write("{0}\t{1}\n".format(sample['CHGVID'],sample['status']))
+            
+            release_email.write('\nFor any questions regarding the status of your'
+                    ' samples or this message please email Louise Bier at lb2993@cumc.columbia.edu\n')
 
-    for address in emails:
-        print("Emailing {0}".format(address))
-        emailCmd = emailProgramLocation
-        emailCmd += '-s \"%s\" ' % (subject)
-        emailCmd += address
-        emailCmd += " < /home/jb3816/email.tmp"
-        print(emailCmd)
-        os.system(emailCmd)
+            release_email.write('\nEmail intended for %s\n' % emails[email][0])
+            release_email.write('\nThanks,\n')
+            release_email.write('\n')
+            release_email.write('%s\n' % 'Joshua Bridgers')
 
-    #os.system('rm /home/jb3816/email.tmp')
+            release_email.close()
+            os.system('cat /home/jb3816/email.tmp')
+
+            for address in addresses:
+
+                #print("Emailing {0}".format(address))
+                emailCmd = emailProgramLocation
+                emailCmd += '-s \"%s\" ' % (subject)
+                emailCmd += address
+                emailCmd += " < /home/jb3816/email.tmp"
+                print(emailCmd)
+                os.system(emailCmd)
+
+            os.system('rm /home/jb3816/email.tmp')
 
 
 def getSequenceDB():
