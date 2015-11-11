@@ -37,6 +37,8 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
     dir_check(sata_loc,FCID)
     out_dir = sata_loc + '/' + Date_Long + '_' + HiSeq + '_' + FCID + '_Unaligned'
     base_script =  '/nfs/goldstein/software/bcl2fastq_v1.8.4/bin/configureBclToFastq.pl --input-dir %s --output-dir %s --mismatches 1 ' % (in_dir,out_dir)
+    #base_script =  '/nfs/goldstein/software/bcl2fastq_v1.8.4/bin/configureBclToFastq.pl --input-dir %s --output-dir %s ' % (in_dir,out_dir)
+
     if forceBCL == True:
         base_script += ' --force'
 
@@ -200,15 +202,20 @@ def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
     #print LaneNum,DBID,seqtype,float(laneFraction),numPools,NumOtherSamples,NumLanesSampleOn,NumPoolSamples
  
     if seqtype == 'Genome':
-        SampleLaneFraction = float(laneFraction)/(numPools+1)/NumPoolSamples/NumLanesSampleOn
+        #SampleLaneFraction = float(laneFraction)/(numPools+1)/NumPoolSamples/NumLanesSampleOn
+        SampleLaneFraction = float(1)/(numPools + NumOtherSamples)
+        #print SampleLaneFraction,numPools,NumOtherSamples
         #SampleLaneFraction = float(laneFraction)
     elif seqtype == 'RNAseq':
-        SampleLaneFraction = float(laneFraction)/(numPools+1)/NumPoolSamples/NumLanesSampleOn
+        #SampleLaneFraction = float(laneFraction)/(numPools+1)/NumPoolSamples/NumLanesSampleOn
+        SampleLaneFraction = float(1)/(numPools + NumOtherSamples)
+        #SampleLaneFraction = float(laneFraction/NumPoolSamples)
     elif seqtype == 'Exome':
-        SampleLaneFraction = float(laneFraction)/NumPoolSamples/(NumOtherSamples+1)
+        #SampleLaneFraction = float(laneFraction)/NumPoolSamples/(NumOtherSamples+1)
+        SampleLaneFraction = float(laneFraction/NumPoolSamples)
     elif seqtype == 'Custom Capture':
-        SampleLaneFraction = float(laneFraction)/NumPoolSamples/(NumOtherSamples+1)
-
+        #SampleLaneFraction = float(laneFraction)/NumPoolSamples/(NumOtherSamples+1)
+        SampleLaneFraction = float(laneFraction/NumPoolSamples)
 
     return SampleLaneFraction
 

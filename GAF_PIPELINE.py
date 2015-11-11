@@ -165,11 +165,12 @@ def opts(argv):
 
 def check_cwd():
 
-        pwd = os.getcwd()
-	if 'seqscratch' not in pwd or 'Runs' not in pwd or 'XX' not in pwd:
-		raise Exception, 'The CWD is not within a run folder of a seqscratch drive!'
-	print pwd
-	return pwd
+    pwd = os.getcwd()
+    #print pwd
+    if 'seqscratch' not in pwd or 'Runs' not in pwd or 'XX' not in pwd:
+        raise Exception, 'The CWD is not within a run folder of a seqscratch drive!'
+    #print pwd
+    return pwd
 
 def RTA_check():
 	logger = logging.getLogger('RTA_check')
