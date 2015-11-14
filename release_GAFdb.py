@@ -850,12 +850,17 @@ def main():
             if sendemail == True:
                 getPL(sequenceDB,SampleID,release_list,prepID)
 
-            updateDB(sequenceDB,prepID,SampleID,SeqType,DBID)
         #print SeqType
 
         #remove failed Samples from ID list
         for failedSample in failedSamples:
             IDs.pop(failedSample[0],None)
+
+        for passedSamples in IDs.keys():
+            prepID = IDs[passedSamples][1]
+            DBID = IDs[passedSamples][0]
+           
+            updateDB(sequenceDB,prepID,passedSamples,SeqType,DBID)
 
         #check it multiple samples from the same pool need a re-prep
         IDs = checkPoolingRelease(IDs,failedSamples)

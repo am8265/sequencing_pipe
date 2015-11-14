@@ -36,8 +36,10 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
 
     dir_check(sata_loc,FCID)
     out_dir = sata_loc + '/' + Date_Long + '_' + HiSeq + '_' + FCID + '_Unaligned'
-    base_script =  '/nfs/goldstein/software/bcl2fastq_v1.8.4/bin/configureBclToFastq.pl --input-dir %s --output-dir %s --mismatches 1 ' % (in_dir,out_dir)
-    #base_script =  '/nfs/goldstein/software/bcl2fastq_v1.8.4/bin/configureBclToFastq.pl --input-dir %s --output-dir %s ' % (in_dir,out_dir)
+
+    base_script = '/nfs/goldstein/software/bcl2fastq_v1.8.4/bin/configureBclToFastq.pl '
+    base_script += '--input-dir %s --output-dir %s --mismatches 1 ' % (in_dir,out_dir)
+    base_script += '--ignore-missing-bcl '
 
     if forceBCL == True:
         base_script += ' --force'
@@ -108,7 +110,8 @@ def usage():
     print '-o, --output\t\tPath to output folder'
     print '-s, --sampleSheet\tAllows user-specified sample sheet'
     print '-v, --verbose\t\tVerbose output'
-    print '--noSSS\t\t\tForbids creation of a sample sheet'
+    print '-n, --noSSS\t\tForbids creation of a sample sheet'
+    print '--noStatus\t\tDoes not update the status of the samples on the flowcell'
     print '--tiles\t\t\tSpecifies what tiles you want BCL performed on.  Ex: s_[12]_1[123]0[1-7]'
     print '--use-bases-mask\tSpecifies what bases you want to mask.  Ex: y100n,I6n,y50n'
     sys.exit(2)
@@ -331,9 +334,12 @@ def opts(argv):
     noSSS = False
     global forceBCL
     forceBCL = False
+    global noStatus
+    noStatus = False
 
     try:
-        opts,args = getopt.getopt(argv, "bfhno:s:v", ['help','force','output=','tiles=','use-bases-mask=','verbose','sampleSheet=','noSSS'])
+        opts,args = getopt.getopt(argv, "bfhno:s:v",
+                ['help','force','output=','tiles=','use-bases-mask=','verbose','sampleSheet=','noSSS','noStatus'])
     except getopt.GetoptError, err:
         usage()
     for o,a in opts:
@@ -351,6 +357,8 @@ def opts(argv):
             sampleSheet = a
         elif o in ('-n','--noSSS'):
             noSSS = True
+        elif o in ('--noStatus'):
+            noStatus = True
         elif o in ('-o','--output'):
             if 'seqscratch' not in sata_loc:
                 sata_loc = a.rstrip('/')
@@ -395,7 +403,8 @@ def main():
     check_sss(FCID)
     storage(info,sata_loc,seqsata_drive,Machine,sequenceDB)
     bcl(info,sata_loc,seqsata_drive,Machine,sequenceDB)
-    updateSamples(sequenceDB,FCID)
+    if noStatus == False:
+        updateSamples(sequenceDB,FCID)
 
     logger.info("BCL successfully started")
     print "BCL successfully started"

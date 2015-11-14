@@ -16,7 +16,7 @@ LOG_FILE=$seqsata/summary/GAF_PIPELINE_LOGS/${MACHINE}_${FCID}_${DATA_DRIVE}.log
 
 #get original sum of fastq.gz file sizes
 O_filesize=`du --apparent-size -c $source/*$FCID*/Project*/Sample*/*fastq.gz | tail -1 | cut -f1`
-
+O_fileNum=$(ls $source/*$FCID*/Project*/Sample*/*fastq.gz | wc -l)
 #Check if BCL finished successfully
 if [ -n "$completed" ] 
 then
@@ -31,6 +31,7 @@ echo "Start of $FCID storage logging" >> $LOG_FILE
 echo "================================================================================" >> $LOG_FILE
 
 echo "SUM of fastq.gz files: $O_filesize" >> $LOG_FILE
+echo "Number of fastq.gz files: $O_fileNum" >> $LOG_FILE
 
 #Iterate over every sample on the flowcell
 for s in $source/*$FCID*/Project*/Sample*; do
@@ -66,6 +67,7 @@ for s in $source/*$FCID*/Project*/Sample*; do
 done
 
 mv_filesize=`du --apparent-size -c $seqsata/*/*/$FCID/*fastq.gz | tail -1 | cut -f1` 
+mv_filenum=`ls $seqsata/*/*/$FCID/*fastq.gz | wc -l` 
 
 #Create SAV file of run
 zip $runfolder/${FCID}_$(echo $runfolder | xargs -n1 basename | cut -d_ -f1,2)_SAV.zip $runfolder/RunInfo.xml $runfolder/runParameters.xml $runfolder/InterOp/
@@ -78,6 +80,8 @@ mv $source/$FCID.bcl.nohup.zip $seqsata/summary/bcl_nohup
 rsync -avP $runfolder/$FCID*_SAV.zip $seqsata/summary/SAV/
 
 echo "SUM of fastq.gz files after move: $mv_filesize" >> $LOG_FILE
+echo "Number of fastq.gz files after move: $mv_filenum" >> $LOG_FILE
+
 echo "================================================================================" >> $LOG_FILE
 
 #check if filesizes are the same after the move
@@ -87,6 +91,7 @@ then
 	echo failure
 else
 	touch $runfolder/rsync_complete.txt
+	echo "BCL move SUCCESS for $FCID on `date`" | mail -s "GAF:BCL move SUCCESS" $email
 	#rm -rf $seqsata/*$FCID*
 	#echo "Removing BCL Unaligned folder" >> $LOG_FILE
 	#echo "rm -rf $seqsata/*$FCID*" >> $LOG_FILE
