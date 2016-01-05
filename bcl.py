@@ -37,9 +37,9 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
     dir_check(sata_loc,FCID)
     out_dir = sata_loc + '/' + Date_Long + '_' + HiSeq + '_' + FCID + '_Unaligned'
 
-    base_script = '/nfs/goldstein/software/bcl2fastq_v1.8.4/bin/configureBclToFastq.pl '
+    base_script = '/nfs/goldstein/software/perlbrew/perls/perl-5.14.4/bin/perl /nfs/goldstein/software/bcl2fastq_v1.8.4/bin/configureBclToFastq.pl '
     base_script += '--input-dir %s --output-dir %s --mismatches 1 ' % (in_dir,out_dir)
-    base_script += '--ignore-missing-bcl '
+    base_script += '--ignore-missing-bcl --ignore-missing-stats '
 
     if forceBCL == True:
         base_script += ' --force'
@@ -76,18 +76,20 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
     #raw_input()
 
     os.system(base_script + ' 2>> /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % (seqsata,machine,FCID,seqsata))
+
     #Submit bcl job to the cluster
+    bclDir = sata_loc.split('/')[2]
     os.system('cp '+script_dir+'/run_C1.8.sh '+out_dir+'/'+Script)
     #print 'echo "cd %s ; qsub -N %s_bcl -pe make 32 %s/%s" | ssh solexa3.lsrc.duke.edu ' % (out_dir,FCID,out_dir,Script)
-    logger.info('cd %s ; qsub -cwd -v PATH -N %s_%s_%s_bcl %s/%s' % (out_dir,machine,FCID,seqsata,out_dir,Script))
+    logger.info('cd %s ; qsub -cwd -v PATH -N %s_%s_%s_bcl %s/%s' % (out_dir,machine,FCID,sata_loc.split('/')[2],out_dir,Script))
     
-    os.system('cd %s ; qsub -cwd -v PATH -N %s_%s_%s_bcl %s/%s' % (out_dir,machine,FCID,seqsata,out_dir,Script))
+    os.system('cd %s ; qsub -cwd -v PATH -N %s_%s_%s_bcl %s/%s' % (out_dir,machine,FCID,sata_loc.split('/')[2],out_dir,Script))
 
 
 #checks if a bcl directory already exists
 def dir_check(sata_loc,FCID):
     logger = logging.getLogger('dir_check')
-    dir_path = glob.glob('/nfs/%s/*%s*Unaligned' % (sata_loc,FCID))
+    dir_path = glob.glob('/nfs/%s/BCL/*%s*Unaligned' % (sata_loc,FCID))
     if dir_path != []:
         logger.warn('BCL directory already exists! %s' % dir_path)
         raise Exception, 'BCL directory already exists! %s' % dir_path

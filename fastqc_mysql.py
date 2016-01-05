@@ -155,7 +155,7 @@ def main():
     Machine = info[1]
     FCID = info[3]
     sequenceDB = getSequenceDB()
-    email = 'jb3816@.columbia.edu'
+    email = 'jb3816@cumc.columbia.edu'
     opts(sys.argv[1:])
     
     global sata_loc

@@ -66,8 +66,11 @@ for s in $source/*$FCID*/Project*/Sample*; do
 
 done
 
-mv_filesize=`du --apparent-size -c $seqsata/*/*/$FCID/*fastq.gz | tail -1 | cut -f1` 
+mv_filesize=`du --apparent-size -c $seqsata/*/*/$FCID/*fastq.gz | tail -1 | cut -f1`
+echo du --apparent-size -c $seqsata/*/*/$FCID/*fastq.gz | tail -1 | cut -f1 >> $LOG_FILE
+
 mv_filenum=`ls $seqsata/*/*/$FCID/*fastq.gz | wc -l` 
+echo ls $seqsata/*/*/$FCID/*fastq.gz | wc -l >> $LOG_FILE
 
 #Create SAV file of run
 zip $runfolder/${FCID}_$(echo $runfolder | xargs -n1 basename | cut -d_ -f1,2)_SAV.zip $runfolder/RunInfo.xml $runfolder/runParameters.xml $runfolder/InterOp/

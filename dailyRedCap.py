@@ -13,24 +13,41 @@ import copy
 import datetime
 import itertools
 import os
-import sys
 import pymysql.cursors
+import sys
+import traceback
 
 def main():
     
-    sequenceDB = getSequenceDB()
-    flagableStatus = ["Sequencing Queue","External Data Submitted","QC Review Needed","In Annotation DB"]
-    #flagableStatus = ["Passed Bioinfo QC"]
-    samplePrefixes = ['EGI']
+    try:
+        sequenceDB = getSequenceDB()
+        flagableStatus = ["Sequencing Queue","External Data Submitted","QC Review Needed","In Annotation DB"]
+        #flagableStatus = ["Passed Bioinfo QC"]
+        samplePrefixes = ['EGI']
+        emailProgramLocation = '/nfs/goldstein/software/mutt-1.5.23/bin/mutt '
 
-    emails = getEmails()
+        emails = getEmails()
 
-    allSamples = getSamples(sequenceDB,flagableStatus,samplePrefixes)
-    allSamples = fixSamples(allSamples)
-    #print(allSamples)
-    #allSamples = ('test','Sequencing Queue')
-    sampleSites = updateRedcap(allSamples)
-    emailCollaborators(sampleSites,emails,allSamples)
+        allSamples = getSamples(sequenceDB,flagableStatus,samplePrefixes)
+        allSamples = fixSamples(allSamples)
+        #print(allSamples)
+        #allSamples = ('test','Sequencing Queue')
+        sampleSites = updateRedcap(allSamples)
+        emailCollaborators(sampleSites,emails,allSamples,emailProgramLocation)
+    except:
+        failureText = traceback.print_exc()
+        emailFailure(emailProgramLocation,failureText)
+
+def emailFailure(emailProgramLocation,failureText):
+    today_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    print(failureText)
+    emailCmd = emailProgramLocation
+    emailCmd += '-s \"%s %s\" ' % ('dailyRedcap failure',today_date)
+    emailCmd += 'jb3816@cumc.columbia.edu '
+    emailCmd += "< <(echo test)" 
+    print(emailCmd)
+    os.system(emailCmd)
+
 
 def getEmails():
 
@@ -51,10 +68,10 @@ def fixSamples(allSamples):
     the "Sequencing Queue" status from the dictionary'''
 
     allSamplesCopy = copy.deepcopy(allSamples)
-
     for items in allSamples:
         if items['status'] == 'External Data Submitted':
-            allSamplesCopy.remove({'IGMID': items['IGMID'], 'status':
+            #print(items)
+            allSamplesCopy.remove({'CHGVID': items['CHGVID'], 'status':
                 'Sequencing Queue'})
     
     #print(allSamplesCopy)
@@ -63,7 +80,7 @@ def fixSamples(allSamples):
 def getSamples(sequenceDB,flagableStatus,samplePrefixes):
     allSamples = []
     timeDelta = 24
-    #timeDelta = 144
+    #timeDelta = 168
     yesterday_date = datetime.datetime.now() - datetime.timedelta(hours = timeDelta)
     yesterday_date = yesterday_date.strftime("%Y-%m-%d")
     #print yesterday_date
@@ -119,23 +136,16 @@ def updateRedcap(allSamples):
                 sampleSites.append((record['igm_seq'],'Columbia'))
     
     return sampleSites
-def emailCollaborators(sampleSites,emails,allSamples):
+def emailCollaborators(sampleSites,emails,allSamples,EmailProgramLocation):
 
     #emails = []
     #emails = ['jb3816@cumc.columbia.edu','joshbridgers@gmail.com']
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     subject = 'Samples in SequenceDB pipeline %s' % today
-    emailProgramLocation = '/nfs/goldstein/software/mutt-1.5.23/bin/mutt '
-    sampleNumber = len(allSamples)
 
-    release_email = open('/home/jb3816/email.tmp','w')
-    release_email.write('The following %s sample(s) are being processed through SequenceDB\n' % (sampleNumber))
-    release_email.write('\n')
-    release_email.write('IGM SEQ\t\tStatus\n')
-    release_email.write('='*80+'\n')
- 
-
+  
     for email in emails:
+    
         sampleList = []
         for sample in allSamples:
             #The two digits after 'EGI' denote the site
@@ -143,11 +153,19 @@ def emailCollaborators(sampleSites,emails,allSamples):
             if sample['CHGVID'][3:5] == emails[email][1]:
                 sampleList.append(sample)
 
+        sampleNumber = len(sampleList)
+
+        release_email = open('/home/jb3816/email.tmp','w')
+        release_email.write('The following %s sample(s) are being processed through SequenceDB\n' % (sampleNumber))
+        release_email.write('\n')
+        release_email.write('IGM SEQ\t\tStatus\n')
+        release_email.write('='*80+'\n')
+
         #print(sampleList,emails[email])
         if len(sampleList) > 0:
 
             #addresses = [emails[email][0],'jb3816@cumc.columbia.edu','lb2993@cumc.columbia.edu']
-            addresses = ['joshbridgers@gmail.com','jb3816@cumc.columbia.edu','lb2993@cumc.columbia.edu']
+            addresses = ['jb3816@cumc.columbia.edu','lb2993@cumc.columbia.edu']
             #addresses = ['joshbridgers@gmail.com','jb3816@cumc.columbia.edu']
 
             for sample in sampleList:
@@ -174,7 +192,8 @@ def emailCollaborators(sampleSites,emails,allSamples):
                 print(emailCmd)
                 os.system(emailCmd)
 
-            os.system('rm /home/jb3816/email.tmp')
+        release_email.close()
+        os.system('rm /home/jb3816/email.tmp')
 
 
 def getSequenceDB():

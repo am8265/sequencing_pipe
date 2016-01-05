@@ -1,6 +1,7 @@
 from CHGV_mysql import *
 #from CHGV_mysql import getSequenceDB
 from commands import getoutput
+from collections import Counter
 
 import getopt
 import glob
@@ -11,32 +12,6 @@ import subprocess
 import time
 from CHGV_mysql import setup_logging
 
-def getSeqsata(sequencedb):
-    seqsata_dict = {}
-    for seqsata in getoutput('ls /nfs/seqsata[01]* -d').split():
-        seqsata_dict[seqsata] = [os.statvfs(seqsata).f_bavail * os.statvfs(seqsata).f_frsize / 1024.0,0,0]
-        #seqsata_dict[seqsata].append(getBCLjobs(seqsata))
-    getPipelineExe(sequencedb,seqsata_dict)
-    getBCLjobs(seqsata_dict)
-    space_free = 0
-    #check for seqsata drives that already have 4 or more bcl jobs running
-    for key in seqsata_dict.keys():
-        if seqsata_dict[key][2] > 1190000 * 1000:
-            del seqsata_dict[key]
-
-    for key in seqsata_dict.keys():
-        if int(seqsata_dict[key][0]) - int(seqsata_dict[key][1]) - int(seqsata_dict[key][2]) > space_free:
-            space_free = int(seqsata_dict[key][0]) - int(seqsata_dict[key][1]) - int(seqsata_dict[key][2])
-            best_seqsata = key
-
-    #print seqsata_dict
-    space_free =  seqsata_dict[best_seqsata][0]
-
-    if space_free < 600000000:
-        logging.warn('No seqsata drive has greater than 600MB of space!')
-        raise Exception, 'No seqsata drive has greater than 600MB of space!'
-    else:
-        return best_seqsata
 
 def getPipelineExe(sequencedb,seqsata_dict):
 	sequencedb.execute("SELECT CHGVID,SeqType,AlignSeqFileLoc from seqdbClone where Status = 'Pipeline executing'")
@@ -62,18 +37,27 @@ def getPipelineExe(sequencedb,seqsata_dict):
 
 	return seqsata_dict
 
-def getBCLjobs(seqsata_dict):
-	bcl_jobs = getoutput('qstat -r | grep "Full jobname"').split()
-	for jobs in bcl_jobs:
-		if 'bcl' in jobs and 'ACXX' in jobs:
+def getBestBCLDrive():
+    runningSeqscratchList =[]
+    bcl_jobs = getoutput('qstat -r | grep "Full jobname"').split()
+    for jobs in bcl_jobs:
+        if 'bcl' in jobs and 'XX' in jobs:
 
-			if _debug == True:
-				print jobs,'bcl jobs'
+            if _debug == True:
+                print jobs,'bcl jobs'
 
-			bcl_seqsata = jobs.split('_')[2]
-			seqsata_dict['/nfs/' + bcl_seqsata][2] += 300000 * 1000
-
-	return seqsata_dict
+            bcl_seqsata = jobs.split('_')[2]
+            runningSeqscratchList.append(bcl_seqsata)
+   
+    seqscratchDrives = ['fastq15','seqscratch09','seqscratch10','seqscratch11']
+    availSeqscratchDrives = set(seqscratchDrives) - set(runningSeqscratchList)
+    if availSeqscratchDrives == set([]):
+        seqscratchCount = Counter(runningSeqscratchList)
+        return min(seqscratchCount,key=seqscratchCount.get)
+    elif 'fastq15' in availSeqscratchDrives:
+        return 'fastq15'
+    else:
+        return list(availSeqscratchDrives)[0]
 
 
 def submit(best_seqsata,bcl_drive,run_date,machine,FCID,pwd,address):
@@ -142,7 +126,7 @@ def opts(argv):
     global seqsata
     seqsata = 'fastq15'
     global BCL_drive
-    BCL_drive = 'fastq15'
+    BCL_drive = ''
 
 
     try:
@@ -220,7 +204,11 @@ def main():
     HiSeqs = {'H1A': 1,'H1B': 1,'H2A': 2,'H2B': 2,'H7A': 3,'H7B': 3,'H4A': 4,'H4B': 4,'H5A': 5,'H5B': 5,'H6A': 6,'H6B': 6,'H9A': 7,'H9B': 7,'H8A': 8,'H8B': 8}
     sequenceDB = getSequenceDB()
     address = 'jb3816@cumc.columbia.edu'
-
+   
+    global BCL_drive
+    print BCL_drive
+    if BCL_drive == '':
+        BCL_drive = getBestBCLDrive()
     Machine_check(sequenceDB,FCID,machine)
     best_seqsata = '/nfs/' + seqsata
     bcl_folder = '/nfs/%s/BCL/' % BCL_drive

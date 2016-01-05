@@ -217,7 +217,7 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID):
         lane = info[0]
         cycle = int(info[2])
         qscores = [int(y) for y in info[3:]]
-
+        #print qscores
         #V4 Flowcell
         if FCID[-3] == 'N':
             if cycle > 134:
@@ -234,7 +234,7 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID):
                 met_dictI1[int(lane)] = [sum(x) for x in zip(met_dictI1[int(lane)],qscores)]
             elif cycle > 0:
                 met_dictR1[int(lane)] = [sum(x) for x in zip(met_dictR1[int(lane)],qscores)]
-
+        #print met_dictR1
     for lane in range(1,total_lanes+1):
         totalR1 = 0
         qsumR1 = 0
@@ -245,6 +245,7 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID):
         totalR2 = 0
         qsumR2 = 0
         q30R2 = 0
+        #print met_dictR1
         for pos in range(0,50):
             totalR1 += met_dictR1[int(lane)][pos]
             qsumR1 += met_dictR1[int(lane)][pos]*pos

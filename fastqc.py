@@ -117,9 +117,10 @@ def main():
             "f ON l.fcid=f.fcid JOIN SeqType st ON l.prepid=st.prepid JOIN",
             "prepT p ON l.prepid=p.prepid WHERE FCILLUMID='"+FCID+"' AND",
             "CHGVID='"+samp+"'"))
-
+        print query
         sequenceDB.execute(query)
         seqtype=sequenceDB.fetchall()
+        print seqtype
         if len(seqtype) > 1:
             print seqtype
             raise excecption, 'Too many seqtypes returned for sample %s' % samp
