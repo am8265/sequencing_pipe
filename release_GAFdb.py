@@ -430,7 +430,7 @@ def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
     complete = sequenceDB.fetchone()
     if complete is None:
         raise Exception, "Flowcell has not been completed SequenceDB for %s.  Old sample?" % SampleID
-    sequenceDB.execute("SELECT SUM(LnYield) from Lane where prepID=%s", prepID)
+    sequenceDB.execute("SELECT SUM(LnYield) from Lane where prepID=%s and failr1 is NULL and failr2 is NULL", prepID)
     info = sequenceDB.fetchone()
 
     sequenceDB.execute("SELECT status from statusT WHERE prepID=%s ORDER BY status_time DESC LIMIT 1", (prepID))
@@ -508,11 +508,10 @@ def check_Storage(sequenceDB,prepID,SeqType):
         #print "/nfs/seqsata*/seqfinal*/whole_genome/%s/%s/%s*L00%s*R1*fastq.gz" % (SampleID,FCID,SampleID,LaneNum)
 
         #checks how many files are there for that FC, LaneNum and Sample.  If 0 warning sent out
-        #/nfs/fastq15/whole_exome/fetal0036M
     
         SeqType=SeqType.upper().replace(' ','_')
-        r1files = len(glob.glob("/nfs/fastq15/%s/%s/%s/%s*L00%s*R1*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
-        r2files = len(glob.glob("/nfs/fastq15/%s/%s/%s/%s*L00%s*R2*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
+        r1files = len(glob.glob("/nfs/fastq16/%s/%s/%s/%s*L00%s*R1*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
+        r2files = len(glob.glob("/nfs/fastq16/%s/%s/%s/%s*L00%s*R2*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
 
         if r1files == 0 or r2files == 0:
             r1files = len(glob.glob("/nfs/seqsata*/seqfinal*/whole_genome/%s/%s/%s*L00%s*R1*fastq.gz" % (SampleID,FCID,SampleID,LaneNum)))
@@ -864,6 +863,7 @@ def main():
 
         #check it multiple samples from the same pool need a re-prep
         IDs = checkPoolingRelease(IDs,failedSamples)
+
         release_email(sequenceDB,SeqType,IDs,failedSamples)
         if sendemail == True:
             raw_input('Please hit Enter to continue')

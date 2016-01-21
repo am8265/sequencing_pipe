@@ -21,21 +21,21 @@ from CHGV_mysql import getUserID
 
 #Updates Date Align, Actual Lane Fraction for FCID in the GAFdb
 def UpdateFC(sequenceDB,FCID,Unaligned):
-	logger = logging.getLogger('UpdateFC')
-        CasavaVer = getoutput('grep CASAVA -i '+Unaligned+'/Basecall_Stats_'+FCID+'/Demultiplex_Stats.htm | tail -1 | cut -d- -f2 | cut -d\< -f1')
-	sequenceDB.execute("SELECT Sum(LnYield) FROM Lane l join Flowcell f on l.fcid=f.fcid where FCillumID='%s'" % FCID)
-	fcYield = sequenceDB.fetchone()
-        if verbose == True:
-		print "UPDATE Flowcell f JOIN Lane l ON f.FCID=l.FCID SET fcYield='%s',CasavaVer='%s',DateStor=now() WHERE f.FCillumID='%s'" % (fcYield[0],CasavaVer,FCID)
-	logger.info("UPDATE Flowcell f JOIN Lane l ON f.FCID=l.FCID SET fcYield='%s',CasavaVer='%s',DateStor=now() WHERE f.FCillumID='%s'" % (fcYield[0],CasavaVer,FCID))
-	sequenceDB.execute('UPDATE Flowcell f JOIN Lane l ON f.FCID=l.FCID SET fcYield=%s,CasavaVer=%s,DateStor=now() WHERE f.FCillumID=%s', (fcYield[0],CasavaVer,FCID))
-#Gets Actual Lane Fraction FROM Demultiplex_Stats.htm, Updates sample status
+    logger = logging.getLogger('UpdateFC')
+    CasavaVer = getoutput('grep bcl2fastq -i '+Unaligned+'/Basecall_Stats_'+FCID+'/Demultiplex_Stats.htm  | cut -d- -f2 | cut -d\< -f1')
+    sequenceDB.execute("SELECT Sum(LnYield) FROM Lane l join Flowcell f on l.fcid=f.fcid where FCillumID='%s'" % FCID)
+    fcYield = sequenceDB.fetchone()
+    if verbose == True:
+        print "UPDATE Flowcell f JOIN Lane l ON f.FCID=l.FCID SET fcYield='%s',CasavaVer='%s',DateStor=now() WHERE f.FCillumID='%s'" % (fcYield[0],CasavaVer,FCID)
+    logger.info("UPDATE Flowcell f JOIN Lane l ON f.FCID=l.FCID SET fcYield='%s',CasavaVer='%s',DateStor=now() WHERE f.FCillumID='%s'" % (fcYield[0],CasavaVer,FCID))
+    sequenceDB.execute('UPDATE Flowcell f JOIN Lane l ON f.FCID=l.FCID SET fcYield=%s,CasavaVer=%s,DateStor=now() WHERE f.FCillumID=%s', (fcYield[0],CasavaVer,FCID))
 
+#Gets Actual Lane Fraction FROM Demultiplex_Stats.htm, Updates sample status
 def UpdateSampleLane(sequenceDB,Unaligned,FCID):
     logger = logging.getLogger('UpdateSampleLane')
-    os.system('cat '+Unaligned+'/Basecall_Stats_'+FCID+'/Demultiplex_Stats.htm | /usr/bin/w3m -dump -T text/html | egrep "^[12345678] " > Demultiplex_Stats.txt')
-    os.system('chmod 775 Demultiplex_Stats.txt')
-    Demulti = open('Demultiplex_Stats.txt','r')
+    os.system('cat '+Unaligned+'/Basecall_Stats_'+FCID+'/Demultiplex_Stats.htm | /usr/bin/w3m -dump -T text/html | egrep "^[12345678] " > %s/Demultiplex_Stats.txt' % Unaligned)
+    os.system('chmod 775 %s/Demultiplex_Stats.txt' % Unaligned)
+    Demulti = open('%s/Demultiplex_Stats.txt' % Unaligned,'r')
     for D in Demulti.readlines():
         info = D.split()
         LaneNum = info[0]
@@ -111,10 +111,10 @@ def getTotalLanes(FCID):
 	else:
 		return 8
 
-def checkLaneFractions(sequenceDB,FCID,Machine):
+def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned):
     logger = logging.getLogger('checkLaneFractions')
-    Demulti = open('Demultiplex_Stats.txt','r')
-    email = open('LnFractionEmail.txt','wb')
+    Demulti = open('%s/Demultiplex_Stats.txt' % Unaligned,'r')
+    email = open('%s/LnFractionEmail.txt' % Unaligned,'wb')
     lane = 1
     email_switch = 0
     demulti_d = collections.defaultdict(list)
@@ -176,6 +176,7 @@ def checkLaneFractions(sequenceDB,FCID,Machine):
         
         highlightRowNumber = []
         for samp in lanes:
+            #print samp
             ClusterDensity = getClusterDensity(sequenceDB,FCID,lanes[0][5])
             #print ClusterDensity,ClusterDensity == None,ClusterDensity == ''
             """
@@ -205,24 +206,24 @@ def checkLaneFractions(sequenceDB,FCID,Machine):
             EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber)
 
     email.close()
-    send_email(email_switch,FCID,Machine)
+    send_email(email_switch,FCID,Machine,Unaligned)
 
-def send_email(email_switch,FCID,Machine):
+def send_email(email_switch,FCID,Machine,Unaligned):
     logger = logging.getLogger('send_email')
 
-    if email_switch ==1 and os.path.isfile('EmailSent.txt') == False:
+    if email_switch ==1 and os.path.isfile('%s/EmailSent.txt' % Unaligned) == False:
         address = "igm-hts@columbia.edu"
         #address = 'jb3816@cumc.columbia.edu'
         emailProgramLocation = '/nfs/goldstein/software/mutt-1.5.23/bin/mutt '
         emailCmd = emailProgramLocation + '-e "set content_type=text/html" '
         emailCmd += '-s \"Problem with Lane Fractions for flowcell %s %s\" ' % (FCID,Machine)
         emailCmd += address
-        emailCmd += " < LnFractionEmail.txt"
+        emailCmd += " < %s/LnFractionEmail.txt" % Unaligned
 
         logger.info(emailCmd)
         print emailCmd
         os.system(emailCmd)
-        os.system("touch EmailSent.txt")
+        os.system("touch %s/EmailSent.txt" % Unaligned)
 
 def getClusterDensity(sequenceDB,FCID,LaneNum):
 	sequenceDB.execute("SELECT DISTINCT ClustDen FROM Lane l JOIN Flowcell f on l.FCID=f.FCID WHERE FCillumID=%s and LaneNum=%s", (FCID,LaneNum))
@@ -297,74 +298,64 @@ def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
 def opts(argv):
     global verbose
     verbose = False
-    global Unaligned
-    Unaligned = os.getcwd()
-    global sata_loc
+    global runFolder
+    runFolder = os.getcwd()
+    global seqsata_drive
     sata_loc = ''
     global noStatusUpdate
     noStatusUpdate = False
     global noStatusCheck
     noStatusCheck = False
+    global BCLDrive
+    BCLDrive = ''
+
 
     try:
-        opts,args = getopt.getopt(argv, "ahvi:s:", ['input=','help','seqsata=','verbose','noStatusUpdate','noStatusCheck'])
+        opts,args = getopt.getopt(argv, "ab:hvi:s:", ['bcl=','input=','help','seqsata=','verbose','noStatusUpdate','noStatusCheck'])
     except getopt.GetoptError, err:
         print str(err)
         usage()
 
     for o,a in opts:
         if o in ('-v','--verbose'):
-            verbose = true
+            verbose = True
         elif o in ('-h','--help'):
             usage()
         elif o in ('-i','--input'):
-            Unaligned = a
+            runFolder =  a
         elif o in ('--noStatusUpdate'):
             noStatusUpdate = True
-
+        elif o in ('-b','--bcl'):
+            BCLDrive = a
         elif o in ('--noStatusCheck'):
             noStatusCheck = True
-
-
         elif o in ('-s','--seqsata'):
-            sata_loc = a
+            seqsata_drive = a
         else:
             assert False, "Unhandled argument present"
 
-def pwdcheck():
-	pwd = os.getcwd()
-	if 'scratch' not in pwd.split('/')[2] and 'ACXX' not in pwd.split('/')[4].split('_')[3]:
-		raise Exception, "post_bcl.py needs to be run from a HiSeq run folder!"
 
 def main():
     #accessing mysql gaf database
     sequenceDB = getSequenceDB()
     opts(sys.argv[1:])
-    print Unaligned
-    #if 'seqscratch' in Unaligned:
-    info = Unaligned.split('/')[4].split('_')
-    """
-    else:
-        info = Unaligned.split('/')[3].split('_')
-    """
-    FCID = info[2]
-    Machine = info[1]
+    info = runFolder.split('_')
     Date = info[0]
-    num = Date[3:7]
-    #print sata_loc
-    seqsata_drive = sata_loc.split('/')[2]
+    FCID = info[3]
+    Machine = info[1]
+
+    Unaligned = '{0}/{1}_{2}_{3}_Unaligned'.format(BCLDrive,Date,Machine,FCID)
     setup_logging(Machine,FCID,seqsata_drive)
     logger = logging.getLogger('main')
     logger.info('Starting post BCL script')
 
-    pwdcheck()
 
     try:
         UpdateSampleLane(sequenceDB,Unaligned,FCID)
         UpdateFC(sequenceDB,FCID,Unaligned)
+        checkLaneFractions(sequenceDB,FCID,Machine,Unaligned)
         UpdateSample(sequenceDB,FCID)
-        checkLaneFractions(sequenceDB,FCID,Machine)
-        
+       
         sequenceDB.execute('COMMIT;')
         sequenceDB.close()
         logger.info('Done')

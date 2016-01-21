@@ -23,8 +23,8 @@ def fastqc_mysql(sequenceDB,samp,seqsata,read,FCID):
     sequenceDB.execute("SELECT s.Seqtype from Lane l join SampleT s on l.dbid=s.dbid join Flowcell f on f.fcid=l.fcid where s.CHGVID=%s and f.FCillumID=%s and LaneNum=%s", (SampleID,FCID,LaneNum))
     Seqtype = sequenceDB.fetchone()[0]
 
-    summaryFile = '%s/%s/%s/%s/%s_*L00%s_R%s_fastqc/summary.txt'  % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)
-    fastqcDataFile = '%s/%s/%s/%s/%s_*L00%s_R%s_fastqc/fastqc_data.txt' % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)
+    summaryFile = '/nfs/%s/%s/%s/%s/%s_*L00%s_R%s_fastqc/summary.txt'  % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)
+    fastqcDataFile = '/nfs/%s/%s/%s/%s/%s_*L00%s_R%s_fastqc/fastqc_data.txt' % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)
 
     #print fastqcDataFile
     PCRDup = getoutput('grep "Total Duplicate Percentage" %s | cut -f2' % fastqcDataFile)
@@ -39,8 +39,8 @@ def fastqc_mysql(sequenceDB,samp,seqsata,read,FCID):
     OverRepSeq = getoutput('grep "Overrepresented sequences" %s | cut -f1' % summaryFile)
     KmerContent = getoutput('grep "Kmer Content" %s | cut -f1' % summaryFile)
 
-    #print '%s/%s/%s/%s_*L00%s_R%s_fastqc/fastqc_data.txt' % (seqsata,SampleID,FCID,SampleID,Lane,read)	
-    if glob.glob('%s/%s/%s/%s/%s_*L00%s_R%s*_fastqc/fastqc_data.txt' %
+    #print '/nfs/%s/%s/%s/%s_*L00%s_R%s_fastqc/fastqc_data.txt' % (seqsata,SampleID,FCID,SampleID,Lane,read)	
+    if glob.glob('/nfs/%s/%s/%s/%s/%s_*L00%s_R%s*_fastqc/fastqc_data.txt' %
             (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)) != []:
         if r == 'R1':
             sql= ("UPDATE Lane l "
@@ -80,14 +80,14 @@ def fastqc_mysql(sequenceDB,samp,seqsata,read,FCID):
 
 
     else:
-        print os.path.isfile('%s/%s/%s/%s/%s_*L00%s_R%s*_fastqc/fastqc_data.txt' % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read))
-        print '%s/%s/%s/%s/%s_*L00%s_R%s*_fastqc/fastqc_data.txt' % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)
-        print seqsata,SampleID,FCID,SampleID,Lane,read,Seqtype
+        print os.path.isfile('/nfs/%s/%s/%s/%s/%s_*L00%s_R%s*_fastqc/fastqc_data.txt' % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read))
+        print '/nfs/%s/%s/%s/%s/%s_*L00%s_R%s*_fastqc/fastqc_data.txt' % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)
+        #print seqsata,SampleID,FCID,SampleID,Lane,read,Seqtype
         raise Exception
     #print SampleID,Seqtype
     #alerts for fastqc checks
-    #print '%s/%s/%s/%s/%s_*L00%s_R%s_fastqc/fastqc_data.txt' % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)
-    if glob.glob('%s/%s/%s/%s/%s_*L00%s_R%s_fastqc/fastqc_data.txt' % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)) != []:
+    #print '/nfs/%s/%s/%s/%s/%s_*L00%s_R%s_fastqc/fastqc_data.txt' % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)
+    if glob.glob('/nfs/%s/%s/%s/%s/%s_*L00%s_R%s_fastqc/fastqc_data.txt' % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)) != []:
         if PerBaseQual == 'FAIL':
             report(PerBaseQual,r,LaneNum,SampleID,FCID,Seqtype,'Per Base Quality Fail')
         if PerBaseNContent == 'FAIL':
@@ -118,10 +118,10 @@ def fastqc(sequenceDB,seqsata,FCID):
 def xenlims_cp(FCID,seqsata):
 	logger = logging.getLogger('xenlims_cp')
 	#print 'ssh apache@10.73.50.38 mkdir /home/dev/public_html/FastQCfiles/%s' % (FCID)
-	#print 'scp %s/*/%s/*fastqc apache@10.73.50.38:/home/dev/public_html/FastQCfiles/%s' % (seqsata,FCID,FCID)
+	#print 'scp /nfs/%s/*/%s/*fastqc apache@10.73.50.38:/home/dev/public_html/FastQCfiles/%s' % (seqsata,FCID,FCID)
 	os.system('ssh apache@10.73.50.38 mkdir /home/dev/public_html/FastQCfiles/%s' % (FCID))
-	os.system('scp -r %s/*/*/%s/*fastqc apache@10.73.50.38:/home/dev/public_html/FastQCfiles/%s' % (seqsata,FCID,FCID)) 
-	logger.info('scp -r %s/*/*/%s/*fastqc apache@10.73.50.38:/home/dev/public_html/FastQCfiles/%s' % (seqsata,FCID,FCID))
+	os.system('scp -r /nfs/%s/*/*/%s/*fastqc apache@10.73.50.38:/home/dev/public_html/FastQCfiles/%s' % (seqsata,FCID,FCID)) 
+	logger.info('scp -r /nfs/%s/*/*/%s/*fastqc apache@10.73.50.38:/home/dev/public_html/FastQCfiles/%s' % (seqsata,FCID,FCID))
 
 def usage():
 	print '-h, --help\t\tShows this help message and exit'
@@ -132,10 +132,10 @@ def usage():
 def opts(argv):
     global verbose
     verbose = False
-    global sata_loc
-    sata_loc = ''
+    global seqsata
+    global runFolder
     try:
-        opts,args = getopt.getopt(argv, "hvs:", ['help','verbose','seqsata='])
+        opts,args = getopt.getopt(argv, "i:hvs:", ['input=','help','verbose','seqsata='])
     except getopt.GetoptError, err:
         print str(err)
         usage()
@@ -144,34 +144,28 @@ def opts(argv):
             verbose = True
         elif o in ('-h','--help'):
             usage()
+        elif o in ('-i','--input'):
+            runFolder = a
         elif o in ('-s','--seqsata'):
-            sata_loc = a
+            seqsata = a
         else:
             assert False, "Unhandled argument present"
 
 def main():
+    opts(sys.argv[1:])
     pwd = os.getcwd()
     info = pwd.split('_')
     Machine = info[1]
     FCID = info[3]
     sequenceDB = getSequenceDB()
     email = 'jb3816@cumc.columbia.edu'
-    opts(sys.argv[1:])
-    
-    global sata_loc
-    if 'fastq' in sata_loc:
-        seqsata_drive = sata_loc.split('/')[2]
-        sata_loc = '/nfs/fastq15'
-    else:
-        seqsata_drive = 'fastq15'
-        sata_loc = '/nfs/fastq15'
 
 
-    setup_logging(Machine,FCID,seqsata_drive)
+    setup_logging(Machine,FCID,seqsata)
     logger = logging.getLogger('main')
     logger.info("Starting Mysql injection of Fastqc results...")
-    fastqc(sequenceDB,sata_loc,FCID)
-    #xenlims_cp(FCID,sata_loc)
+    fastqc(sequenceDB,seqsata,FCID)
+    #xenlims_cp(FCID,seqsata)
 
     if os.path.isfile('fastqc_failures.txt'):
         os.system('cat fastqc_failures.txt | mail -s "FASTQC failure `pwd`" %s' % email)

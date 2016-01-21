@@ -27,8 +27,8 @@ def cur_datetime():
         DateBCL = tDateBCL[0]
         return DateBCL
 
-def getRTAdate():
-	DateRTA = getoutput('ls -l --full-time RTAComplete.txt').split(' ')
+def getRTAdate(pwd):
+	DateRTA = getoutput('ls -l --full-time %s/RTAComplete.txt' % pwd).split(' ')
 	date = DateRTA[5]
 	time = DateRTA[6].split('.')[0]
 	return '%s %s' % (date,time)
@@ -37,24 +37,14 @@ def getRead1Date(FCID):
 	Read1Date = getoutput('ls -l /nfs/seqscratch1/Runs/*'+FCID+'*/RunInfo.xml --time-style=full-iso 2>/dev/null | cut -d\  -f6,7 | sort -rk6 | head -1 | cut -d. -f1')
 	return Read1Date
 
-"""
-def getChemVer(Machine):
-	LaneCount = getoutput('grep FlowcellLayout RunInfo.xml | cut -d= -f2').split('"')[1]
+def ver_num(pwd):
+    tRTA = getoutput('grep RTA %s/ImageAnalysis_Netcopy_complete.txt' % pwd)
+    tRTA2 = tRTA.split(' ')
+    RTAVer = tRTA2[2].strip()
 
-	if LaneCount == "2" and Machine[0:2] == "H8":
-		return 'v3r'
-	elif LaneCount == '8':
-		return 'v3'
-	else:
-		raise Exception, "LaneCount incorrect!"
-"""
-def ver_num():
-	tRTA = getoutput('grep RTA ImageAnalysis_Netcopy_complete.txt')
-	tRTA2 = tRTA.split(' ')
-	RTAVer = tRTA2[2].strip()
-	
-	HCSver = getoutput('grep ApplicationVersion runParameters.xml -m1 | cut -d\> -f2 | cut -d\< -f1')
-	return RTAVer,HCSver
+    HCSver = getoutput('grep ApplicationVersion %s/runParameters.xml -m1 | cut -d\> -f2 | cut -d\< -f1' % pwd)
+    #print RTAVer,HCSver
+    return RTAVer,HCSver
 
 def getReads(sequenceDB,FCID):
     sequenceDB.execute("SELECT recipe from Flowcell where FCillumID=%s", FCID)
@@ -77,24 +67,22 @@ def getReads(sequenceDB,FCID):
         return "LenR1='151', LenR2='151', LenI1='7',"
 
 
-def updateFC(sequenceDB,sataloc,FCID,Machine):
+def updateFC(sequenceDB,FCID,Machine,pwd):
     logger = logging.getLogger('updateFC')
-    if 'seqscratch' in sataloc:
-        sataloc = 'fastq15'
-    else:
-        sataloc = sataloc.split('/')[2]
+    seqLoc = 'fastq16'
     DateBcl = cur_datetime()
-    DateRTA = getRTAdate()
+    DateRTA = getRTAdate(pwd)
     DateRead1 = getRead1Date(FCID)
     #ChemVer = getChemVer(Machine)
-    RTAVer,HCSver = ver_num()
+    RTAVer,HCSver = ver_num(pwd)
     Read_SQL_Command = getReads(sequenceDB,FCID)
+    #print DateRTA
 
     sql = ("UPDATE Flowcell "
         "SET {0} RTAVer='{1}', HCSVer='{2}', DateRead1='{3}', DateRTA='{4}', "
         "DateBcl='{5}', SeqsataLoc='{6}' "
         "WHERE FCillumID='{7}'" 
-        ).format(Read_SQL_Command,RTAVer,HCSver,DateRead1,DateRTA,DateBcl,sataloc,FCID)
+        ).format(Read_SQL_Command,RTAVer,HCSver,DateRead1,DateRTA,DateBcl,seqLoc,FCID)
     if verbose == True:
         print sql
 
@@ -107,7 +95,7 @@ def updateLane(sequenceDB,FCID,Machine,pwd):
     logger.debug('Running updateLane')
 
     #tr command: remove everything but printable ascii characters
-    tLaneKDen = getoutput("cat First_Base_Report.htm | /usr/bin/w3m -T text/html | tr -cd '\11\12\15\40-\176' | sed 's,(k/mm2),,g' | grep -o Density.*")
+    tLaneKDen = getoutput("cat %s/First_Base_Report.htm | /usr/bin/w3m -T text/html | tr -cd '\11\12\15\40-\176' | sed 's,(k/mm2),,g' | grep -o Density.*" % pwd)
     LaneKDen = tLaneKDen.split('\n')
     Read1KDen = LaneKDen[0].split()
     Read2KDen = LaneKDen[1].split()
@@ -115,13 +103,13 @@ def updateLane(sequenceDB,FCID,Machine,pwd):
     #need to remove blank lines from sss_lanes
     sss_lanes = getoutput("cut -d, -f2 /nfs/genotyping/Sequencing_SampleSheets/*%s* | sort -u | grep -v Lane" % FCID).split('\n')
     #uses script that parses binary file for cluster density information
-    os.system('perl /nfs/goldstein/goldsteinlab/GAF/scripts/SAV_parse/loadTileMetrics.pl InterOp/TileMetricsOut.bin | grep 100[[:space:]] > TileClusterDensity.txt')
+    os.system('perl /nfs/goldstein/goldsteinlab/GAF/scripts/SAV_parse/loadTileMetrics.pl %s/InterOp/TileMetricsOut.bin | grep 100[[:space:]] > %s/TileClusterDensity.txt' % (pwd,pwd))
     # %ClusterPF metrics are determined at a tile level and then the %Cluster PF is the average of the %Cluster PF of all tiles.
-    os.system('perl /nfs/goldstein/goldsteinlab/GAF/scripts/SAV_parse/loadTileMetrics.pl InterOp/TileMetricsOut.bin | grep [[:space:]]102[[:space:]] | sort -k2n > TotalCluster.txt')
-    os.system('perl /nfs/goldstein/goldsteinlab/GAF/scripts/SAV_parse/loadTileMetrics.pl InterOp/TileMetricsOut.bin | grep [[:space:]]103[[:space:]] | sort -k2n > ClusterPF.txt')
+    os.system('perl /nfs/goldstein/goldsteinlab/GAF/scripts/SAV_parse/loadTileMetrics.pl %s/InterOp/TileMetricsOut.bin | grep [[:space:]]102[[:space:]] | sort -k2n > %s/TotalCluster.txt' % (pwd,pwd))
+    os.system('perl /nfs/goldstein/goldsteinlab/GAF/scripts/SAV_parse/loadTileMetrics.pl %s/InterOp/TileMetricsOut.bin | grep [[:space:]]103[[:space:]] | sort -k2n > %s/ClusterPF.txt' % (pwd,pwd))
     for LaneNum in range(1,len(sss_lanes)+1):
-        ClustDen,ClustDenStDev = getClustDen(LaneNum)
-        ClustPF,ClustPFStDev = getClustPF(LaneNum)
+        ClustDen,ClustDenStDev = getClustDen(LaneNum,pwd)
+        ClustPF,ClustPFStDev = getClustPF(LaneNum,pwd)
         AvgKDen = (float(Read1KDen[LaneNum])+float(Read2KDen[LaneNum]))/2
         ApproxClustDen = str(1.1296*AvgKDen+237.4)
         #print ClustPF,ClustPFStDev
@@ -139,7 +127,7 @@ def updateLane(sequenceDB,FCID,Machine,pwd):
 
     totalNumLanes = totalLanesCheck(sss_lanes,FCID)
     qmets(sequenceDB,pwd,totalNumLanes,Machine,FCID)
-    updateLnFraction(sequenceDB,FCID)
+    updateLnFraction(sequenceDB,FCID,pwd)
 
 def totalLanesCheck(sss_lanes,FCID):
     """Check if # of lanes in generated sequencing sample sheet matches actual
@@ -156,7 +144,7 @@ def totalLanesCheck(sss_lanes,FCID):
     else:
         return len(sss_lanes)
 
-def updateLnFraction(sequenceDB,FCID):
+def updateLnFraction(sequenceDB,FCID,pwd):
     logger = logging.getLogger('updateLnFraction')
     logger.debug('Running updateLnFraction')
     sql = ("SELECT l.DBID,s.CHGVID,l.FCID,l.lanenum,FCillumID "
@@ -167,10 +155,11 @@ def updateLnFraction(sequenceDB,FCID):
         ).format(FCID)
     sequenceDB.execute(sql)
     info = sequenceDB.fetchall()
-
+    #print info
     #print info
     for samp in info:
-        LnFraction = getoutput("grep %s *%s*.csv | grep ,%s, | cut -d, -f6 | cut -d_ -f1" % (samp[1],samp[4],samp[3]))
+        LnFraction = getoutput("grep %s %s/*%s*.csv | grep ,%s, | cut -d, -f6 | cut -d_ -f1" % (samp[1],pwd,samp[4],samp[3]))
+        #print LnFraction
         sql = ("UPDATE Lane l "
             "SET LnFraction={0} "
             "WHERE FCID={1} and Lanenum={2} and DBID={3}" 
@@ -181,16 +170,15 @@ def updateLnFraction(sequenceDB,FCID):
         sequenceDB.execute(sql)
 
 #gets average of cluster density values from all tiles and also calcs standard deviation 
-def getClustPF(LaneNum):
-	info = getoutput("paste ClusterPF.txt TotalCluster.txt | grep ^%s | awk '{sum +=$4/$8; sumsq+=($4/$8)**2} END { avg = sum/NR*100; stdev=sqrt(sumsq/NR - (sum/NR)**2)*100; print avg\"\t\"stdev}'" % (LaneNum))
+def getClustPF(LaneNum,pwd):
+	info = getoutput("paste %s/ClusterPF.txt %s/TotalCluster.txt | grep ^%s | awk '{sum +=$4/$8; sumsq+=($4/$8)**2} END { avg = sum/NR*100; stdev=sqrt(sumsq/NR - (sum/NR)**2)*100; print avg\"\t\"stdev}'" % (pwd,pwd,LaneNum))
 	ClustPF = info.split()[0]
 	ClustPFStDev = info.split()[1]
 	return ClustPF,ClustPFStDev
 
-
 #gets average of cluster density values from all tiles and also calcs standard deviation 
-def getClustDen(LaneNum):
-	info = getoutput("egrep ^%s TileClusterDensity.txt | cut -f4 | awk '{SUM+=$1; SUMSQ+=$1*$1} END {avg = SUM/NR/1000; stdev =sqrt(SUMSQ/NR - (SUM/NR)**2)/1000; print avg\"\t\"stdev}'" % (LaneNum))
+def getClustDen(LaneNum,pwd):
+	info = getoutput("egrep ^%s %s/TileClusterDensity.txt | cut -f4 | awk '{SUM+=$1; SUMSQ+=$1*$1} END {avg = SUM/NR/1000; stdev =sqrt(SUMSQ/NR - (SUM/NR)**2)/1000; print avg\"\t\"stdev}'" % (LaneNum,pwd))
 	ClustDen = info.split()[0]
 	ClustDenStDev = info.split()[1]
 	return ClustDen,ClustDenStDev
@@ -293,11 +281,11 @@ def usage():
 def opts(argv):
 	global verbose
 	verbose = False
-        global sata_loc
-	sata_loc = ''
+        global runPath
+	runPath = ''
 
 	try:
-		opts,args = getopt.getopt(argv, "hvs:", ['help','verbose','seqsata='])
+		opts,args = getopt.getopt(argv, "hvi:", ['help','verbose','input='])
 	except getopt.GetoptError, err:
 		print str(err)
 		usage()
@@ -306,33 +294,29 @@ def opts(argv):
 			verbose = True
 		elif o in ('-h','--help'):
 			usage()
-		elif o in ('-s','--seqsata'):
-			sata_loc = a
+		elif o in ('-i','--input'):
+			runPath = a
 		else:
 			assert False, "Unhandled argument present"
 
 def main():
     #accessing mysql gaf database
     sequenceDB = getSequenceDB()
-
-    pwd = os.getcwd()
-    Info = pwd.split('/')[4].split('_')
-    #print Info
-    FCID = Info[3]
-    Machine = Info[1]
     opts(sys.argv[1:])
-    seqsata_drive = sata_loc.split('/')[2]
-    if 'seqscratch' in seqsata_drive:
-        seqsata_drive = 'fastq15'
 
-    setup_logging(Machine,FCID,seqsata_drive)
+    pwd = '/nfs/seqscratch1/Runs/' + runPath
+    info = pwd.split('/')[4].split('_')
+    #print info
+    FCID = info[3]
+    Machine = info[1]
+
+    setup_logging(Machine,FCID,'fastq16')
     print 'BCL MySQL updates started'
     logger = logging.getLogger('main')
     logger.info('BCL MySQL updates started')
-    logger.debug('Initializing Parameters: pwd:%s, FCID:%s, Machine:%s, seqsata_drive:%s', (pwd,FCID,Machine,seqsata_drive))
-
+    logger.debug('Initializing Parameters: pwd:%s, FCID:%s, Machine:%s, seqsata_drive:%s', (pwd,FCID,Machine,'fastq16'))
     try:
-        updateFC(sequenceDB,sata_loc,FCID,Machine)
+        updateFC(sequenceDB,FCID,Machine,pwd)
         updateLane(sequenceDB,FCID,Machine,pwd)
 
         #mysql updates happen now on BCL

@@ -13,29 +13,6 @@ import time
 from CHGV_mysql import setup_logging
 
 
-def getPipelineExe(sequencedb,seqsata_dict):
-	sequencedb.execute("SELECT CHGVID,SeqType,AlignSeqFileLoc from seqdbClone where Status = 'Pipeline executing'")
-	Exe_Samples = sequencedb.fetchall()
-	for sample in Exe_Samples:
-		if _debug == True:
-			print sample,'Pipeline executing'
-
-		AlignSeqFileLoc = sample[2].split('/')[2]
-		if sample[1] == 'Exome':
-			seqsata_dict['/nfs/' + AlignSeqFileLoc][1] += 12000 * 1000
-		elif sample[1] == 'Genome':
-			seqsata_dict['/nfs/' + AlignSeqFileLoc][1] += 110000 * 1000
-		elif sample[1] == 'RNAseq':
-			seqsata_dict['/nfs/' + AlignSeqFileLoc][1] += 10000 * 1000
-		elif sample[1] == 'Custom_Capture':
-			seqsata_dict['/nfs/' + AlignSeqFileLoc][1] += 2000 * 1000
-		elif sample[1] == 'Merged':
-			seqsata_dict['/nfs/' + AlignSeqFileLoc][1] += 125000 * 1000
-		else:
-			logging.warn('Unknown seqtype %s for sample %s' % (sample[1],sample[0]))
-			raise Exception, 'Unknown seqtype %s for sample %s' % (sample[1],sample[0])
-
-	return seqsata_dict
 
 def getBestBCLDrive():
     runningSeqscratchList =[]
@@ -48,58 +25,92 @@ def getBestBCLDrive():
 
             bcl_seqsata = jobs.split('_')[2]
             runningSeqscratchList.append(bcl_seqsata)
-   
-    seqscratchDrives = ['fastq15','seqscratch09','seqscratch10','seqscratch11']
+    seqscratchDrives = ['fastq16','seqscratch09','seqscratch10','seqscratch11']
     availSeqscratchDrives = set(seqscratchDrives) - set(runningSeqscratchList)
     if availSeqscratchDrives == set([]):
         seqscratchCount = Counter(runningSeqscratchList)
         return min(seqscratchCount,key=seqscratchCount.get)
-    elif 'fastq15' in availSeqscratchDrives:
-        return 'fastq15'
+    elif 'fastq16' in availSeqscratchDrives:
+        return '/nfs/fastq16/BCL'
     else:
-        return list(availSeqscratchDrives)[0]
+        return '/nfs/' + list(availSeqscratchDrives)[0] + '/BCL'
+
+def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
+    logger = logging.getLogger('submit')
+
+    address = 'jb3816@cumc.columbia.edu'
+
+    pythonProgram = 'python2.7'
+    scriptLoc = '/home/jb3816/github/sequencing_pipe'
+    
+    BCLCmd =         ("{0} {1}/bcl.py -i {2} -b {3}").format(pythonProgram,scriptLoc,runFolder,BCLDrive)
+    BCLMySQLCmd =    ("{0} {1}/bcl_mysql.py -i {2}").format(pythonProgram,scriptLoc,runFolder)
+    postBCLCmd =     ("{0} {1}/post_bcl.py -i {2} -s {3} -b {4}").format(pythonProgram,scriptLoc,runFolder,seqsata,BCLDrive)
+    storageCmd =     ("{0} {1}/storage.sh -i {2} -s {3} -b {4}").format('sh',scriptLoc,runFolder,seqsata,BCLDrive)
+    fastqcCmd =      ("{0} {1}/fastqc.py -i {2} -s {3}").format(pythonProgram,scriptLoc,runFolder,seqsata)
+    fastqcMySQLCmd = ("{0} {1}/fastqc_mysql.py -i {2} -s {3}").format(pythonProgram,scriptLoc,runFolder,seqsata)
 
 
-def submit(best_seqsata,bcl_drive,run_date,machine,FCID,pwd,address):
-	logger = logging.getLogger('submit')
-	seqsata_drive = best_seqsata.split('/')[2]
+    if run_pipeline == False:
+        print
+        print "="*35+'Scripts Commands'+"="*35
+        print BCLCmd
+        print BCLMySQLCmd
+        print postBCLCmd
+        print storageCmd
+        print fastqcCmd
+        #fastqcMySQLCmd is now run within the fastqcCmd
+        print fastqcMySQLCmd
+        print "="*86
+        print
+        print ('Log file:  /nfs/{0}/summary/GAF_PIPELINE_LOGS/{1}_{2}_{0}.log'
+            ).format(seqsata,machine,FCID)
 
-    #stage1
-	os.system('python2.7 ~/github/sequencing_pipe/bcl.py --output %s' % (bcl_drive))
-	logger.info('python2.7 ~/github/sequencing_pipe/bcl.py --output %s' % (bcl_drive))
+    else:
+        
+        #stage 1
 
-	os.system('python2.7 ~/github/sequencing_pipe/bcl_mysql.py --seqsata %s' % (bcl_drive))
-	logger.info('Ran python2.7 ~/github/sequencing_pipe/bcl_mysql.py --seqsata %s' % (bcl_drive))
+        #os.system(BCLCmd)
+        logger.info(BCLCmd)
 
-	#stage2 wrapper
-	stage2(best_seqsata,bcl_drive,run_date,machine,FCID,pwd,seqsata_drive,address)
-	os.system('qsub -N %s_%s_%s_stage2 -hold_jid %s_%s_%s_bcl %s/%s_%s_%s_stage2.sh' % (machine,FCID,seqsata_drive,machine,FCID,seqsata_drive,pwd,machine,FCID,seqsata_drive))
-	logger.info('Ran qsub -N %s_%s_%s_stage2 -hold_jid %s_%s_%s_bcl %s/%s_%s_%s_stage2.sh"' % (machine,FCID,seqsata_drive,machine,FCID,seqsata_drive,pwd,machine,FCID,seqsata_drive))
+        #os.system(BCLMySQLCmd)
+        logger.info(BCLMySQLCmd)
 
+        #stage 2
 
-def header(file):
-	file.write('#! /bin/bash\n')
-        file.write('#\n')
-        file.write('#$ -S /bin/bash -cwd\n')
-        #file.write('#$ -o %s/fastqc/%s_%s_fastqc_complete.sge\n' % (seqsata,FCID,seqsata_drive))
-        #file.write('#$ -e %s/fastqc/%s_%s_fastqc_out.sge\n' % (seqsata,FCID,seqsata_drive))
-        file.write('#$ -V\n')
-        file.write('#$ -M jb3816@cumc.columbia.edu\n')
-	#file.write('#$ -M jb371@dm.duke.edu\n')
-        file.write('#$ -m bea\n')
-        file.write('#\n')
-	file.write('\n')
+        stage2(seqsata,runFolder,machine,FCID,address,postBCLCmd,storageCmd,fastqcCmd,fastqcMySQLCmd)
+        qsubCmd =('qsub -N {0}_{1}_stage2 -hold_jid {0}_{1}_{4}_bcl /nfs/seqscratch1/Runs/{3}/{0}_{1}_{2}_stage2.sh'
+            ).format(machine,FCID,seqsata,runFolder,BCLDrive.split('/')[2])
 
-def stage2(best_seqsata,bcl_drive,run_date,machine,FCID,pwd,seqsata_drive,address):
-	stage2_script = open('%s_%s_%s_stage2.sh' % (machine,FCID,seqsata_drive),'w')
-	header(stage2_script)
+        #os.system(qsubCmd)
+        logger.info(qsubCmd)
+        print qsubCmd
 
-	logger = logging.getLogger('stage2')
-	stage2_script.write('cd %s; python2.7 ~/github/sequencing_pipe/post_bcl.py --input %s%s_%s_%s_Unaligned -s /nfs/%s \n' % (pwd,bcl_drive,run_date,machine,FCID,seqsata_drive))
-	stage2_script.write('if [ "$(tail -1 /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log | grep Failure -o)" == Failure ]; then /usr/local/bin/mutt -s "Post_BCL failure: %s %s" %s < /dev/null; exit ; fi\n' % (seqsata_drive,machine,FCID,seqsata_drive,machine,FCID,address))
-	stage2_script.write('sh ~/github/sequencing_pipe/storage.sh %s %s %s\n' % (FCID,bcl_drive,pwd))
-	stage2_script.write('cd %s; python2.7 ~/github/sequencing_pipe/fastqc.py --input %s -f %s\n' % (pwd,bcl_drive,FCID))
-	stage2_script.close()
+def header(seqsata,file):
+    file.write('#! /bin/bash\n')
+    file.write('#\n')
+    file.write('#$ -S /bin/bash -cwd\n')
+    #file.write('#$ -o /nfs/%s/fastqc/%s_%s_fastqc_complete.sge\n' % (seqsata,FCID,seqsata_drive))
+    #file.write('#$ -e /nfs/%s/fastqc/%s_%s_fastqc_out.sge\n' % (seqsata,FCID,seqsata_drive))
+    file.write('#$ -V\n')
+    file.write('#$ -M jb3816@cumc.columbia.edu\n')
+    file.write('#$ -m bea\n')
+    file.write('#\n')
+    file.write('\n')
+
+def stage2(seqsata,runFolder,machine,FCID,address,postBCLCmd,storageCmd,fastqCmd,fastqMySQLCmd):
+    logger = logging.getLogger('stage2')
+
+    stage2_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_%s_stage2.sh' % (runFolder,machine,FCID,seqsata),'w')
+    header(seqsata,stage2_script)
+
+    stage2_script.write(postBCLCmd + '\n')
+    stage2_script.write('if [ $? -eq 0 ] ; then echo "Post BCL completed successfully" ; else echo "Post BCL failed"\n')
+    stage2_script.write('/usr/local/bin/mutt -s "Post_BCL failure: %s %s" %s < /dev/null; exit 1; fi\n' % (machine,FCID,address))
+    stage2_script.write(storageCmd + '\n')
+    stage2_script.write('cd /nfs/seqscratch1/Runs/%s \n' % (runFolder) )
+    stage2_script.write(fastqCmd + '\n')
+    stage2_script.close()
 
 def checkSeqsata(seqsata):
 	try:
@@ -109,12 +120,14 @@ def checkSeqsata(seqsata):
 
 
 def usage():
-	print '-d, --debug\t\tShows additional informaion such as Pipeline Executing and bcl jobs'
-	print '-h, --help\t\tShows this help message and exit'
-	print '-r, --run\t\tSubmits pipeline to the cluster'
-	print '-s, --seqsata\t\tSpecify seqsata drive.  Ex. seqsata02'
+    print '-b, --bcl\t\tSpecify BCL drive.  Ex: seqscratch09'
+    print '-d, --debug\t\tShows additional informaion such as Pipeline Executing and bcl jobs'
+    print '-h, --help\t\tShows this help message and exit'
+    print '-r, --run\t\tSubmits pipeline to the cluster'
+    print '-s, --seqsata\t\tSpecify seqsata drive.  Ex: seqsata02'
+    print '--FCID\t\t\tSpecify the flowcell Illumina ID'
 
-	sys.exit(2)
+    sys.exit(2)
 
 def opts(argv):
     global run_pipeline
@@ -124,20 +137,24 @@ def opts(argv):
     global _debug
     _debug = False
     global seqsata
-    seqsata = 'fastq15'
-    global BCL_drive
-    BCL_drive = ''
+    seqsata = 'fastq16'
+    global BCLDrive
+    BCLDrive = ''
 
+    global runPath
+    runPath = ''
 
     try:
-        opts,args = getopt.getopt(argv, "b:drs:h", ['bcl=','debug','seqsata=','help','run'])
+        opts,args = getopt.getopt(argv, "b:drs:h", ['bcl=','debug','FCID=','seqsata=','help','run'])
     except getopt.GetoptError, err:
         usage()
     for o,a in opts:
         if o in ('-h','--help'):
             usage()
         elif o in ('-b','--bcl'):
-            BCL_drive = a
+            BCLDrive = '/nfs/' + a + '/BCL'
+        elif o in ('--FCID'):
+            runPath = getRunPath(a)
         elif o in ('-r','--run'):
             run_pipeline = True
         elif o in ('-d','--debug'):
@@ -147,26 +164,31 @@ def opts(argv):
         else:
             assert False, "Unhandled argument present"
 
-def check_cwd():
+def getRunPath(FCID):
+    '''Grabs the run folder with the highest run number for edge cases where
+       there the flowcell was rerun and there are multiple run folders.  This 
+       assumes the duplicate run folders have the name except for the run number
+       within run folder name
+    '''
+    runPaths = glob.glob('/nfs/seqscratch1/Runs/*%s*' % FCID)
+    runPath = sorted(runPaths)[-1]
+    return runPath
 
-    pwd = os.getcwd()
-    #print pwd
-    if 'seqscratch' not in pwd or 'Runs' not in pwd or 'XX' not in pwd:
+def check_cwd(runPath):
+    if 'seqscratch' not in runPath or 'Runs' not in runPath or 'XX' not in runPath:
         raise Exception, 'The CWD is not within a run folder of a seqscratch drive!'
-    #print pwd
-    return pwd
 
-def RTA_check():
+def RTA_check(runPath):
 	logger = logging.getLogger('RTA_check')
-	if os.path.isfile('RTAComplete.txt') == False:
+	if os.path.isfile('%s/RTAComplete.txt' % runPath) == False:
 		logger.warn("RTA has not completed!")
 		raise Exception, "RTA has not completed!"
 	else:
 		logger.info('RTA has already completed')
 		print "RTA has already completed"
 
-def completeCheck(pwd):
-	if os.path.isfile("%s/StorageComplete.txt" % pwd) == True:
+def completeCheck(runFolder):
+	if os.path.isfile("/nfs/seqscratch1/Runs/%s/StorageComplete.txt" % runFolder) == True:
 		raise Exception, "Pipeline already completed!"
 
 def Machine_check(sequenceDB,FCID,machine):
@@ -180,50 +202,39 @@ def Machine_check(sequenceDB,FCID,machine):
 	if str(sequenceDB_machine[0][1]) != '1':
 		raise Exception, "Flowcell has not been completed on SequenceDB!"
 
-def print_commands(best_seqsata,bcl_drive,run_date,machine,FCID,pwd):
-	print
-	print "="*35+'Scripts Commands'+"="*35
-	print 'python2.7 ~/github/sequencing_pipe/bcl.py --output %s' % (bcl_drive)
-	print 'python2.7 ~/github/sequencing_pipe/bcl_mysql.py --seqsata %s' % (bcl_drive)
-	print 'python2.7 ~/github/sequencing_pipe/post_bcl.py --input %s%s_%s_%s_Unaligned -s %s' % (bcl_drive,run_date,machine,FCID,best_seqsata)
-	print 'sh ~/github/sequencing_pipe/storage.sh %s %s %s' % (FCID,bcl_drive,pwd)
-	print 'python2.7 ~/github/sequencing_pipe/fastqc.py --input %s -f %s' % (bcl_drive,FCID)
-	print 'python2.7 ~/github/sequencing_pipe/fastqc_mysql.py -s %s' % (bcl_drive)
-	print "="*86
-	print
 
 def main():
-    pwd = check_cwd()
-    RTA_check()
-    run_folder = pwd.split('/')[4]
-    info = run_folder.split('_')
+    opts(sys.argv[1:])
+
+    global runPath
+    if runPath == '':
+        runFolder = os.getcwd()
+
+    #print runFolder
+    check_cwd(runPath)
+    RTA_check(runPath)
+
+    runFolder = runPath.split('/')[4]
+    info =  runFolder.split('_')
     FCID = info[3]
     run_date = info[0]
     machine = info[1]
-    opts(sys.argv[1:])
-    HiSeqs = {'H1A': 1,'H1B': 1,'H2A': 2,'H2B': 2,'H7A': 3,'H7B': 3,'H4A': 4,'H4B': 4,'H5A': 5,'H5B': 5,'H6A': 6,'H6B': 6,'H9A': 7,'H9B': 7,'H8A': 8,'H8B': 8}
+
     sequenceDB = getSequenceDB()
-    address = 'jb3816@cumc.columbia.edu'
-   
-    global BCL_drive
-    print BCL_drive
-    if BCL_drive == '':
-        BCL_drive = getBestBCLDrive()
+
     Machine_check(sequenceDB,FCID,machine)
-    best_seqsata = '/nfs/' + seqsata
-    bcl_folder = '/nfs/%s/BCL/' % BCL_drive
+    global BCLDrive
+    if BCLDrive == '':
+        BCLDrive = getBestBCLDrive()
     
-    #print seqsata,best_seqsata,bcl_folder
     setup_logging(machine,FCID,seqsata)
     logger = logging.getLogger(__name__)
 
-    logger.info('Running GAF_Pipeline.py')
     if run_pipeline == True:
-        completeCheck(pwd)
+        completeCheck(runFolder)
         logger.info('GAF_Pipeline.py in automated mode')
-        submit(best_seqsata,bcl_folder,run_date,machine,FCID,pwd,address)
-    else:
-        print_commands(best_seqsata,bcl_folder,run_date,machine,FCID,pwd)
-        print ('Log file:  /nfs/{0}/summary/GAF_PIPELINE_LOGS/{1}_{2}_{0}.log'
-            ).format(seqsata,machine,FCID)
+
+    submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive)
+
+    logger.info('Running GAF_Pipeline.py')
 main()

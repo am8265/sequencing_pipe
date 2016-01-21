@@ -14,8 +14,8 @@ import re
 import sys
 
 def fastqc(script,sample,seqsata,FCID,seqtype):
-    seqsata_drive = 'fastq15'
-    seqsata = '/nfs/fastq15/'
+    seqsata_drive = 'fastq16'
+    seqsata = '/nfs/fastq16/'
 
     #print seqsata,sample,FCID,seqtype
     #print 'cd %s/%s/%s/%s' % (seqsata,seqtype,sample,FCID)
@@ -42,62 +42,52 @@ def fastqc(script,sample,seqsata,FCID,seqtype):
 
 
 def script_header(seqsata,FCID):
-    if 'seqscratch' in seqsata:
-        seqsata_drive = 'fastq15'
-        seqsata = '/nfs/fastq15/'
-    else:
-        seqsata = '/nfs/fastq15'
-        seqsata_drive = 'fastq15'
-    #print seqsata,seqsata_drive
-
-    script = open("%s/fastqc/%s_%s_fastqc_script.sh" % (seqsata,FCID,seqsata_drive),'w')
+  
+    script = open("/nfs/%s/fastqc/%s_%s_fastqc_script.sh" % (seqsata,FCID,seqsata),'w')
     script.write('#! /bin/bash\n')
     script.write('#\n')
     script.write('#$ -S /bin/bash -cwd\n')
-    script.write('#$ -o %s/fastqc/%s_%s_fastqc_complete.sge\n' % (seqsata,FCID,seqsata_drive))
-    script.write('#$ -e %s/fastqc/%s_%s_fastqc_out.sge\n' % (seqsata,FCID,seqsata_drive))
+    script.write('#$ -o /nfs/%s/fastqc/%s_%s_fastqc_complete.sge\n' % (seqsata,FCID,seqsata))
+    script.write('#$ -e /nfs/%s/fastqc/%s_%s_fastqc_out.sge\n' % (seqsata,FCID,seqsata))
     script.write('#$ -V\n')
     script.write('#$ -M jb3816@cumc.columbia.edu\n')
     script.write('#$ -m bea\n')
     script.write('#\n')
     script.write('\n')
 
-    return script,seqsata_drive
+    return script
 
-def submit(seqsata,FCID,seqsata_drive):
-    seqsata_drive = 'fastq15'
-    seqsata = '/nfs/fastq15/'
-
-    print 'qsub -N %s_%s_fastqc %s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata_drive,seqsata,FCID,seqsata_drive)
-    os.system('qsub -N %s_%s_fastqc %s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata_drive,seqsata,FCID,seqsata_drive))
+def submit(seqsata,FCID):
+    #print 'qsub -N %s_%s_fastqc /nfs/%s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata,seqsata,FCID,seqsata)
+    os.system('qsub -N %s_%s_fastqc /nfs/%s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata,seqsata,FCID,seqsata))
 
 def opts(argv):
-	global FCID
-	FCID = ''
-	global seqsata
-	seqsata = ''
-
-	try:
-		opts,args = getopt.getopt(argv, "f:i:", ['input=','FCID=',])
-        except getopt.GetoptError, err:
+    global seqsata
+    seqsata = ''
+    global runFolder
+    try:
+        opts,args = getopt.getopt(argv, "s:i:", ['input=','seqsata=',])
+    except getopt.GetoptError, err:
                 print str(err)
                 usage()
-	for o,a in opts:
-		if o in ('-i','--input'):
-			seqsata = a
-		elif o in ('-f','--FCID'):
-			FCID = a
-		else:
-			assert False, "Unhandled argument present"
+    for o,a in opts:
+        if o in ('-i','--input'):
+            runFolder = a
+        elif o in ('-s','--seqsata'):
+            seqsata = a
+        else:
+            assert False, "Unhandled argument present"
 
 def main():
     opts(sys.argv[1:])
-    pwd = os.getcwd()
     sequenceDB = getSequenceDB()
+    info = runFolder.split('_')
+    FCID = info[3]
+
 
     #print 'ls %s/*%s*/Project_*/Sample_*/ -d | cut -d/ -f6 | cut -d_ -f2' % (seqsata,FCID)
-    Samples = getoutput('ls %s/*%s*/Project_*/Sample_*/ -d | cut -d/ -f8 | cut -d_ -f2-' % (seqsata,FCID)).split('\n')
-    script,seqsata_drive = script_header(seqsata,FCID)
+    Samples = getoutput('cat /nfs/seqscratch1/Runs/%s/*csv | cut -d, -f3 | sort -u | grep -v SampleID' % runFolder).split('\n')
+    script = script_header(seqsata,FCID)
     
     sql = ("SELECT p.CHGVID from Lane l "
             "join prepT p on l.prepid=p.prepid "
@@ -111,24 +101,24 @@ def main():
         Samples.remove(failSample)
 
     for samp in Samples:
-
+        #print samp
         query = ' '.join((
             "SELECT distinct(UPPER(st.seqtype)) FROM Lane l JOIN Flowcell",
             "f ON l.fcid=f.fcid JOIN SeqType st ON l.prepid=st.prepid JOIN",
             "prepT p ON l.prepid=p.prepid WHERE FCILLUMID='"+FCID+"' AND",
             "CHGVID='"+samp+"'"))
-        print query
+        #print query
         sequenceDB.execute(query)
         seqtype=sequenceDB.fetchall()
-        print seqtype
+
         if len(seqtype) > 1:
             print seqtype
             raise excecption, 'Too many seqtypes returned for sample %s' % samp
         #print seqtype,samp,Samples
 
         fastqc(script,samp,seqsata,FCID,seqtype[0][0])
-
-    script.write('cd %s; python2.7 ~/github/sequencing_pipe/fastqc_mysql.py -s %s\n' % (pwd,seqsata))
+    script.write('cd /nfs/seqscratch1/Runs/%s' % runFolder)
+    script.write('python2.7 ~/github/sequencing_pipe/fastqc_mysql.py -i %s -s %s\n' % (runFolder,seqsata))
     script.close()
-    submit(seqsata,FCID,seqsata_drive)
+    submit(seqsata,FCID)
 main()

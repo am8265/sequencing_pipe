@@ -21,9 +21,9 @@ from CHGV_mysql import MachineCheck
 
 from sss_check import sss_qc
 
-def bcl(info,sata_loc,seqsata,machine,sequenceDB):
+def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
     logger = logging.getLogger('bcl')
-    in_dir = 'Data/Intensities/BaseCalls/'
+    in_dir = runPath + '/Data/Intensities/BaseCalls/'
     script_dir = '/home/jb3816/github/sequencing_pipe'
     pwd = os.getcwd()
 
@@ -34,8 +34,8 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
     Date_Long = info[0]
     Script = HiSeq+'_'+Date+'_BCL.sh'
 
-    dir_check(sata_loc,FCID)
-    out_dir = sata_loc + '/' + Date_Long + '_' + HiSeq + '_' + FCID + '_Unaligned'
+    out_dir = '{0}/{1}_{2}_{3}_Unaligned'.format(BCLDrive,Date_Long,HiSeq,FCID)
+    dir_check(BCLDrive + out_dir)
 
     base_script = '/nfs/goldstein/software/perlbrew/perls/perl-5.14.4/bin/perl /nfs/goldstein/software/bcl2fastq_v1.8.4/bin/configureBclToFastq.pl '
     base_script += '--input-dir %s --output-dir %s --mismatches 1 ' % (in_dir,out_dir)
@@ -48,7 +48,7 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
     if sampleSheet:
         base_script += '--sample-sheet '+sampleSheet +' '
     else:
-        base_script += '--sample-sheet *%s*.csv ' % FCID
+        base_script += '--sample-sheet %s/*%s*.csv ' % (runPath,FCID)
 
     if tiles != False:
 
@@ -69,36 +69,23 @@ def bcl(info,sata_loc,seqsata,machine,sequenceDB):
     print base_script
 
 
-    #raw_input(base_script + ' 2>> %s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % (sata_loc,machine,FCID,seqsata))
     logger.info(base_script)
-    #print seqsata
-    #print base_script + ' 2>> /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % (seqsata,machine,FCID,seqsata)
-    #raw_input()
 
-    os.system(base_script + ' 2>> /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % (seqsata,machine,FCID,seqsata))
+    os.system(base_script + ' 2>> /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % ('fastq16',machine,FCID,'fastq16'))
 
     #Submit bcl job to the cluster
-    bclDir = sata_loc.split('/')[2]
     os.system('cp '+script_dir+'/run_C1.8.sh '+out_dir+'/'+Script)
     #print 'echo "cd %s ; qsub -N %s_bcl -pe make 32 %s/%s" | ssh solexa3.lsrc.duke.edu ' % (out_dir,FCID,out_dir,Script)
-    logger.info('cd %s ; qsub -cwd -v PATH -N %s_%s_%s_bcl %s/%s' % (out_dir,machine,FCID,sata_loc.split('/')[2],out_dir,Script))
-    
-    os.system('cd %s ; qsub -cwd -v PATH -N %s_%s_%s_bcl %s/%s' % (out_dir,machine,FCID,sata_loc.split('/')[2],out_dir,Script))
-
+    logger.info('cd %s ; qsub -cwd -v PATH -N %s_%s_%s_bcl %s/%s' % (out_dir,machine,FCID,BCLDrive.split('/')[2],out_dir,Script))
+    os.system('cd %s ; qsub -cwd -v PATH -N %s_%s_%s_bcl %s/%s' % (out_dir,machine,FCID,BCLDrive.split('/')[2],out_dir,Script))
 
 #checks if a bcl directory already exists
-def dir_check(sata_loc,FCID):
+def dir_check(BCLDrive):
     logger = logging.getLogger('dir_check')
-    dir_path = glob.glob('/nfs/%s/BCL/*%s*Unaligned' % (sata_loc,FCID))
+    dir_path = glob.glob(BCLDrive)
     if dir_path != []:
         logger.warn('BCL directory already exists! %s' % dir_path)
         raise Exception, 'BCL directory already exists! %s' % dir_path
-
-def storage(info,sata_loc,seqsata,machine,sequenceDB):
-    if sata_loc == '':
-        raise exception, 'Storage Location not specified!'
-    checkSataLoc(sata_loc)
-
 
 def checkSataLoc(sata_loc):
 	logger = logging.getLogger('checkSataLoc')
@@ -224,10 +211,10 @@ def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
 
     return SampleLaneFraction
 
-def create_sss(FCID,Machine,date,sequenceDB):
+def create_sss(runPath,FCID,Machine,date,sequenceDB):
     logger = logging.getLogger('create_sss')
     sample_sheet = []
-    outfile=open('%s_%s_%s.csv' % (Machine,date,FCID),'w')
+    outfile=open('%s/%s_%s_%s.csv' % (runPath,Machine,date,FCID),'w')
     outfile.write("FCID,Lane,SampleID,SampleReference,Index,Description,Control,Recipe,Operator,Project\n")
     lane_num = 8
     if FCID[0] == 'H':
@@ -298,10 +285,9 @@ def create_sss(FCID,Machine,date,sequenceDB):
             #print ss_line,DBID,FCID,LaneNum
             outfile.write(",".join(map(str,ss_line))+'\n')
     outfile.close()
-    #os.chmod('%s_%s_%s.csv' % (Machine,date,FCID),0775) #changes permissions of *csv file
     #copies sequencing sample sheet to genotyping location
-    os.system('cp %s_%s_%s.csv /nfs/genotyping/Sequencing_SampleSheets/' % (Machine,date,FCID))
-    logger.info('cp %s_%s_%s.csv /nfs/genotyping/Sequencing_SampleSheets/' % (Machine,date,FCID))
+    os.system('cp %s/%s_%s_%s.csv /nfs/genotyping/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
+    logger.info('cp %s/%s_%s_%s.csv /nfs/genotyping/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
 
 def updateSamples(sequenceDB,FCID):
     logger = logging.getLogger('updateSamples')
@@ -338,73 +324,69 @@ def opts(argv):
     forceBCL = False
     global noStatus
     noStatus = False
-
+    global runPath
+    global BCLDrive
     try:
-        opts,args = getopt.getopt(argv, "bfhno:s:v",
-                ['help','force','output=','tiles=','use-bases-mask=','verbose','sampleSheet=','noSSS','noStatus'])
+        opts,args = getopt.getopt(argv, "fhi:no:b:v",
+            ['input=','help','force','bcl=','tiles=','use-bases-mask=','verbose','sampleSheet=','noSSS','noStatus'])
     except getopt.GetoptError, err:
         usage()
     for o,a in opts:
-        if o in ('-h','--help'):
+        if o in ('-f','--force'):
+            forceBCL = True
+        elif o in ('-h','--help'):
             usage()
+        elif o in ('-i','--input'):
+            runPath = '/nfs/seqscratch1/Runs/' + a
+        elif o in ('-n','--noSSS'):
+            noSSS = True
+        elif o in ('--noStatus'):
+            noStatus = True
+        elif o in ('-b','--bcl'):
+            BCLDrive = a
+        elif o in ('-s','--sampleSheet'):
+            sampleSheet = a
         elif o in ('--tiles'):
             tiles = a
         elif o in ('--use-bases-mask'):
             base_mask = a
         elif o in ('-v','--verbose'):
             verbose = True
-        elif o in ('-f','--force'):
-            forceBCL = True
-        elif o in ('-s','--sampleSheet'):
-            sampleSheet = a
-        elif o in ('-n','--noSSS'):
-            noSSS = True
-        elif o in ('--noStatus'):
-            noStatus = True
-        elif o in ('-o','--output'):
-            if 'seqscratch' not in sata_loc:
-                sata_loc = a.rstrip('/')
-            else:
-                raise Exception, 'Output location %s is not in the whole_genome folder within a seqsata drive!' % a
-            
         else:
             assert False, "Unhandled argument present"
 
-def RTA_check():
-	logger = logging.getLogger('RTA_check')
-	if os.path.isfile('RTAComplete.txt') == False:
-		logger.warn("RTA has not completed!")
-		raise Exception, "RTA has not completed!"
-	else:
-		logger.info('RTA has already completed')
-		print "RTA has already completed"
+def RTA_check(runPath):
+    logger = logging.getLogger('RTA_check')
+    if os.path.isfile('%s/RTAComplete.txt' % runPath) == False:
+        logger.warn("RTA has not completed!")
+        raise Exception, "RTA has not completed!"
+    else:
+        logger.info('RTA has already completed')
+        print "RTA has already completed"
    
 
 def main():
-    pwd = os.getcwd()
     sequenceDB = getSequenceDB()
     opts(sys.argv[1:])
-    info = pwd.split('/')[4].split('_')
+    info = runPath.split('/')[4].split('_')
     Date = info[0]
     FCID = info[3]
     Machine = MachineCheck(sequenceDB,info[1],FCID)
-    seqsata_drive = sata_loc.split('/')[2]
 
-    if 'seqscratch' in seqsata_drive:
-        seqsata_drive = 'fastq15'
+    seqsata_drive = 'fastq16'
 
     setup_logging(Machine,FCID,seqsata_drive)
     logger = logging.getLogger('main')
-    logger.debug('Initializing Parameters: pwd:%s, FCID:%s, Machine:%s, seqsata_drive:%s, tiles:%s, base_mask:%s', (pwd,FCID,Machine,seqsata_drive,tiles,base_mask))
+    logger.debug('Initializing Parameters: runPath:%s, FCID:%s, Machine:%s, seqsata_drive:%s, tiles:%s, base_mask:%s',
+            (runPath,FCID,Machine,seqsata_drive,tiles,base_mask))
     print "Starting BCL job creation..."
     logger.info("Starting BCL job creation...")
 
-    RTA_check()
+    RTA_check(runPath)
     if noSSS == False:
-        create_sss(FCID,Machine,Date,sequenceDB)
+        create_sss(runPath,FCID,Machine,Date,sequenceDB)
     check_sss(FCID)
-    storage(info,sata_loc,seqsata_drive,Machine,sequenceDB)
-    bcl(info,sata_loc,seqsata_drive,Machine,sequenceDB)
+    bcl(info,runPath,BCLDrive,seqsata_drive,Machine,sequenceDB)
     if noStatus == False:
         updateSamples(sequenceDB,FCID)
 
