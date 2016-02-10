@@ -74,10 +74,15 @@ def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
     os.system(base_script + ' 2>> /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % ('fastq16',machine,FCID,'fastq16'))
 
     #Submit bcl job to the cluster
-    os.system('cp '+script_dir+'/run_C1.8.sh '+out_dir+'/'+Script)
-    #print 'echo "cd %s ; qsub -N %s_bcl -pe make 32 %s/%s" | ssh solexa3.lsrc.duke.edu ' % (out_dir,FCID,out_dir,Script)
-    logger.info('cd %s ; qsub -cwd -v PATH -N %s_%s_%s_bcl %s/%s' % (out_dir,machine,FCID,BCLDrive.split('/')[2],out_dir,Script))
-    os.system('cd %s ; qsub -cwd -v PATH -N %s_%s_%s_bcl %s/%s' % (out_dir,machine,FCID,BCLDrive.split('/')[2],out_dir,Script))
+
+    os.system('cp {0}/run_C1.8.sh {1}/{2}'.format(script_dir,out_dir,Script))
+    qsubLoc = '/opt/sge6_2u5/bin/lx24-amd64/qsub'
+    cmd = 'cd {0} ; {1} -cwd -v PATH -N {2}_{3}_{4}_bcl {0}/{5}'.format(out_dir,qsubLoc,machine,FCID,BCLDrive.split('/')[2],Script)
+    if verbose == True:
+        print cmd
+
+    logger.info(cmd)
+    os.system(cmd)
 
 #checks if a bcl directory already exists
 def dir_check(BCLDrive):

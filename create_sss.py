@@ -19,7 +19,8 @@ def main():
         Machine = sys.argv[2]
         FCID = sys.argv[3]
 
-    create_sss(FCID,Machine,Date,sequenceDB)
+    create_sss(pwd,FCID,Machine,Date,sequenceDB)
+
 
 
 main()

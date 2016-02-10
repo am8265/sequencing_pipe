@@ -19,19 +19,28 @@ from CHGV_mysql import getSequenceDB
 from CHGV_mysql import setup_logging
 from CHGV_mysql import getUserID
 
-#Updates Date Align, Actual Lane Fraction for FCID in the GAFdb
 def UpdateFC(sequenceDB,FCID,Unaligned):
+    '''Updates Date Align, Actual Lane Fraction for FCID in the GAFdb'''
+
     logger = logging.getLogger('UpdateFC')
-    CasavaVer = getoutput('grep bcl2fastq -i '+Unaligned+'/Basecall_Stats_'+FCID+'/Demultiplex_Stats.htm  | cut -d- -f2 | cut -d\< -f1')
+    CasavaVer = getoutput(('grep bcl2fastq -i {0}/Basecall_Stats_{1}/Demultiplex_Stats.htm  | ' 
+        'cut -d- -f2 | cut -d\< -f1').format(Unaligned,FCID))
     sequenceDB.execute("SELECT Sum(LnYield) FROM Lane l join Flowcell f on l.fcid=f.fcid where FCillumID='%s'" % FCID)
     fcYield = sequenceDB.fetchone()
-    if verbose == True:
-        print "UPDATE Flowcell f JOIN Lane l ON f.FCID=l.FCID SET fcYield='%s',CasavaVer='%s',DateStor=now() WHERE f.FCillumID='%s'" % (fcYield[0],CasavaVer,FCID)
-    logger.info("UPDATE Flowcell f JOIN Lane l ON f.FCID=l.FCID SET fcYield='%s',CasavaVer='%s',DateStor=now() WHERE f.FCillumID='%s'" % (fcYield[0],CasavaVer,FCID))
-    sequenceDB.execute('UPDATE Flowcell f JOIN Lane l ON f.FCID=l.FCID SET fcYield=%s,CasavaVer=%s,DateStor=now() WHERE f.FCillumID=%s', (fcYield[0],CasavaVer,FCID))
+    sql = ("UPDATE Flowcell f "
+        "JOIN Lane l ON f.FCID=l.FCID "
+        "SET fcYield={0},CasavaVer='{1}',DateStor=now() "
+        "WHERE f.FCillumID='{2}'"
+        ).format(fcYield[0],CasavaVer,FCID)
 
-#Gets Actual Lane Fraction FROM Demultiplex_Stats.htm, Updates sample status
+    if verbose == True:
+        print sql
+    logger.info(sql)
+    sequenceDB.execute(sql)
+
 def UpdateSampleLane(sequenceDB,Unaligned,FCID):
+    '''Gets Actual Lane Fraction FROM Demultiplex_Stats.htm, Updates sample status'''
+
     logger = logging.getLogger('UpdateSampleLane')
     os.system('cat '+Unaligned+'/Basecall_Stats_'+FCID+'/Demultiplex_Stats.htm | /usr/bin/w3m -dump -T text/html | egrep "^[12345678] " > %s/Demultiplex_Stats.txt' % Unaligned)
     os.system('chmod 775 %s/Demultiplex_Stats.txt' % Unaligned)
@@ -53,12 +62,17 @@ def UpdateSampleLane(sequenceDB,Unaligned,FCID):
         elif info[1][0:4] == 'lane':
             pass
         else:
+            sql = ("UPDATE Lane l "
+                "JOIN prepT pt ON l.prepID=pt.prepID "
+                "JOIN Flowcell f ON l.FCID=f.FCID "
+                "SET l.LnYield={0}, l.LnFractionAct={1} "
+                "WHERE pt.chgvid='{2}' AND f.FCillumID='{3}' AND l.LaneNum={4}"
+                ).format(LnYield,LnFractionAct,SampleID,FCID,LaneNum)
+
             if verbose == True:
-                print "UPDATE Lane l join prepT pt on l.prepID=pt.prepID join Flowcell f on l.FCID=f.FCID SET l.LnYield='%s', l.LnFractionAct='%s' where pt.chgvid='%s' and f.FCillumID='%s' and l.LaneNum='%s'" % (LnYield,LnFractionAct,SampleID,FCID,LaneNum)
-
-            logger.info('UPDATE Lane l join prepT pt on l.prepID=pt.prepID join Flowcell f on l.FCID=f.FCID SET l.LnYield=%s, l.LnFractionAct=%s where pt.chgvid=%s and f.FCillumID=%s and l.LaneNum=%s' % (LnYield,LnFractionAct,SampleID,FCID,LaneNum))
-            sequenceDB.execute('UPDATE Lane l join prepT pt on l.prepID=pt.prepID join Flowcell f on l.FCID=f.FCID SET l.LnYield=%s, l.LnFractionAct=%s where pt.chgvid=%s and f.FCillumID=%s and l.LaneNum=%s', (LnYield,LnFractionAct,SampleID,FCID,LaneNum))
-
+                print sql
+            logger.info(sql)
+            sequenceDB.execute(sql)
         Demulti.close()
 
 def checkStatus(sequenceDB,FCID):
@@ -365,6 +379,7 @@ def main():
         sequenceDB.execute('ROLLBACK;')
         sequenceDB.close()
         logger.info('Post BCL Failure')
-        print 'Fail'
+        print 'Post BCL Failure'
+        sys.exit(1)
 
 main()

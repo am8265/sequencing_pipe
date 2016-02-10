@@ -37,10 +37,8 @@ def getBestBCLDrive():
 
 def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
     logger = logging.getLogger('submit')
-
     address = 'jb3816@cumc.columbia.edu'
-
-    pythonProgram = 'python2.7'
+    pythonProgram = '/nfs/goldstein/software/python2.7/bin/python2.7'
     scriptLoc = '/home/jb3816/github/sequencing_pipe'
     
     BCLCmd =         ("{0} {1}/bcl.py -i {2} -b {3}").format(pythonProgram,scriptLoc,runFolder,BCLDrive)
@@ -60,7 +58,7 @@ def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
         print storageCmd
         print fastqcCmd
         #fastqcMySQLCmd is now run within the fastqcCmd
-        print fastqcMySQLCmd
+        #print fastqcMySQLCmd
         print "="*86
         print
         print ('Log file:  /nfs/{0}/summary/GAF_PIPELINE_LOGS/{1}_{2}_{0}.log'
@@ -69,29 +67,28 @@ def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
     else:
         
         #stage 1
-
-        #os.system(BCLCmd)
+        os.system(BCLCmd)
         logger.info(BCLCmd)
 
-        #os.system(BCLMySQLCmd)
+        os.system(BCLMySQLCmd)
         logger.info(BCLMySQLCmd)
 
         #stage 2
-
         stage2(seqsata,runFolder,machine,FCID,address,postBCLCmd,storageCmd,fastqcCmd,fastqcMySQLCmd)
-        qsubCmd =('qsub -N {0}_{1}_stage2 -hold_jid {0}_{1}_{4}_bcl /nfs/seqscratch1/Runs/{3}/{0}_{1}_{2}_stage2.sh'
+        qsubCmd =('/opt/sge6_2u5/bin/lx24-amd64/qsub -N {0}_{1}_stage2 -hold_jid {0}_{1}_{4}_bcl '
+            '/nfs/seqscratch1/Runs/{3}/{0}_{1}_{2}_stage2.sh'
             ).format(machine,FCID,seqsata,runFolder,BCLDrive.split('/')[2])
 
-        #os.system(qsubCmd)
+        os.system(qsubCmd)
         logger.info(qsubCmd)
         print qsubCmd
 
-def header(seqsata,file):
+def header(seqsata,file,FCID):
     file.write('#! /bin/bash\n')
     file.write('#\n')
     file.write('#$ -S /bin/bash -cwd\n')
-    #file.write('#$ -o /nfs/%s/fastqc/%s_%s_fastqc_complete.sge\n' % (seqsata,FCID,seqsata_drive))
-    #file.write('#$ -e /nfs/%s/fastqc/%s_%s_fastqc_out.sge\n' % (seqsata,FCID,seqsata_drive))
+    file.write('#$ -o /nfs/%s/fastqc/%s_%s_fastqc_complete.sge\n' % (seqsata,FCID,seqsata))
+    file.write('#$ -e /nfs/%s/fastqc/%s_%s_fastqc_out.sge\n' % (seqsata,FCID,seqsata))
     file.write('#$ -V\n')
     file.write('#$ -M jb3816@cumc.columbia.edu\n')
     file.write('#$ -m bea\n')
@@ -102,11 +99,11 @@ def stage2(seqsata,runFolder,machine,FCID,address,postBCLCmd,storageCmd,fastqCmd
     logger = logging.getLogger('stage2')
 
     stage2_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_%s_stage2.sh' % (runFolder,machine,FCID,seqsata),'w')
-    header(seqsata,stage2_script)
+    header(seqsata,stage2_script,FCID)
 
     stage2_script.write(postBCLCmd + '\n')
     stage2_script.write('if [ $? -eq 0 ] ; then echo "Post BCL completed successfully" ; else echo "Post BCL failed"\n')
-    stage2_script.write('/usr/local/bin/mutt -s "Post_BCL failure: %s %s" %s < /dev/null; exit 1; fi\n' % (machine,FCID,address))
+    stage2_script.write('/nfs/goldstein/software/mutt-1.5.23 -s "Post_BCL failure: %s %s" %s < /dev/null; exit 1; fi\n' % (machine,FCID,address))
     stage2_script.write(storageCmd + '\n')
     stage2_script.write('cd /nfs/seqscratch1/Runs/%s \n' % (runFolder) )
     stage2_script.write(fastqCmd + '\n')
@@ -192,15 +189,15 @@ def completeCheck(runFolder):
 		raise Exception, "Pipeline already completed!"
 
 def Machine_check(sequenceDB,FCID,machine):
-	sequenceDB.execute("Select Machine,Complete from Flowcell where FCillumID=%s", FCID)
-	sequenceDB_machine = sequenceDB.fetchall()
-	#print sequenceDB_machine
-	if len(sequenceDB_machine) > 1:
-		raise Exception, "Too many flowcells found during Machine_check!"
-	if sequenceDB_machine == ():
-		raise Exception, "Run folder's machine does not match SequenceDB machine listing!"
-	if str(sequenceDB_machine[0][1]) != '1':
-		raise Exception, "Flowcell has not been completed on SequenceDB!"
+    sequenceDB.execute("Select Machine,Complete from Flowcell where FCillumID='%s'" % FCID)
+    sequenceDB_machine = sequenceDB.fetchall()
+    #print sequenceDB_machine
+    if len(sequenceDB_machine) > 1:
+        raise Exception, "Too many flowcells found during Machine_check!"
+    if sequenceDB_machine == ():
+        raise Exception, "Run folder's machine does not match SequenceDB machine listing!"
+    if str(sequenceDB_machine[0][1]) != '1':
+        raise Exception, "Flowcell has not been completed on SequenceDB!"
 
 
 def main():

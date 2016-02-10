@@ -53,7 +53,7 @@ email=jb3816@cumc.columbia.edu
 completed=`grep -o "INFO: all completed" $source/*$FCID*/nohup.sge`
 LOG_FILE=$seqsata/summary/GAF_PIPELINE_LOGS/${MACHINE}_${FCID}_${DATA_DRIVE}.log
 
-echo "input: $runFolder, bcl: $BCLDrive, seqsata: $Seqsata" > $LOG_FILE
+echo "input: $runFolder, bcl: $BCLDrive, seqsata: $Seqsata" >> $LOG_FILE
 
 #get original sum of fastq.gz file sizes
 O_filesize=`du --apparent-size -c $source/*$FCID*/Project*/Sample*/*fastq.gz | tail -1 | cut -f1`
@@ -89,7 +89,11 @@ for s in $source/*$FCID*/Project*/Sample*; do
 
 	echo chmod 775 $seqsata/$seqtype/$sampleID >> $LOG_FILE
 	chmod 775 $seqsata/$seqtype/$sampleID
-	
+
+	echo "Original files list" > $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt
+	echo ls -ltr $s* \>\>  $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt >> $LOG_FILE
+	ls -ltr $s* >>  $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt	
+ 
 	#add if statement 
 	if [ $source == "/nfs/fastq16/BCL/" ] ; then
 		echo $(date) mv $s/* $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
@@ -102,8 +106,9 @@ for s in $source/*$FCID*/Project*/Sample*; do
 	echo rsync -avP $source/*$FCID*/Basecall_Stats_$FCID/Demultiplex_Stats.htm $RSYNC_DRIVE/$seqtype/$sampleID/$FCID >> $LOG_FILE
 	rsync -avP $source/*$FCID*/Basecall_Stats_$FCID/Demultiplex_Stats.htm $RSYNC_DRIVE/$seqtype/$sampleID/$FCID
 
-	echo ls -al $seqsata/$seqtype/$sampleID/$FCID \> $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt >> $LOG_FILE
-	ls -al $seqsata/$seqtype/$sampleID/$FCID > $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt	
+	echo "Transferred file list" >> $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt	
+	echo ls -ltr $seqsata/$seqtype/$sampleID/$FCID \>\> $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt >> $LOG_FILE
+	ls -al $seqsata/$seqtype/$sampleID/$FCID >> $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt	
 
 done
 

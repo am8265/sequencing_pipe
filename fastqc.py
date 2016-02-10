@@ -58,8 +58,8 @@ def script_header(seqsata,FCID):
     return script
 
 def submit(seqsata,FCID):
-    #print 'qsub -N %s_%s_fastqc /nfs/%s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata,seqsata,FCID,seqsata)
-    os.system('qsub -N %s_%s_fastqc /nfs/%s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata,seqsata,FCID,seqsata))
+    #print '/opt/sge6_2u5/bin/lx24-amd64/qsub -N %s_%s_fastqc /nfs/%s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata,seqsata,FCID,seqsata)
+    os.system('/opt/sge6_2u5/bin/lx24-amd64/qsub -N %s_%s_fastqc /nfs/%s/fastqc/%s_%s_fastqc_script.sh' % (FCID,seqsata,seqsata,FCID,seqsata))
 
 def opts(argv):
     global seqsata
@@ -117,8 +117,8 @@ def main():
         #print seqtype,samp,Samples
 
         fastqc(script,samp,seqsata,FCID,seqtype[0][0])
-    script.write('cd /nfs/seqscratch1/Runs/%s' % runFolder)
-    script.write('python2.7 ~/github/sequencing_pipe/fastqc_mysql.py -i %s -s %s\n' % (runFolder,seqsata))
+    script.write('cd /nfs/seqscratch1/Runs/%s\n' % runFolder)
+    script.write('/nfs/goldstein/software/python2.7/bin/python2.7 ~/github/sequencing_pipe/fastqc_mysql.py -i %s -s %s\n' % (runFolder,seqsata))
     script.close()
     submit(seqsata,FCID)
 main()

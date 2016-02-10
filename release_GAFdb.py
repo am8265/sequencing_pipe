@@ -423,7 +423,7 @@ def email_PL(sequenceDB,samples,name):
     email.close()
     print "Sending email to "+address
     #os.system("cat email.tmp")
-    os.system("/usr/local/bin/mutt -s 'Sample Release' "+address+" < email.tmp")
+    os.system("/nfs/goldstein/software/mutt-1.5.23 -s 'Sample Release' "+address+" < email.tmp")
 
 def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
     sequenceDB.execute("SELECT status from statusT WHERE (prepID=%s and Status='Sequencing Complete') or (prepID=%s and Status='External Data Submitted')", (prepID,prepID))
@@ -437,25 +437,6 @@ def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
     status = sequenceDB.fetchone()
     #sequenceDB.execute("SELECT status from statusT WHERE prepID=%s AND status='External Data Submitted'", prepID)
     #externalCheck = sequenceDB.fetchone()
-
-    """
-    sequenceDB.execute("SELECT Status,VarCallProgVer FROM seqdbClone WHERE prepID=%s", (prepID))
-    info2 = sequenceDB.fetchone()
-    print info2,prepID
-
-    if info2 == None:
-        pass
-    elif 'Released' in info2[0]:
-        raise Exception, '%s has already been released.  Please check SequenceDB status' % SampleID
-    elif 'not' in info2[0] and 'use' in info2[0]:
-        raise Exception, '%s has been marked "Do not use".  Please check SequenceDB stats' % SampleID
-    elif 'GenomeAnalysisTK' in info2:
-        raise Exception, '%s has already been aligned.  Please check SequenceDB VarCallProgVer' % SampleID
-    #print status[0]
-    if status[0] != 'Storage' and status[0] != 'External Data Submitted':
-        print status
-        raise Exception, "Incorrect Status on sequenceDB for %s: %s" % (SampleID,status[0])
-    """
 
     failYield = ''
     poolID = ''
@@ -710,6 +691,7 @@ def opts(argv):
 
 def getIDs(SampleID,SeqType,sequenceDB,capturekit):
     '''Checks SequenceDB then GAFDB to determine which database if any the sample resides in.'''
+
     #DBID check
     sql = ("SELECT DISTINCT s.DBID "
         "FROM SampleT s "
@@ -721,9 +703,10 @@ def getIDs(SampleID,SeqType,sequenceDB,capturekit):
     #print sql
     if len(DBID) != 1:
         print SampleID,SeqType,DBID
+        
         raise Exception, "Incorrect number of DBID's found for Sample %s" % SampleID
 
-    if capturekit =='':
+    if capturekit == '':
         sequenceDB.execute("SELECT p.prepID FROM SeqType st join prepT p on st.prepid=p.prepid where p.DBID=%s and SeqType=%s and failedPrep!=1", (DBID[0][0],SeqType))
         #Grabs most recent prepID
         #sequenceDB.execute("SELECT prepID FROM SeqType where DBID=%s and SeqType=%s order by prepID desc limit 1", (DBID[0][0],SeqType))
@@ -731,14 +714,26 @@ def getIDs(SampleID,SeqType,sequenceDB,capturekit):
     else:
         if ignore == False:
             sequenceDB.execute("SELECT p.prepID FROM prepT p JOIN SeqType s ON p.prepID=s.prepID where p.DBID=%s and s.SeqType=%s and p.exomeKit=%s and failedPrep!=1", (DBID[0][0],SeqType,capturekit))
-        else: #Grabs most recent prepID
-            sequenceDB.execute("SELECT p.prepID FROM prepT p JOIN SeqType s ON p.prepID=s.prepID where p.DBID=%s and s.SeqType=%s and p.exomeKit=%s order by prepID desc limit 1", (DBID[0][0],SeqType,capturekit))
+        else:
+            #Grabs most recent prepID
+            sequenceDB.execute("SELECT max(p.prepID) FROM prepT p JOIN SeqType s ON p.prepID=s.prepID where p.DBID=%s and s.SeqType=%s and p.exomeKit=%s", (DBID[0][0],SeqType,capturekit))
 
     prepID = sequenceDB.fetchall()
-
     if len(prepID) != 1:
-        print prepID,SeqType,capturekit
-        raise Exception, "Incorrect number of prepID's found for Sample %s.  Try using -k or --ignoreMultiPrepIDs option." % SampleID
+        print "Incorrect number of prepID's found for Sample %s." % SampleID
+        print "prepIDs SeqType, CaptureKit"
+        print "="*30
+        print SampleID,prepID,SeqType,capturekit
+        print "="*30
+
+        multiplePrepOK = raw_input("Is this ok? (y/n)").lower()
+
+        if multiplePrepOK == 'n':
+            raise Exception, "Incorrect number of prepID's found for Sample %s.  Try using -k or --ignoreMultiPrepIDs option." % SampleID
+        elif multiplePrepOK == 'y':
+            return str(max(prepID)[0])
+        else:
+            raise Exception, "Incorrect input"
 
     else:
         #print sequenceDB_sample
@@ -774,7 +769,7 @@ def checkPoolingRelease(IDs,failedSamples):
             for sample in IDs.keys():
                 #print IDs[sample][2][0],pool,sample
                 if IDs[sample][2][0] == pool:
-                    print "Sample {0} was removed due to pool {1} having two samples with low sequencing yields".format(sample,pool)
+                    print "Sample {0} was not released due to pool {1} having two samples with low sequencing yields".format(sample,pool)
                     IDs.pop(sample)
     #print len(IDs)
     return IDs

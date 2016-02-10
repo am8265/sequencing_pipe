@@ -6,58 +6,30 @@ import logging
 import os
 #mysql cursors
 
-def getUserID():
-    sequenceDB = getSequenceDB()
-    userName = getoutput('echo $LOGNAME')
-    if userName == 'solexa':
-        userName = 'jb3816'
-    sequenceDB.execute("SELECT userID FROM users WHERE netid=%s", (userName))
-    userID = sequenceDB.fetchone()
-    return userID[0]
-
 def getseqdb():
-    seqdb=Connect(host="localhost",db="seqdb",user="seqdb",passwd="1qaz3edc")
+    seqdb=Connect(read_default_group='seqdb')
     seq_curs=seqdb.cursor()
-    seq_curs.execute('USE seqdb')
     seq_curs.execute('BEGIN;')
     return seq_curs
 
 def getGAFdb():
-    gafdb=Connect(host="localhost",db="gaf",user="gaf",passwd="1qaz3edc")
+    gafdb=Connect(read_default_group="gaf")
     gaf_curs=gafdb.cursor()
-    gaf_curs.execute('USE gaf')
     gaf_curs.execute('BEGIN;')
     return gaf_curs
 
 def getTestSequenceDB():
-    sequencedb=Connect(host='192.168.1.59',db='jb371',user='jb371',passwd="jb371_password")
+    sequencedb=Connect(read_default_group='sequenceDBtest')
     sequence_curs=sequencedb.cursor()
-    sequence_curs.execute('USE jb371')
     sequence_curs.execute('BEGIN;')
     return sequence_curs
 
-
 def getSequenceDB():
-    #SequenceDB Cursor
-    seqdb=Connect(host="10.73.50.38",db="sequenceDB",user="sequence_connect",passwd="g3n3t1c5213")
+    """Get the SequenceDB Cursor"""
+    seqdb=Connect(read_default_group="sequenceDB")
     seq_curs=seqdb.cursor()
-    seq_curs.execute('USE sequenceDB')
     seq_curs.execute('BEGIN;')
     return seq_curs
-
-    #Old Duke Cursor
-    #sequencedb=Connect(host='192.168.1.104',db='sequenceDB',user='xenlims',passwd="1q2w3E$R%T")
-    #sequence_curs=sequencedb.cursor()
-    #sequence_curs.execute('USE sequenceDB')
-    #sequence_curs.execute('BEGIN;')
-    #return sequence_curs
-
-    #Lab Spaces test server
-    #sequencedb=Connect(host='server.labspaces.net',db='sequenceDB',user='sequence_connect',passwd="g3n3t1c5213")
-    #sequence_curs=sequencedb.cursor()
-    #sequence_curs.execute('USE sequenceDB')
-    #sequence_curs.execute('BEGIN;')
-    #return sequence_curs
 
 def getSampleID(gaf_curs,idnum):
         gaf_curs.execute("SELECT SampleID from Sample WHERE idnum=%s", (idnum))
@@ -80,6 +52,16 @@ def getSamYield(gaf_curs,idnum):
     if SamYield == None:
         SamYield = '0'
         return str(SamYield[0])
+
+def getUserID():
+    sequenceDB = getSequenceDB()
+    userName = getoutput('echo $LOGNAME')
+    if userName == 'solexa':
+        userName = 'jb3816'
+    sequenceDB.execute("SELECT userID FROM users WHERE netid='%s'" % (userName))
+    userID = sequenceDB.fetchone()
+    return userID[0]
+
 
 def MachineCheck(sequenceDB,Machine,FCID):
     sql = """SELECT MACHINE
