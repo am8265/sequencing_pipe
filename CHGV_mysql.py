@@ -7,26 +7,26 @@ import os
 #mysql cursors
 
 def getseqdb():
-    seqdb=Connect(read_default_group='seqdb')
+    seqdb=Connect(read_default_group='clientseqdb')
     seq_curs=seqdb.cursor()
     seq_curs.execute('BEGIN;')
     return seq_curs
 
 def getGAFdb():
-    gafdb=Connect(read_default_group="gaf")
+    gafdb=Connect(read_default_group="clientgaf")
     gaf_curs=gafdb.cursor()
     gaf_curs.execute('BEGIN;')
     return gaf_curs
 
 def getTestSequenceDB():
-    sequencedb=Connect(read_default_group='sequenceDBtest')
+    sequencedb=Connect(read_default_group='clientsequenceDBtest')
     sequence_curs=sequencedb.cursor()
     sequence_curs.execute('BEGIN;')
     return sequence_curs
 
 def getSequenceDB():
     """Get the SequenceDB Cursor"""
-    seqdb=Connect(read_default_group="sequenceDB")
+    seqdb=Connect(read_default_group="clientsequenceDB")
     seq_curs=seqdb.cursor()
     seq_curs.execute('BEGIN;')
     return seq_curs
