@@ -82,7 +82,8 @@ def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
         print cmd
 
     logger.info(cmd)
-    os.system(cmd)
+    status = os.system(cmd)
+    logger.info(status)
 
 #checks if a bcl directory already exists
 def dir_check(BCLDrive):

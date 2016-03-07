@@ -23,31 +23,50 @@ def main():
     else:
         sys.exit(0)
    
+def RTACompleteCheck(FCIllumID):
+    """Check for rare cases where sequencing is complete but RTA has not 
+    finished processing the raw images"""
 
+    RTACompleteFile = glob.glob("/nfs/seqscratch1/Runs/*{0}*/RTAComplete.txt".format(FCIllumID[0]))
+    print "/nfs/seqscratch1/Runs/*{0}*/RTAComplete.txt".format(FCIllumID[0]),RTACompleteFile
+
+    if RTACompleteFile != []:
+        return True
+    else:
+        return False
 
 def checkBCLFolderExist(completeFlowcell,sequenceDB):
     '''Checks for the exisitance of a bcl2fastq folder.  The folder has to be
        deleted before proper running of the sequence pipeline'''
 
     for FCIllumID in completeFlowcell:
-        #check seqscratch or fastq folders for
+        #check seqscratch or fastq folders for the existence of a BCL folder
         BCLFolder = glob.glob("/nfs/[sf][ea][qs][st][cq]*[0-9]/BCL/*%s_Unaligned" % FCIllumID)
-        if BCLFolder == []:
+        RTAComplete = RTACompleteCheck(FCIllumID)
+        #print RTAComplete == True and BCLFolder == []
+        if BCLFolder == [] and RTAComplete == True:
+            print 1
             cmd = "/nfs/goldstein/software/python2.7/bin/python2.7 /nfs/goldstein/software/sequencing_pipe/production/GAF_PIPELINE.py --FCID %s -r" % FCIllumID
             cmd = "/nfs/goldstein/software/python2.7/bin/python2.7 /home/jb3816/github/sequencing_pipe/GAF_PIPELINE.py --FCID %s -r" % FCIllumID
 
-            print cmd
+            #print cmd
             query = ("UPDATE Flowcell "
                 "SET pipelineComplete = pipelineComplete + 1 "
                 "WHERE FCIllumID = '{0}'"
                 ).format(FCIllumID[0])
-            print query
+            #print 'sdb -e "' + query + '"'
 
             os.system(cmd)
-            #sequenceDB.execute(query)
+            sequenceDB.execute(query)
+
         else:
-            print "BCL folder already exists for %s" % FCIllumID
-            print BCLFolder
+            if RTAComplete == True:
+                print "BCL folder already exists for %s" % FCIllumID
+                print BCLFolder
+            else:
+                print "RTA is not yet complete for %s" % FCIllumID
+                
+
         sequenceDB.execute('COMMIT')
 
 

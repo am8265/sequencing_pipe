@@ -158,14 +158,16 @@ def updateLnFraction(sequenceDB,FCID,pwd):
     #print info
     #print info
     for samp in info:
-        LnFraction = getoutput("grep %s %s/*%s*.csv | grep ,%s, | cut -d, -f6 | cut -d_ -f1" % (samp[1],pwd,samp[4],samp[3]))
+        LnFraction = getoutput("grep ,%s, %s/*%s*.csv | grep ,%s, | cut -d, -f6 | cut -d_ -f1" % (samp[1],pwd,samp[4],samp[3]))
         #print LnFraction
         sql = ("UPDATE Lane l "
             "SET LnFraction={0} "
             "WHERE FCID={1} and Lanenum={2} and DBID={3}" 
             ).format(LnFraction,samp[2],samp[3],samp[0])
         logger.info(sql)
+
         if verbose == True:
+            print "grep ,%s, %s/*%s*.csv | grep ,%s, | cut -d, -f6 | cut -d_ -f1" % (samp[1],pwd,samp[4],samp[3])
             print sql
         sequenceDB.execute(sql)
 

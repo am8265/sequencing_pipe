@@ -27,9 +27,11 @@ def getBestBCLDrive():
             runningSeqscratchList.append(bcl_seqsata)
     seqscratchDrives = ['fastq16','seqscratch09','seqscratch10','seqscratch11']
     availSeqscratchDrives = set(seqscratchDrives) - set(runningSeqscratchList)
+
     if availSeqscratchDrives == set([]):
         seqscratchCount = Counter(runningSeqscratchList)
-        return min(seqscratchCount,key=seqscratchCount.get)
+        #print seqscratchCount
+        return '/nfs/%s/BCL' % (min(seqscratchCount,key=seqscratchCount.get))
     elif 'fastq16' in availSeqscratchDrives:
         return '/nfs/fastq16/BCL'
     else:
@@ -167,11 +169,12 @@ def getRunPath(FCID):
        assumes the duplicate run folders have the name except for the run number
        within run folder name
     '''
-    runPaths = glob.glob('/nfs/seqscratch1/Runs/*%s*' % FCID)
-    runPath = sorted(runPaths)[-1]
+    runPaths = max(glob.glob('/nfs/seqscratch1/Runs/*%s*' % FCID),key=os.path.getctime)
+    runPath = runPaths
     return runPath
 
 def check_cwd(runPath):
+    print runPath
     if 'seqscratch' not in runPath or 'Runs' not in runPath or 'XX' not in runPath:
         raise Exception, 'The CWD is not within a run folder of a seqscratch drive!'
 
