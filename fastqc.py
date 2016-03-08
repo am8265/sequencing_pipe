@@ -42,7 +42,7 @@ def fastqc(script,sample,seqsata,FCID,seqtype):
 
 
 def script_header(seqsata,FCID):
-  
+
     script = open("/nfs/%s/fastqc/%s_%s_fastqc_script.sh" % (seqsata,FCID,seqsata),'w')
     script.write('#! /bin/bash\n')
     script.write('#\n')
@@ -88,7 +88,7 @@ def main():
     #print 'ls %s/*%s*/Project_*/Sample_*/ -d | cut -d/ -f6 | cut -d_ -f2' % (seqsata,FCID)
     Samples = getoutput('cat /nfs/seqscratch1/Runs/%s/*csv | cut -d, -f3 | sort -u | grep -v SampleID' % runFolder).split('\n')
     script = script_header(seqsata,FCID)
-    
+
     sql = ("SELECT p.CHGVID from Lane l "
             "join prepT p on l.prepid=p.prepid "
             "join Flowcell f on l.fcid = f.fcid "
@@ -103,7 +103,7 @@ def main():
     for samp in Samples:
         #print samp
         query = ' '.join((
-            "SELECT distinct(UPPER(st.seqtype)) FROM Lane l JOIN Flowcell",
+            "SELECT DISTINCT(REPLACE(UPPER(st.seqtype),' ','_')) FROM Lane l JOIN Flowcell",
             "f ON l.fcid=f.fcid JOIN SeqType st ON l.prepid=st.prepid JOIN",
             "prepT p ON l.prepid=p.prepid WHERE FCILLUMID='"+FCID+"' AND",
             "CHGVID='"+samp+"'"))
