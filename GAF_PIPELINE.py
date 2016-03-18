@@ -12,8 +12,6 @@ import subprocess
 import time
 from CHGV_mysql import setup_logging
 
-
-
 def getBestBCLDrive():
     runningSeqscratchList =[]
     bcl_jobs = getoutput('qstat -r | grep "Full jobname"').split()
@@ -226,7 +224,7 @@ def main():
     global BCLDrive
     if BCLDrive == '':
         BCLDrive = getBestBCLDrive()
-    
+
     setup_logging(machine,FCID,seqsata)
     logger = logging.getLogger(__name__)
 

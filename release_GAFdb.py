@@ -28,6 +28,7 @@ def checkS2R(sequenceDB,SampleID,prepID):
     sequenceDB.execute("SELECT complete FROM samplesTOrun s2r JOIN poolMembers pm ON s2r.dbID=pm.poolid WHERE pm.prepID=%s AND complete=0", prepID)
     S2Rsamp = sequenceDB.fetchall()
     #print S2Rsamp,SampleID,prepID
+    #print "SELECT complete FROM samplesTOrun s2r JOIN poolMembers pm ON s2r.dbID=pm.poolid WHERE pm.prepID=%s AND complete=0", prepID
     if S2Rsamp != () :
         raise Exception, "%s still in S2R with uncompleted lanes" % (SampleID)
 
@@ -703,7 +704,7 @@ def getIDs(SampleID,SeqType,sequenceDB,capturekit):
     #print sql
     if len(DBID) != 1:
         print SampleID,SeqType,DBID
-        
+
         raise Exception, "Incorrect number of DBID's found for Sample %s" % SampleID
 
     if capturekit == '':
@@ -824,7 +825,7 @@ def main():
             logger.debug('Releasing sample %s %s...' % (SampleID,prepID))
             DBID = getDBID(sequenceDB,prepID)
             poolID = getPoolID(sequenceDB,prepID)
-           
+
             #print prepID,SampleID
             IDs[SampleID] = (DBID,long(prepID),poolID)
             logger.debug("Sample %s's prepID and DBID: %s, %s" % (SampleID,prepID,DBID))
@@ -853,7 +854,7 @@ def main():
         for passedSamples in IDs.keys():
             prepID = IDs[passedSamples][1]
             DBID = IDs[passedSamples][0]
-           
+
             updateDB(sequenceDB,prepID,passedSamples,SeqType,DBID)
 
         #check it multiple samples from the same pool need a re-prep

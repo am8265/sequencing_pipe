@@ -49,7 +49,7 @@ source=$BCLDrive/
 seqsata=/nfs/${Seqsata}/
 RSYNC_DRIVE=/nfs/${Seqsata}-rsync/
 
-email=jb3816@cumc.columbia.edu
+email="jb3816@cumc.columbia.edu dn2404@cumc.columbia.edu"
 completed=`grep -o "INFO: all completed" $source/*$FCID*/nohup.sge`
 LOG_FILE=$seqsata/summary/GAF_PIPELINE_LOGS/${MACHINE}_${FCID}_${DATA_DRIVE}.log
 
