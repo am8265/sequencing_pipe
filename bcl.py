@@ -39,16 +39,22 @@ def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
 
     base_script = '/nfs/goldstein/software/perlbrew/perls/perl-5.14.4/bin/perl /nfs/goldstein/software/bcl2fastq_v1.8.4/bin/configureBclToFastq.pl '
     base_script += '--input-dir %s --output-dir %s --mismatches 1 ' % (in_dir,out_dir)
-    base_script += '--ignore-missing-bcl --ignore-missing-stats '
 
-    if forceBCL == True:
-        base_script += ' --force'
+    # Use if bcl or stats are missing.  They should never be missing unless 
+    # there was a data transfer problem or corruption.
+    #base_script += '--ignore-missing-bcl --ignore-missing-stats '
 
-    #adds tiles parameter to BCL script if specified
+    #Depreciated.  Do not use.  If you need to re-run bcl due to failure, delete the folder and re-run
+    #if forceBCL == True:
+    #    base_script += ' --force'
+
     if sampleSheet:
         base_script += '--sample-sheet '+sampleSheet +' '
     else:
         base_script += '--sample-sheet %s/*%s*.csv ' % (runPath,FCID)
+
+    # Tile specify what tiles on the flowcell can be converted to fastq
+    # This adds tiles parameter to BCL script if specified
 
     if tiles != False:
 
@@ -64,17 +70,17 @@ def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
         base_script = base_script + '--tiles='+tiles+' '
         os.system('echo %s > tiles.txt' % tiles)
 
+    # Used to mask any bases on the read
     if base_mask != False:
         base_script = base_script + '--use-bases-mask '+base_mask+' '
     print base_script
 
-
     logger.info(base_script)
 
+    #Run base script
     os.system(base_script + ' 2>> /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % ('fastq16',machine,FCID,'fastq16'))
 
     #Submit bcl job to the cluster
-
     os.system('cp {0}/run_C1.8.sh {1}/{2}'.format(script_dir,out_dir,Script))
     qsubLoc = '/opt/sge6_2u5/bin/lx24-amd64/qsub'
     cmd = 'cd {0} ; {1} -cwd -v PATH -N {2}_{3}_{4}_bcl {0}/{5}'.format(out_dir,qsubLoc,machine,FCID,BCLDrive.split('/')[2],Script)
