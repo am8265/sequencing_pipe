@@ -45,6 +45,8 @@ def getPlatformChemVer(sequenceDB,prepID):
     sequenceDB.execute("SELECT DISTINCT f.Machine,f.FCillumID FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s", prepID)
     Machines = sequenceDB.fetchall()
     chemVer = 'v4'
+    sequenceDB.execute("SELECT DISTINCT chemver FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s", prepID)
+    chemVer = sequenceDB.fetchall()[0]
     #print Machines,prepID
     H2500 = 0
     H2000 = 0
@@ -68,17 +70,13 @@ def getPlatformChemVer(sequenceDB,prepID):
     #print rapid,H2500,H2000
     if H2500 == 1 and H2000 == 1:
         platform = 'HiSeq2000 and HiSeq2500'
-        chemVer = 'v4'
     elif H2000 == 1 and H2500 == 0:
         platform = 'HiSeq2000'
-        chemVer = 'v3'
     elif H2000 == 0 and H2500 == 1:
         if rapid == 1:
             platform = 'HiSeq2500'
-            chemVer = 'v3r'
         else:
             platform = 'HiSeq2500'
-            chemVer = 'v4'
     else:
         raise Exception, "Check Machine for prepID %s!" % (prepID)
     return platform,chemVer
@@ -120,6 +118,7 @@ def sequenceDB_exist_check(sequenceDB,prepID):
 		return 1
 
 def checkExomeKit(sequenceDB,ExomeSamPrepKit):
+    #print ExomeSamPrepKit
     sequenceDB.execute("SELECT * FROM captureKit where name=%s and chr='all'"\
             ,(ExomeSamPrepKit))
     isCaptureKit = sequenceDB.fetchone()
