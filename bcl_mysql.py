@@ -52,19 +52,19 @@ def getReads(sequenceDB,FCID):
     Recipe = Recipe[0]
 
     if Recipe == '1':
-        return "LenR1='101', LenR2='101', LenI1='7',"
+        return "LenR1='101', LenR2='101', LenI1='7'," #HiSeq 2000 V3
     elif Recipe =='2':
-        return "LenR1='101', LenR2='101',"
+        return "LenR1='101', LenR2='101'," #No index
     elif Recipe =='3':
-        return "LenR1='101', LenR2='101', LenI1='7', LenI2='7',"
+        return "LenR1='101', LenR2='101', LenI1='7', LenI2='7'," #Dual Indexed v3
     elif Recipe =='4':
-        return "LenR1='100', LenR2='100', LenI1='9',"
+        return "LenR1='100', LenR2='100', LenI1='9'," #Extended Read
     elif Recipe =='5':
-        return "LenR1='126', LenR2='126', LenI1='7',"
+        return "LenR1='126', LenR2='126', LenI1='7'," #HiSeq 2500
     elif Recipe =='6':
-        return "LenR1='101', LenR2='101', LenI1='8',"
-    elif Recipe =='6':
-        return "LenR1='151', LenR2='151', LenI1='7',"
+        return "LenR1='151', LenR2='151', LenI1='7'," #HiSeq X
+    elif Recipe =='8':
+        return "LenR1='251', LenR2='251', LenI1='7'," #Rapid V2
 
 
 def updateFC(sequenceDB,FCID,Machine,pwd):
