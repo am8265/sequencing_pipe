@@ -154,7 +154,7 @@ def process_exomekit(sequencing_info,seqtype,sequenceDB):
             ExomeSamPrepKit = 'DILIN'
         elif 'MattHaloplex2015' in sequencing_info[1]:
             ExomeSamPrepKit = 'MattHaloplex2015'
-        elif 'MCD_MTOR' in sequencing_info[1]:
+        elif 'MTOR' in sequencing_info[1]:
             ExomeSamPrepKit = 'MCDMTOR'
         else:
             ExomeSamPrepKit =  sequencing_info[1]
