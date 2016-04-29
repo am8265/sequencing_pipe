@@ -20,7 +20,7 @@ def fastqc_mysql(sequenceDB,samp,seqsata,read,FCID):
     Lane = samp[1]
     r = 'R'+str(read)
 
-    sequenceDB.execute("SELECT s.Seqtype from Lane l join SampleT s on l.dbid=s.dbid join Flowcell f on f.fcid=l.fcid where s.CHGVID=%s and f.FCillumID=%s and LaneNum=%s", (SampleID,FCID,LaneNum))
+    sequenceDB.execute("SELECT replace(s.Seqtype,' ','_') from Lane l join SampleT s on l.dbid=s.dbid join Flowcell f on f.fcid=l.fcid where s.CHGVID=%s and f.FCillumID=%s and LaneNum=%s", (SampleID,FCID,LaneNum))
     Seqtype = sequenceDB.fetchone()[0]
 
     summaryFile = '/nfs/%s/%s/%s/%s/%s_*L00%s_R%s_fastqc/summary.txt'  % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)
