@@ -66,12 +66,11 @@ def getUserID():
 def MachineCheck(sequenceDB,Machine,FCID):
     sql = """SELECT MACHINE
             FROM Flowcell
-            WHERE FCIllumID like'%{0}%'
+            WHERE FCIllumID = '{0}'
             """.format(FCID)
 
     sequenceDB.execute(sql)
     MachineFromDB = sequenceDB.fetchall()
-    
     if len(MachineFromDB) != 1:
         raise Exception, "Incorrect number of FCIDs found!"
     else:
