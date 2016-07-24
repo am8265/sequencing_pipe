@@ -187,8 +187,8 @@ def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned):
     for num in range(1,TotalLanes+1):
         lanes = demulti_d[str(num)]
         lane_switch = 0
-        
         highlightRowNumber = []
+
         for samp in lanes:
             #print samp
             ClusterDensity = getClusterDensity(sequenceDB,FCID,lanes[0][5])
@@ -277,7 +277,6 @@ def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
             pass
         else:
             kapaPicoDBID = getKapaPicoDBID(sequenceDB,FCID,samp[0])
-           
             poolName = getPoolName(sequenceDB,kapaPicoDBID[2])
             logging.info('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' %
                     (samp[0],samp[4],samp[6],samp[1],ClusterDensity,poolName,kapaPicoDBID[0],cbot))
@@ -293,7 +292,6 @@ def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
                     email.write('<td bgcolor="#FFFF00">%s</td>\n' % column)
                 highlightRowCount += 1
 
-                 
             email.write("</tr>\n")
 
 
@@ -308,7 +306,7 @@ def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
                 email.write('<tr><td colspan="8" align="center">Lane %s\'s unmatched reads percent: %s</td></tr>\n' %
                     (lanes[0][5],samp[1]))
             email.write('<tr><td colspan="8" align="center">&nbsp</td></tr>\n')
-          
+
 def opts(argv):
     global verbose
     verbose = False
@@ -369,7 +367,7 @@ def main():
         UpdateFC(sequenceDB,FCID,Unaligned)
         checkLaneFractions(sequenceDB,FCID,Machine,Unaligned)
         UpdateSample(sequenceDB,FCID)
-       
+
         sequenceDB.execute('COMMIT;')
         sequenceDB.close()
         logger.info('Done')
