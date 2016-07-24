@@ -24,6 +24,7 @@ def getBestBCLDrive():
             bcl_seqsata = jobs.split('_')[2]
             runningSeqscratchList.append(bcl_seqsata)
     seqscratchDrives = ['fastq16','seqscratch09','seqscratch10','seqscratch11']
+
     availSeqscratchDrives = set(seqscratchDrives) - set(runningSeqscratchList)
 
     if availSeqscratchDrives == set([]):
@@ -40,7 +41,7 @@ def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
     address = 'jb3816@cumc.columbia.edu'
     pythonProgram = '/nfs/goldstein/software/python2.7/bin/python2.7'
     scriptLoc = '/home/jb3816/github/sequencing_pipe'
-    
+
     BCLCmd =         ("{0} {1}/bcl.py -i {2} -b {3}").format(pythonProgram,scriptLoc,runFolder,BCLDrive)
     BCLMySQLCmd =    ("{0} {1}/bcl_mysql.py -i {2}").format(pythonProgram,scriptLoc,runFolder)
     postBCLCmd =     ("{0} {1}/post_bcl.py -i {2} -s {3} -b {4}").format(pythonProgram,scriptLoc,runFolder,seqsata,BCLDrive)
@@ -65,7 +66,7 @@ def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
             ).format(seqsata,machine,FCID)
 
     else:
-        
+
         #stage 1
         os.system(BCLCmd)
         logger.info(BCLCmd)
@@ -177,20 +178,22 @@ def check_cwd(runPath):
         raise Exception, 'The CWD is not within a run folder of a seqscratch drive!'
 
 def RTA_check(runPath):
-	logger = logging.getLogger('RTA_check')
-	if os.path.isfile('%s/RTAComplete.txt' % runPath) == False:
-		logger.warn("RTA has not completed!")
-		raise Exception, "RTA has not completed!"
-	else:
-		logger.info('RTA has already completed')
-		print "RTA has already completed"
+    logger = logging.getLogger('RTA_check')
+    if os.path.isfile('%s/RTAComplete.txt' % runPath) == False:
+        logger.warn("RTA has not completed!")
+        raise Exception, "RTA has not completed!"
+    else:
+        logger.info('RTA has already completed')
+        print "RTA has already completed"
 
 def completeCheck(runFolder):
 	if os.path.isfile("/nfs/seqscratch1/Runs/%s/StorageComplete.txt" % runFolder) == True:
 		raise Exception, "Pipeline already completed!"
 
 def Machine_check(sequenceDB,FCID,machine):
-    sequenceDB.execute("Select Machine,Complete from Flowcell where FCillumID='%s'" % FCID)
+    query = "SELECT Machine,Complete FROM Flowcell where FCIllumID='%s'" % FCID
+    #print query
+    sequenceDB.execute(query)
     sequenceDB_machine = sequenceDB.fetchall()
     #print sequenceDB_machine
     if len(sequenceDB_machine) > 1:
@@ -209,12 +212,22 @@ def main():
         runFolder = os.getcwd()
 
     #print runFolder
-    check_cwd(runPath)
+    #check_cwd(runPath)
     RTA_check(runPath)
 
     runFolder = runPath.split('/')[4]
     info =  runFolder.split('_')
     FCID = info[3]
+
+    """Sequencing output is in the following format:
+    [Date]_[IGM Machine Name]_[HiSeq Run Number]_[Flowcell ID]_[Project Name]
+    However in cases of Illumina maintence they will re-image the machine and
+    reset the output folder to Illumina default:
+    [Date]_[Illumina Machine Name]_[HiSeq Run Number]_[Machine Side][Flowcell ID]
+    """
+    if len(FCID) != 9:
+        raise Exception, "FCID %s is formatted incorrectly!" % FCID
+
     run_date = info[0]
     machine = info[1]
 
