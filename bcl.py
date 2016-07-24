@@ -147,6 +147,7 @@ def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
         ).format(DBID,FCID,LaneNum)
     sequenceDB.execute(sql)
     laneFraction = sequenceDB.fetchone()[0]
+    #print DBID,FCID,LaneNum
     if float(laneFraction) == 0:
         raise Exception, ("Missing laneFraction values from samplesToRun for "
             "DBID: {0} on Lane: {1} ").format(DBID,LaneNum)
@@ -202,9 +203,9 @@ def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
         #numPools = 0
         NumPoolSamples = 1
 
-        
+    #print "LaneNum,DBID,seqtype,float(laneFraction),numPools,NumOtherSamples,NumLanesSampleOn,NumPoolSamples"
     #print LaneNum,DBID,seqtype,float(laneFraction),numPools,NumOtherSamples,NumLanesSampleOn,NumPoolSamples
- 
+
     if seqtype == 'Genome':
         #SampleLaneFraction = float(laneFraction)/(numPools+1)/NumPoolSamples/NumLanesSampleOn
         SampleLaneFraction = float(1)/(numPools + NumOtherSamples)
@@ -232,7 +233,7 @@ def create_sss(runPath,FCID,Machine,date,sequenceDB):
     if FCID[0] == 'H':
         lane_num = 2
     for LaneNum in range(1,lane_num+1):
-        sql = ("SELECT DBID " 
+        sql = ("SELECT DBID "
             "FROM Lane l "
             "JOIN Flowcell f "
             "ON l.FCID=f.FCID "

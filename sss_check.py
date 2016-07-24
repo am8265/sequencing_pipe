@@ -81,7 +81,7 @@ def sss_qc(FCID):
 		check_dup_index(FCID,key)
 		TotalLnFrac = adict[key]
 		if key != '':
-			#print TotalLnFrac
+			#print TotalLnFrac,key
 			if TotalLnFrac < 0.97:
 				raise Exception, 'Warning: Lane Fraction do not add approximately to 1 for %s for lane %s!' % (FCID,key)
 			elif TotalLnFrac > 1.002:
