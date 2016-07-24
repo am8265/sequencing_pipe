@@ -43,10 +43,10 @@ def checkBCLFolderExist(completeFlowcell,sequenceDB):
         RTAComplete = RTACompleteCheck(FCIllumID)
         #print RTAComplete == True and BCLFolder == []
         if BCLFolder == [] and RTAComplete == True:
-            cmd = "/nfs/goldstein/software/python2.7/bin/python2.7 /nfs/goldstein/software/sequencing_pipe/production/GAF_PIPELINE.py --FCID %s -r" % FCIllumID
+            #cmd = "/nfs/goldstein/software/python2.7/bin/python2.7 /nfs/goldstein/software/sequencing_pipe/production/GAF_PIPELINE.py --FCID %s -r" % FCIllumID
             cmd = "/nfs/goldstein/software/python2.7/bin/python2.7 /home/jb3816/github/sequencing_pipe/GAF_PIPELINE.py --FCID %s -r" % FCIllumID
-
-            #print cmd
+            print "Starting GAF pipeline..."
+            print cmd
             query = ("UPDATE Flowcell "
                 "SET pipelineComplete = pipelineComplete + 1 "
                 "WHERE FCIllumID = '{0}'"
