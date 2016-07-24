@@ -25,7 +25,7 @@ def Samples():
 
 def checkS2R(sequenceDB,SampleID,prepID):
     '''check that all lanes are complete in S2R'''
-    sequenceDB.execute("SELECT complete FROM samplesTOrun s2r JOIN poolMembers pm ON s2r.dbID=pm.poolid WHERE pm.prepID=%s AND complete=0", prepID)
+    sequenceDB.execute("SELECT complete FROM samplesTOrun s2r JOIN poolMembers pm ON s2r.dbID=pm.poolid WHERE pm.prepID=%s AND complete=0 AND fail=0", prepID)
     S2Rsamp = sequenceDB.fetchall()
     #print S2Rsamp,SampleID,prepID
     #print "SELECT complete FROM samplesTOrun s2r JOIN poolMembers pm ON s2r.dbID=pm.poolid WHERE pm.prepID=%s AND complete=0", prepID
@@ -44,15 +44,22 @@ def check_Lane(sequenceDB,prepID,CHGVID):
 def getPlatformChemVer(sequenceDB,prepID):
     sequenceDB.execute("SELECT DISTINCT f.Machine,f.FCillumID FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s", prepID)
     Machines = sequenceDB.fetchall()
-    chemVer = 'v4'
-    sequenceDB.execute("SELECT DISTINCT chemver FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s", prepID)
-    chemVer = sequenceDB.fetchall()[0]
+    ChemVer = 'v4'
+    query="SELECT DISTINCT chemver FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s" % prepID
+
+    if verbose == True:
+        print query
+    sequenceDB.execute(query)
+    ChemVer = sequenceDB.fetchall()[0]
+
+    if type(ChemVer) == tuple:
+        ChemVer = ChemVer[0]
+
     #print Machines,prepID
     H2500 = 0
     H2000 = 0
     HX = 0 #placeholder for HiSeq X
     rapid = 0
-
 
     for HiSeq in Machines:
         #print HiSeq,HiSeq[0][0]
@@ -66,7 +73,6 @@ def getPlatformChemVer(sequenceDB,prepID):
     else:
         H2000 = 1
 
-
     #print rapid,H2500,H2000
     if H2500 == 1 and H2000 == 1:
         platform = 'HiSeq2000 and HiSeq2500'
@@ -79,7 +85,7 @@ def getPlatformChemVer(sequenceDB,prepID):
             platform = 'HiSeq2500'
     else:
         raise Exception, "Check Machine for prepID %s!" % (prepID)
-    return platform,chemVer
+    return platform,ChemVer
 
 #Processes Fastq Location information from the Flowcell and Lane tables
 def getFastqLoc(sequenceDB,SampleID,prepID,seqtype):
@@ -170,12 +176,23 @@ def getSampleTinfo(sequenceDB,prepID):
         "SelfDeclEthnic,SelfDeclEthnicDetail,SelfDeclGender,GwasGender,"
         "GwasEthnic,GenoChip,GAFbin,FundCode,RepConFamMem,"
         "FamilyRelationProband,priority,OrigID,CurrProjLeader,AlignedBuild36,"
+        "priority,BroadPhenotype,DetailedPhenotype "
+        "from SampleT s "
+        "JOIN prepT pt on s.DBID=pt.DBID "
+        "WHERE pt.prepID={0}"
+        ).format(prepID)
+    """
+    sql = ("SELECT s.CHGVID,s.Phenotype,s.FamilyID,s.DNASrc,s.GwasID,"
+        "s.FinalRepLoc,s.Topstrandfile,AKA,ProjName,Protocol,AvaiContUsed,"
+        "SelfDeclEthnic,SelfDeclEthnicDetail,SelfDeclGender,GwasGender,"
+        "GwasEthnic,GenoChip,GAFbin,FundCode,RepConFamMem,"
+        "FamilyRelationProband,priority,OrigID,CurrProjLeader,AlignedBuild36,"
         "priority "
         "from SampleT s "
         "JOIN prepT pt on s.DBID=pt.DBID "
         "WHERE pt.prepID={0}"
         ).format(prepID)
-
+    """
     sequenceDB.execute(sql)
     SampleT_info = sequenceDB.fetchone()
     #print SampleT_info
@@ -242,8 +259,9 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
         columns.append(('PrepKit',PrepKit,0))
         columns.append(('SamMultiplex',SamMultiplex,0))
         columns.append(('StatusChangeDate','curdate()',1))
-
-        columns.append(('Phenotype',sInfo[1].replace("'","\\'"),0))
+        columns.append(('Phenotype',sInfo[1],0))
+        columns.append(('BroadPhenotype',sInfo[26],0))
+        columns.append(('DetailedPhenotype',sInfo[27],0))
         columns.append(('FamilyID',sInfo[2],0))
         columns.append(('DNASrc',sInfo[3],0))
         columns.append(('GwasID',sInfo[4],0))
@@ -286,17 +304,20 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
         if sequenceDB_exist == 1:
             UpdateQuery = constructMySql('UPDATE','seqdbClone',columns)
             UpdateQuery = UpdateQuery[:-1] + " WHERE prepID='%s'" % prepID
-            logger.info(UpdateQuery)
-            sequenceDB.execute(UpdateQuery)
             if verbose == True:
                 print UpdateQuery
+
+            logger.info(UpdateQuery)
+            sequenceDB.execute(UpdateQuery)
 
         if sequenceDB_exist != 1:
             columns = []
             columns.append(('Status','Released to Bioinformatics Team',0))
             columns.append(('CHGVID',sInfo[0],0))
             columns.append(('Seqtype',seqtype,0))
-            columns.append(('Phenotype',sInfo[1].replace("'","\\'"),0))
+            columns.append(('Phenotype',sInfo[1],0))
+            columns.append(('BroadPhenotype',sInfo[26],0))
+            columns.append(('DetailedPhenotype',sInfo[27],0))
             columns.append(('FamilyID',sInfo[2],0))
             columns.append(('DNASrc',sInfo[3],0))
             columns.append(('GwasID',sInfo[4],0))
@@ -440,6 +461,8 @@ def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
 
     failYield = ''
     poolID = ''
+
+    #-->code a better check for External Data Submitted <--#
     if status[0] == 'External Data Submitted':
         pass
     elif int(info[0]) < 100000 and SeqType.lower() == 'genome':
