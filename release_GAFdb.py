@@ -10,7 +10,6 @@ import traceback
 from commands import getoutput
 from datetime import datetime
 from MySQLdb import Connect
-from CHGV_mysql import getseqdb
 from CHGV_mysql import getSequenceDB
 from CHGV_mysql import getUserID
 from checkRelease import checkUpdateDB
@@ -20,7 +19,7 @@ def Samples():
     path = sys.argv[1]
     if os.path.isfile(path) == False:
         print '/nfs/genotyping/bridgers/'+path
-        raise exception, "sample list file does not exist"
+        raise Exception, "sample list file does not exist"
     return path
 
 def checkS2R(sequenceDB,SampleID,prepID):
@@ -261,7 +260,7 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
         columns.append(('StatusChangeDate','curdate()',1))
         columns.append(('Phenotype',sInfo[1],0))
         columns.append(('BroadPhenotype',sInfo[26],0))
-        columns.append(('DetailedPhenotype',sInfo[27],0))
+        columns.append(('DetailedPhenotype',sInfo[27].replace("'",''),0))
         columns.append(('FamilyID',sInfo[2],0))
         columns.append(('DNASrc',sInfo[3],0))
         columns.append(('GwasID',sInfo[4],0))
@@ -512,7 +511,7 @@ def check_Storage(sequenceDB,prepID,SeqType):
         #print "/nfs/seqsata*/seqfinal*/whole_genome/%s/%s/%s*L00%s*R1*fastq.gz" % (SampleID,FCID,SampleID,LaneNum)
 
         #checks how many files are there for that FC, LaneNum and Sample.  If 0 warning sent out
-    
+
         SeqType=SeqType.upper().replace(' ','_')
         r1files = len(glob.glob("/nfs/fastq16/%s/%s/%s/%s*L00%s*R1*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
         r2files = len(glob.glob("/nfs/fastq16/%s/%s/%s/%s*L00%s*R2*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
@@ -798,11 +797,12 @@ def checkPoolingRelease(IDs,failedSamples):
     return IDs
 
 def getDBID(sequenceDB,prepID):
-	sequenceDB.execute("select DBID from prepT where prepID=%s", prepID)
-	DBID = sequenceDB.fetchone()
-	#print DBID,prepID
-	DBID = DBID[0]
-	return DBID
+    #print prepID
+    sequenceDB.execute("select DBID from prepT where prepID=%s", prepID)
+    DBID = sequenceDB.fetchone()
+    #print DBID,prepID
+    DBID = DBID[0]
+    return DBID
 
 def setup_logging():
 	logging.basicConfig(level=logging.INFO,format='%(asctime)s: %(name)s: [%(levelname)s] - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',filename='/nfs/sva01/Summaries/RELEASE_LOG.log')
@@ -843,6 +843,7 @@ def main():
         for SampleID in sampleList.readlines():
 
             SampleID = SampleID.strip()
+            print 'getting IDs for {}'.format(SampleID)
             prepID = getIDs(SampleID,SeqType,sequenceDB,capturekit)
             logger.debug('Releasing sample %s %s...' % (SampleID,prepID))
             DBID = getDBID(sequenceDB,prepID)

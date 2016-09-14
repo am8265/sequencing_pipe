@@ -6,12 +6,6 @@ import logging
 import os
 #mysql cursors
 
-def getseqdb():
-    seqdb=Connect(read_default_group='clientseqdb')
-    seq_curs=seqdb.cursor()
-    seq_curs.execute('BEGIN;')
-    return seq_curs
-
 def getGAFdb():
     gafdb=Connect(read_default_group="clientgaf")
     gaf_curs=gafdb.cursor()
