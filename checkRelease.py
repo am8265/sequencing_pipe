@@ -2,7 +2,6 @@
 
 import sys
 from MySQLdb import Connect
-from CHGV_mysql import getseqdb
 from CHGV_mysql import getSequenceDB
 
 def checkUpdateDB(sequenceDB,prepID,SampleID,SeqType,DBID):
