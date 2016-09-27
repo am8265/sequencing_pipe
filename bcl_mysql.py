@@ -52,13 +52,13 @@ def getReads(sequenceDB,FCID):
     Recipe = Recipe[0]
 
     if Recipe == '1':
-        return "LenR1='101', LenR2='101', LenI1='7'," #HiSeq 2000 V3
+        return "LenR1='101', LenR2='101', LenI1='7'," #HiSeq 2000 V3 and Rapid V1 chemistry
     elif Recipe =='2':
         return "LenR1='101', LenR2='101'," #No index
     elif Recipe =='3':
         return "LenR1='101', LenR2='101', LenI1='7', LenI2='7'," #Dual Indexed v3
     elif Recipe =='4':
-        return "LenR1='100', LenR2='100', LenI1='9'," #Extended Read
+        return "LenR1='100', LenR2='100', LenI1='9'," #Extended Index read
     elif Recipe =='5':
         return "LenR1='126', LenR2='126', LenI1='7'," #HiSeq 2500
     elif Recipe =='6':
@@ -73,7 +73,6 @@ def updateFC(sequenceDB,FCID,Machine,pwd):
     DateBcl = cur_datetime()
     DateRTA = getRTAdate(pwd)
     DateRead1 = getRead1Date(FCID)
-    #ChemVer = getChemVer(Machine)
     RTAVer,HCSver = ver_num(pwd)
     Read_SQL_Command = getReads(sequenceDB,FCID)
     #print DateRTA
@@ -81,7 +80,7 @@ def updateFC(sequenceDB,FCID,Machine,pwd):
     sql = ("UPDATE Flowcell "
         "SET {0} RTAVer='{1}', HCSVer='{2}', DateRead1='{3}', DateRTA='{4}', "
         "DateBcl='{5}', SeqsataLoc='{6}' "
-        "WHERE FCillumID='{7}'" 
+        "WHERE FCillumID='{7}'"
         ).format(Read_SQL_Command,RTAVer,HCSver,DateRead1,DateRTA,DateBcl,seqLoc,FCID)
     if verbose == True:
         print sql
