@@ -271,6 +271,7 @@ def create_sss(runPath,FCID,Machine,date,sequenceDB):
                     WHEN f.recipe=5 THEN '126x7x126'\
                     WHEN f.recipe=6 THEN '101x8x101'\
                     WHEN f.recipe=7 THEN '151x7x151'\
+                    WHEN f.recipe=8 THEN '251x7x251'\
                 END) Recipe,\
                 replace(u.name,' ','') Operator,\
                 replace(s.GAFbin,' ','') Project \
@@ -376,7 +377,6 @@ def RTA_check(runPath):
     else:
         logger.info('RTA has already completed')
         print "RTA has already completed"
-   
 
 def main():
     sequenceDB = getSequenceDB()
