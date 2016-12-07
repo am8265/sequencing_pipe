@@ -47,7 +47,6 @@ FCID=$(echo $runFolder | cut -d_ -f4)
 
 source=$BCLDrive/
 seqsata=/nfs/${Seqsata}/
-RSYNC_DRIVE=/nfs/${Seqsata}-rsync/
 
 email="jb3816@cumc.columbia.edu dn2404@cumc.columbia.edu"
 completed=`grep -o "INFO: all completed" $source/*$FCID*/nohup.sge`
@@ -99,12 +98,12 @@ for s in $source/*$FCID*/Project*/Sample*; do
 		echo $(date) mv $s/* $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
 		mv $s/* $seqsata/$seqtype/$sampleID/$FCID
 	else
-		echo $(date) rsync -avP $s/* $RSYNC_DRIVE/$seqtype/$sampleID/$FCID >> $LOG_FILE
-		rsync -avP --remove-source-files $s/* $RSYNC_DRIVE/$seqtype/$sampleID/$FCID
+		echo $(date) rsync -avP $s/* $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
+		rsync -avP --remove-source-files $s/* $seqsata/$seqtype/$sampleID/$FCID
 	fi
 
-	echo rsync -avP $source/*$FCID*/Basecall_Stats_$FCID/Demultiplex_Stats.htm $RSYNC_DRIVE/$seqtype/$sampleID/$FCID >> $LOG_FILE
-	rsync -avP $source/*$FCID*/Basecall_Stats_$FCID/Demultiplex_Stats.htm $RSYNC_DRIVE/$seqtype/$sampleID/$FCID
+	echo rsync -avP $source/*$FCID*/Basecall_Stats_$FCID/Demultiplex_Stats.htm $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
+	rsync -avP $source/*$FCID*/Basecall_Stats_$FCID/Demultiplex_Stats.htm $seqsata/$seqtype/$sampleID/$FCID
 
 	echo "Transferred file list" >> $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt	
 	echo ls -ltr $seqsata/$seqtype/$sampleID/$FCID \>\> $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt >> $LOG_FILE
@@ -119,14 +118,14 @@ mv_filenum=`ls $seqsata/*/*/$FCID/*fastq.gz | wc -l`
 echo ls $seqsata/*/*/$FCID/*fastq.gz | wc -l >> $LOG_FILE
 
 #Create SAV file of run
-zip /nfs/seqscratch1/Runs/$runFolder/${FCID}_$(echo $runFolder | xargs -n1 basename | cut -d_ -f1,2)_SAV.zip /nfs/seqscratch1/Runs/$runFolder/RunInfo.xml /nfs/seqscratch1/Runs/$runFolder/runParameters.xml /nfs/seqscratch1/Runs/$runFolder/InterOp/
+tar cvzf /nfs/seqscratch1/Runs/$runFolder/${FCID}_$(echo $runFolder | xargs -n1 basename | cut -d_ -f1,2)_SAV.tar.gz /nfs/seqscratch1/Runs/$runFolder/RunInfo.xml /nfs/seqscratch1/Runs/$runFolder/runParameters.xml /nfs/seqscratch1/Runs/$runFolder/InterOp/ >> $LOG_FILE
 
 #Save bcl2fastq output
 zip $source/$FCID.bcl.nohup.zip $source/*$FCID*/nohup.sge
 
 #Copy log files
 mv $source/$FCID.bcl.nohup.zip $seqsata/summary/bcl_nohup
-rsync -avP /nfs/seqscratch1/Runs/$runFolder/$FCID*_SAV.zip $RSYNC_DRIVE/summary/SAV/
+rsync -avP /nfs/seqscratch1/Runs/$runFolder/$FCID*_SAV.tar.gz $seqsata/summary/SAV/
 
 echo "SUM of fastq.gz files after move: $mv_filesize" >> $LOG_FILE
 echo "Number of fastq.gz files after move: $mv_filenum" >> $LOG_FILE
