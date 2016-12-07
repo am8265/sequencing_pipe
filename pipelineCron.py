@@ -14,7 +14,8 @@ def main():
             "where (pipelineComplete != 1 and complete = 1 and fail != 1) "
             "group by l.FCID "
             "order by min(priority) asc , from_unixtime(seqend) asc")
-    #print query
+    print query
+    raw_input
     sequenceDB.execute(query)
     completeFlowcell = sequenceDB.fetchall()
     if len(completeFlowcell) != 0:
@@ -44,6 +45,7 @@ def checkBCLFolderExist(completeFlowcell,sequenceDB):
         #print RTAComplete == True and BCLFolder == []
         if BCLFolder == [] and RTAComplete == True:
             #cmd = "/nfs/goldstein/software/python2.7/bin/python2.7 /nfs/goldstein/software/sequencing_pipe/production/GAF_PIPELINE.py --FCID %s -r" % FCIllumID
+            cmd = "/nfs/goldstein/software/python2.7/bin/python2.7 /home/jb3816/github/sequencing_pipe/GAF_PIPELINE.py --FCID %s -r -s fastq_temp2" % FCIllumID
             cmd = "/nfs/goldstein/software/python2.7/bin/python2.7 /home/jb3816/github/sequencing_pipe/GAF_PIPELINE.py --FCID %s -r" % FCIllumID
             print "Starting GAF pipeline..."
             print cmd

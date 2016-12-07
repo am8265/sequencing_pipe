@@ -25,7 +25,7 @@ def UpdateFC(sequenceDB,FCID,Unaligned):
     logger = logging.getLogger('UpdateFC')
     CasavaVer = getoutput(('grep bcl2fastq -i {0}/Basecall_Stats_{1}/Demultiplex_Stats.htm  | ' 
         'cut -d- -f2 | cut -d\< -f1').format(Unaligned,FCID))
-    sequenceDB.execute("SELECT Sum(LnYield) FROM Lane l join Flowcell f on l.fcid=f.fcid where FCillumID='%s'" % FCID)
+    sequenceDB.execute("SELECT Sum(LnYield) FROM Lane l JOIN Flowcell f on l.fcid=f.fcid WHERE FCillumID='%s'" % FCID)
     fcYield = sequenceDB.fetchone()
     sql = ("UPDATE Flowcell f "
         "JOIN Lane l ON f.FCID=l.FCID "
@@ -79,13 +79,13 @@ def checkStatus(sequenceDB,FCID):
     """Check Status of all samples on the flowcell before the status update"""
     logger = logging.getLogger('checkStatus')
 
-    sequenceDB.execute('SELECT DISTINCT prepID FROM Lane l join Flowcell f on l.FCID=f.FCID WHERE f.FCillumID=%s', FCID)
+    sequenceDB.execute('SELECT DISTINCT prepID FROM Lane l JOIN Flowcell f on l.FCID=f.FCID WHERE f.FCillumID=%s', FCID)
     samples = sequenceDB.fetchall()
     except_swt = 0
     for prepID in samples:
         sequenceDB.execute('SELECT CHGVID,status FROM statusT WHERE prepID=%s ORDER BY status_time DESC LIMIT 1', (prepID))
         status = sequenceDB.fetchone()
-        sequenceDB.execute('SELECT SeqType from SeqType where prepID=%s', prepID)
+        sequenceDB.execute('SELECT SeqType from SeqType WHERE prepID=%s', prepID)
         SeqType = sequenceDB.fetchone()
         if status[1] != 'BCL' and SeqType[0] != 'Genome':
             except_swt = 1
@@ -107,9 +107,9 @@ def UpdateSample(sequenceDB,FCID):
     if noStatusUpdate == False:
 
         if verbose == True:
-            print "INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,'%s' FROM Flowcell f join Lane l on l.FCID=f.FCID join prepT pt on pt.prepID=l.prepID where FCillumid='%s'" % (userID,FCID)
-        logger.info("INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,'%s' FROM Flowcell f join Lane l on l.FCID=f.FCID join prepT pt on pt.prepID=l.prepID where FCillumid='%s'" % (userID,FCID))
-        sequenceDB.execute("INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,%s FROM Flowcell f join Lane l on l.FCID=f.FCID join prepT pt on pt.prepID=l.prepID where FCillumid=%s", (userID,FCID))
+            print "INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,'%s' FROM Flowcell f JOIN Lane l on l.FCID=f.FCID JOIN prepT pt on pt.prepID=l.prepID WHERE FCillumid='%s'" % (userID,FCID)
+        logger.info("INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,'%s' FROM Flowcell f JOIN Lane l on l.FCID=f.FCID JOIN prepT pt on pt.prepID=l.prepID WHERE FCillumid='%s'" % (userID,FCID))
+        sequenceDB.execute("INSERT INTO statusT (CHGVID,status_time,status,DBID,prepID,userID) SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,%s FROM Flowcell f JOIN Lane l on l.FCID=f.FCID JOIN prepT pt on pt.prepID=l.prepID WHERE FCillumid=%s", (userID,FCID))
 
 def usage():
     print '-i, --input\t\tParameter is the location of the Unaligned folder'
@@ -170,7 +170,17 @@ def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned):
             SeqType = 'N/A'
         else:
             lnFrac = float(d_info[4].split('_')[0])
-            sequenceDB.execute("SELECT SeqType FROM SeqType s where prepID=(SELECT Distinct l.prepID FROM Lane l join Flowcell f on l.FCID=f.FCID join SampleT s on l.DBID=s.DBID where CHGVID=%s and FCillumID=%s and LaneNum=%s)", (SampleID,FCID,Lane))
+            query = ("SELECT SeqType "
+                    "FROM SeqType s "
+                    "WHERE prepID=(SELECT Distinct l.prepID "
+                        "FROM Lane l "
+                        "JOIN Flowcell f on l.FCID=f.FCID "
+                        "JOIN prepT p on l.DBID=p.DBID "
+                        "WHERE CHGVID='{}' "
+                        "AND FCillumID='{}' "
+                        "AND LaneNum={})"
+                    ).format(SampleID,FCID,Lane)
+            sequenceDB.execute(query)
             SeqType = sequenceDB.fetchone()
             #print SampleID,FCID,Lane,SeqType
             #print SampleID,FCID,SeqType
@@ -240,28 +250,28 @@ def send_email(email_switch,FCID,Machine,Unaligned):
         os.system("touch %s/EmailSent.txt" % Unaligned)
 
 def getClusterDensity(sequenceDB,FCID,LaneNum):
-	sequenceDB.execute("SELECT DISTINCT ClustDen FROM Lane l JOIN Flowcell f on l.FCID=f.FCID WHERE FCillumID=%s and LaneNum=%s", (FCID,LaneNum))
+	sequenceDB.execute("SELECT DISTINCT ClustDen FROM Lane l JOIN Flowcell f on l.FCID=f.FCID WHERE FCillumID=%s AND LaneNum=%s", (FCID,LaneNum))
 	ClustDen = sequenceDB.fetchone()
 	return ClustDen[0]
 
 def getCbot(sequenceDB,FCID):
-    sequenceDB.execute("SELECT cbot from Flowcell where FCillumID=%s", FCID)
+    sequenceDB.execute("SELECT cbot from Flowcell WHERE FCillumID=%s", FCID)
     cbot = sequenceDB.fetchone()
     return cbot[0]
 
 def getKapaPicoDBID(sequenceDB,FCID,CHGVID):
-    sequenceDB.execute("SELECT kapa_conc,picomoles,s2r.dbid FROM Lane l join Flowcell f\
-            ON f.FCID=l.FCID join prepT pt ON l.prepID=pt.prepID join\
-            samplesTOrun s2r ON s2r.seqID=l.seqID join SampleT s ON\
+    sequenceDB.execute("SELECT kapa_conc,picomoles,s2r.dbid FROM Lane l JOIN Flowcell f\
+            ON f.FCID=l.FCID JOIN prepT pt ON l.prepID=pt.prepID JOIN\
+            samplesTOrun s2r ON s2r.seqID=l.seqID JOIN SampleT s ON\
             s.DBID=pt.DBID LEFT JOIN poolMembers pm ON (pm.DBID=pt.DBID AND\
-                pm.poolID=l.poolID)  where FCIllumID=%s and\
+                pm.poolID=l.poolID)  WHERE FCIllumID=%s and\
                 pt.CHGVID=%s", (FCID,CHGVID))
     kapaPicoDBID = sequenceDB.fetchone()
     #print kapaPicoDBID
     return kapaPicoDBID
 
 def getPoolName(sequenceDB,DBID):
-    sequenceDB.execute("select CHGVID from SampleT where dbid=%s", DBID)
+    sequenceDB.execute("select CHGVID from SampleT WHERE dbid=%s", DBID)
     poolName = sequenceDB.fetchone()
     return poolName[0]
 

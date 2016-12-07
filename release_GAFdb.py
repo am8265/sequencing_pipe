@@ -95,11 +95,11 @@ def getFastqLoc(sequenceDB,SampleID,prepID,seqtype):
 
 def getPoolID(sequenceDB,prepID):
     sql=("SELECT "
-        "(SELECT CHGVID FROM SampleT "
-        "WHERE dbid="
-            "(SELECT poolID FROM Lane l "
-            "JOIN Flowcell f ON l.FCID=f.FCID "
-            "WHERE l.prepID={0} ORDER BY FCtime DESC LIMIT 1)) "
+            "(SELECT CHGVID FROM prepT "
+            "WHERE dbid="
+                "(SELECT poolID FROM Lane l "
+                "JOIN Flowcell f ON l.FCID=f.FCID "
+                "WHERE l.prepID={0} ORDER BY FCtime DESC LIMIT 1)) "
         "poolID,exomeKit,libKit FROM prepT "
         "WHERE prepID={0};"
         ).format(prepID)
@@ -130,14 +130,12 @@ def checkExomeKit(sequenceDB,ExomeSamPrepKit):
 
     #print isCaptureKit
     if isCaptureKit is None:
-        raise Exception, "%s: ExomeSamPrepKit information from SampleT not \
-                handled correctly for Exomes" % sequencing_info[1]
+        raise Exception, "%s: ExomeSamPrepKit information does not exist" % sequencing_info[1]
 
 
 def process_exomekit(sequencing_info,seqtype,sequenceDB):
 
     if seqtype == 'exome':
-	
         if sequencing_info[1] == () or sequencing_info[1] == '':
             raise Exception, '%s does not have Exome Prep Kit information' % SampleID
         elif 'EZ V3' in sequencing_info[1]:
@@ -170,8 +168,9 @@ def process_exomekit(sequencing_info,seqtype,sequenceDB):
     return ExomeSamPrepKit
 
 def getSampleTinfo(sequenceDB,prepID):
-    sql = ("SELECT s.CHGVID,s.Phenotype,s.FamilyID,s.DNASrc,s.GwasID,"
-        "s.FinalRepLoc,s.Topstrandfile,AKA,ProjName,Protocol,AvaiContUsed,"
+    #Note that CHGVID comes from the prepT.  This is due to redmine issue #2038
+    sql = ("SELECT pt.CHGVID,Phenotype,FamilyID,DNASrc,GwasID,"
+        "FinalRepLoc,Topstrandfile,AKA,ProjName,Protocol,AvaiContUsed,"
         "SelfDeclEthnic,SelfDeclEthnicDetail,SelfDeclGender,GwasGender,"
         "GwasEthnic,GenoChip,GAFbin,FundCode,RepConFamMem,"
         "FamilyRelationProband,priority,OrigID,CurrProjLeader,AlignedBuild36,"
@@ -180,18 +179,6 @@ def getSampleTinfo(sequenceDB,prepID):
         "JOIN prepT pt on s.DBID=pt.DBID "
         "WHERE pt.prepID={0}"
         ).format(prepID)
-    """
-    sql = ("SELECT s.CHGVID,s.Phenotype,s.FamilyID,s.DNASrc,s.GwasID,"
-        "s.FinalRepLoc,s.Topstrandfile,AKA,ProjName,Protocol,AvaiContUsed,"
-        "SelfDeclEthnic,SelfDeclEthnicDetail,SelfDeclGender,GwasGender,"
-        "GwasEthnic,GenoChip,GAFbin,FundCode,RepConFamMem,"
-        "FamilyRelationProband,priority,OrigID,CurrProjLeader,AlignedBuild36,"
-        "priority "
-        "from SampleT s "
-        "JOIN prepT pt on s.DBID=pt.DBID "
-        "WHERE pt.prepID={0}"
-        ).format(prepID)
-    """
     sequenceDB.execute(sql)
     SampleT_info = sequenceDB.fetchone()
     #print SampleT_info
@@ -260,7 +247,10 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
         columns.append(('StatusChangeDate','curdate()',1))
         columns.append(('Phenotype',sInfo[1],0))
         columns.append(('BroadPhenotype',sInfo[26],0))
-        columns.append(('DetailedPhenotype',sInfo[27].replace("'",''),0))
+        try:
+            columns.append(('DetailedPhenotype',sInfo[27].replace("'",''),0))
+        except:
+            columns.append(('DetailedPhenotype',sInfo[27],0))
         columns.append(('FamilyID',sInfo[2],0))
         columns.append(('DNASrc',sInfo[3],0))
         columns.append(('GwasID',sInfo[4],0))
@@ -316,7 +306,10 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
             columns.append(('Seqtype',seqtype,0))
             columns.append(('Phenotype',sInfo[1],0))
             columns.append(('BroadPhenotype',sInfo[26],0))
-            columns.append(('DetailedPhenotype',sInfo[27],0))
+            try:
+                columns.append(('DetailedPhenotype',sInfo[27].replace("'",''),0))
+            except:
+                columns.append(('DetailedPhenotype',sInfo[27],0))
             columns.append(('FamilyID',sInfo[2],0))
             columns.append(('DNASrc',sInfo[3],0))
             columns.append(('GwasID',sInfo[4],0))
@@ -502,7 +495,16 @@ def fixReleaseStatusT(SequenceDB,SampleID,SeqType,prepID):
 
 def check_Storage(sequenceDB,prepID,SeqType):
 #check that all fastq files exist
-    sequenceDB.execute("SELECT s.CHGVID,f.FCIllumID,l.LaneNum FROM SampleT s JOIN Lane l on s.DBID=l.DBID JOIN Flowcell f on f.FCID=l.FCID WHERE FailR1 IS NULL AND FailR2 IS NULL AND prepID='%s'" % prepID)
+    query = ("SELECT p.CHGVID,f.FCIllumID,l.LaneNum "
+        "FROM prepT p "
+        "JOIN Lane l on p.DBID=l.DBID "
+        "JOIN Flowcell f on f.FCID=l.FCID "
+        "WHERE FailR1 IS NULL AND "
+        "FailR2 IS NULL "
+        "AND prepID='{}'"
+        ).format(prepID)
+
+    sequenceDB.execute(query)
     Lanes = sequenceDB.fetchall()
     for lane in Lanes:
         SampleID = lane[0]
@@ -715,31 +717,51 @@ def getIDs(SampleID,SeqType,sequenceDB,capturekit):
     '''Checks SequenceDB then GAFDB to determine which database if any the sample resides in.'''
 
     #DBID check
-    sql = ("SELECT DISTINCT s.DBID "
-        "FROM SampleT s "
-        "JOIN SeqType st on s.DBID=st.DBID "
+    sql = ("SELECT DISTINCT p.DBID "
+        "FROM prepT p "
+        "JOIN SeqType st on p.DBID=st.DBID "
         "WHERE CHGVID='{0}' and st.SeqType='{1}'"
         ).format(SampleID,SeqType)
     sequenceDB.execute(sql)
     DBID = sequenceDB.fetchall()
-    #print sql
     if len(DBID) != 1:
         print SampleID,SeqType,DBID
 
         raise Exception, "Incorrect number of DBID's found for Sample %s" % SampleID
 
     if capturekit == '':
-        sequenceDB.execute("SELECT p.prepID FROM SeqType st join prepT p on st.prepid=p.prepid where p.DBID=%s and SeqType=%s and failedPrep!=1", (DBID[0][0],SeqType))
+        sql = ("SELECT p.prepID "
+                    "FROM SeqType st "
+                    "join prepT p on st.prepid=p.prepid "
+                    "where p.DBID={} and "
+                    "SeqType='{}' and "
+                    "p.CHGVID='{}' AND "
+                    "failedPrep!=1"
+                    ).format(DBID[0][0],SeqType,SampleID)
         #Grabs most recent prepID
         #sequenceDB.execute("SELECT prepID FROM SeqType where DBID=%s and SeqType=%s order by prepID desc limit 1", (DBID[0][0],SeqType))
 
     else:
         if ignore == False:
-            sequenceDB.execute("SELECT p.prepID FROM prepT p JOIN SeqType s ON p.prepID=s.prepID where p.DBID=%s and s.SeqType=%s and p.exomeKit=%s and failedPrep!=1", (DBID[0][0],SeqType,capturekit))
+            sql = ("SELECT p.prepID "
+                        "FROM prepT p "
+                        "JOIN SeqType s ON p.prepID=s.prepID "
+                        "where p.DBID={} and "
+                        "s.SeqType='{}' and "
+                        "p.exomeKit='{}' and "
+                        "p.CHGVID='{}' AND "
+                        "failedPrep!=1").format(DBID[0][0],SeqType,capturekit,SampleID)
         else:
             #Grabs most recent prepID
-            sequenceDB.execute("SELECT max(p.prepID) FROM prepT p JOIN SeqType s ON p.prepID=s.prepID where p.DBID=%s and s.SeqType=%s and p.exomeKit=%s", (DBID[0][0],SeqType,capturekit))
+            sql = ("SELECT max(p.prepID) "
+                        "FROM prepT p "
+                        "JOIN SeqType s ON p.prepID=s.prepID "
+                        "where p.DBID={} and "
+                        "s.SeqType='{}' and "
+                        "p.CHGVID='{}' AND "
+                        "p.exomeKit='{}'").format(DBID[0][0],SeqType,capturekit,SampleID)
 
+    sequenceDB.execute(sql)
     prepID = sequenceDB.fetchall()
     if len(prepID) != 1:
         print "Incorrect number of prepID's found for Sample %s." % SampleID

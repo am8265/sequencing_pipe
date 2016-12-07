@@ -146,10 +146,10 @@ def totalLanesCheck(sss_lanes,FCID):
 def updateLnFraction(sequenceDB,FCID,pwd):
     logger = logging.getLogger('updateLnFraction')
     logger.debug('Running updateLnFraction')
-    sql = ("SELECT l.DBID,s.CHGVID,l.FCID,l.lanenum,FCillumID "
+    sql = ("SELECT l.DBID,CHGVID,l.FCID,l.lanenum,FCillumID "
         "FROM Lane l "
         "JOIN Flowcell f on l.FCID=f.FCID "
-        "JOIN SampleT s on s.DBID=l.DBID "
+        "JOIN prepT p on p.prepID=l.prepID "
         "WHERE FCillumID='{0}'"
         ).format(FCID)
     sequenceDB.execute(sql)

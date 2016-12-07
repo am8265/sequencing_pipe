@@ -20,7 +20,15 @@ def fastqc_mysql(sequenceDB,samp,seqsata,read,FCID):
     Lane = samp[1]
     r = 'R'+str(read)
 
-    sequenceDB.execute("SELECT replace(s.Seqtype,' ','_') from Lane l join SampleT s on l.dbid=s.dbid join Flowcell f on f.fcid=l.fcid where s.CHGVID=%s and f.FCillumID=%s and LaneNum=%s", (SampleID,FCID,LaneNum))
+    query =("SELECT replace(s.Seqtype,' ','_') "
+            "from Lane l "
+            "JOIN prepT p on l.prepid=p.prepid "
+            "JOIN Flowcell f on f.fcid=l.fcid "
+            "JOIN SeqType st on p.prepid=st.prepid "
+            "where s.CHGVID='{}' and "
+            "f.FCillumID='{}' and "
+            "LaneNum={}").format(SampleID,FCID,LaneNum)
+    sequenceDB.execute(query)
     Seqtype = sequenceDB.fetchone()[0]
 
     summaryFile = '/nfs/%s/%s/%s/%s/%s_*L00%s_R%s_fastqc/summary.txt'  % (seqsata,Seqtype.upper(),SampleID,FCID,SampleID,Lane,read)
@@ -106,7 +114,7 @@ def report(Value,Read,LaneNum,SampleID,FCID,Seqtype,failure):
 
 
 def fastqc(sequenceDB,seqsata,FCID):
-	sequenceDB.execute("SELECT s.CHGVID,l.LaneNum from Lane l join SampleT s on l.dbid=s.dbid join Flowcell f on f.fcid=l.fcid where f.FCillumID=%s and (l.FailR1 IS NULL and l.FailR2 IS NULL)", FCID) 
+	sequenceDB.execute("SELECT p.CHGVID,l.LaneNum from Lane l join prepT p on l.dbid=p.dbid join Flowcell f on f.fcid=l.fcid where f.FCillumID=%s and (l.FailR1 IS NULL and l.FailR2 IS NULL)", FCID)
 	Samples = sequenceDB.fetchall()
 	os.system('rm fastqc_failures.txt')
 	#iterate over every sample, read 1 and 2 in a FCID in every lane.  

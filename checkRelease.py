@@ -10,14 +10,14 @@ def checkUpdateDB(sequenceDB,prepID,SampleID,SeqType,DBID):
     sequenceDB.execute("SELECT CHGVID,prepID,idnum,ExomeSamPrepKit,ReadSummaryFileLoc,SeqType FROM seqdbClone WHERE prepID='%s'", int(prepID))
     samInfo = sequenceDB.fetchone()
     #print samInfo,prepID,SampleID,SeqType,DBID
-    
+
     if samInfo:
         """
-        print samInfo[0] != SampleID 
+        print samInfo[0] != SampleID
         print str(int(samInfo[1])) != prepID
         print type(prepID)
-        print samInfo[2] != DBID 
-        print samInfo[4] == '' 
+        print samInfo[2] != DBID
+        print samInfo[4] == ''
         print samInfo[5] == ''
         """
         if samInfo[0] != SampleID or samInfo[1] != prepID or samInfo[2] != DBID or samInfo[4] == '' or samInfo[5] == '':
@@ -28,7 +28,7 @@ def checkUpdateDB(sequenceDB,prepID,SampleID,SeqType,DBID):
     if SeqType == 'Custom Capture' or SeqType == 'Custom_Capture':
         if samInfo[4] == '' or samInfo[4] == 'na' or samInfo[4] == 'N/A' or samInfo[4] == 'n/a':
             raise Exception, 'ExomeSamPrepKit information is missing for sample: %s' % CHGVID
-    
+
     #check lane table
     sequenceDB.execute("SELECT mnQscR1 from Lane WHERE prepID=%s and FailR1 is NULL and mnQscR1 is NULL", prepID)
     mnQscR1Missing = sequenceDB.fetchone()
@@ -41,7 +41,7 @@ def checkUpdateDB(sequenceDB,prepID,SampleID,SeqType,DBID):
         raise Exception, '%s is missing mnQscR1 information for prepID: %s' % (SampleID,prepID)
 
 def getIDs(sequenceDB,SampleID,SeqType):
-    sequenceDB.execute("SELECT DISTINCT s.DBID FROM SampleT s JOIN SeqType st on s.DBID=st.DBID WHERE CHGVID=%s and st.SeqType=%s", (SampleID,SeqType))
+    sequenceDB.execute("SELECT DISTINCT p.DBID FROM prepT p JOIN SeqType st on p.DBID=st.DBID WHERE CHGVID=%s and st.SeqType=%s", (SampleID,SeqType))
     DBID = sequenceDB.fetchall()
     if len(DBID) != 1:
         raise Exception, "Incorrect number of DBID's found for Sample %s" % SampleID
@@ -58,7 +58,7 @@ def main():
     for s in sampleFile.readlines():
         s = s.strip()
         print "Checking %s..." % s 
-        DBID,prepID = getIDs(sequenceDB,s,SeqType)    
+        DBID,prepID = getIDs(sequenceDB,s,SeqType)
         checkUpdateDB(sequenceDB,prepID,s,SeqType,DBID)
     print 'Release Check complete'
 
