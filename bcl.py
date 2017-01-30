@@ -78,7 +78,7 @@ def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
     logger.info(base_script)
 
     #Run base script
-    os.system(base_script + ' 2>> /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % ('fastq16',machine,FCID,'fastq16'))
+    os.system(base_script + ' 2>> /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % ('fastq18',machine,FCID,'fastq18'))
 
     #Submit bcl job to the cluster
     os.system('cp {0}/run_C1.8.sh {1}/{2}'.format(script_dir,out_dir,Script))
@@ -341,9 +341,10 @@ def opts(argv):
     global runPath
     global BCLDrive
     try:
-        opts,args = getopt.getopt(argv, "fhi:no:b:v",
+        opts,args = getopt.getopt(argv, "fhi:nb:vs:",
             ['input=','help','force','bcl=','tiles=','use-bases-mask=','verbose','sampleSheet=','noSSS','noStatus'])
     except getopt.GetoptError, err:
+        print err
         usage()
     for o,a in opts:
         if o in ('-f','--force'):
@@ -386,7 +387,7 @@ def main():
     FCID = info[3]
     Machine = MachineCheck(sequenceDB,info[1],FCID)
 
-    seqsata_drive = 'fastq16'
+    seqsata_drive = 'fastq18'
 
     setup_logging(Machine,FCID,seqsata_drive)
     logger = logging.getLogger('main')
@@ -398,7 +399,7 @@ def main():
     RTA_check(runPath)
     if noSSS == False:
         create_sss(runPath,FCID,Machine,Date,sequenceDB)
-    check_sss(FCID)
+    #check_sss(FCID)
     bcl(info,runPath,BCLDrive,seqsata_drive,Machine,sequenceDB)
     if noStatus == False:
         updateSamples(sequenceDB,FCID)

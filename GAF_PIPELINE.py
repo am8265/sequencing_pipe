@@ -23,7 +23,8 @@ def getBestBCLDrive():
 
             bcl_seqsata = jobs.split('_')[2]
             runningSeqscratchList.append(bcl_seqsata)
-    seqscratchDrives = ['fastq16','seqscratch09','seqscratch10','seqscratch11']
+    seqscratchDrives = ['fastq18','seqscratch09','seqscratch10','seqscratch11']
+    #seqscratchDrives = ['seqscratch09','seqscratch10','seqscratch11']
 
     availSeqscratchDrives = set(seqscratchDrives) - set(runningSeqscratchList)
 
@@ -31,8 +32,8 @@ def getBestBCLDrive():
         seqscratchCount = Counter(runningSeqscratchList)
         #print seqscratchCount
         return '/nfs/%s/BCL' % (min(seqscratchCount,key=seqscratchCount.get))
-    elif 'fastq16' in availSeqscratchDrives:
-        return '/nfs/fastq16/BCL'
+    elif 'fastq18' in availSeqscratchDrives:
+        return '/nfs/fastq18/BCL'
     else:
         return '/nfs/' + list(availSeqscratchDrives)[0] + '/BCL'
 
@@ -59,7 +60,7 @@ def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
         print storageCmd
         print fastqcCmd
         #fastqcMySQLCmd is now run within the fastqcCmd
-        #print fastqcMySQLCmd
+        print fastqcMySQLCmd
         print "="*86
         print
         print ('Log file:  /nfs/{0}/summary/GAF_PIPELINE_LOGS/{1}_{2}_{0}.log'
@@ -135,7 +136,7 @@ def opts(argv):
     global _debug
     _debug = False
     global seqsata
-    seqsata = 'fastq16'
+    seqsata = 'fastq18'
     global BCLDrive
     BCLDrive = ''
 

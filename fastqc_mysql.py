@@ -20,12 +20,12 @@ def fastqc_mysql(sequenceDB,samp,seqsata,read,FCID):
     Lane = samp[1]
     r = 'R'+str(read)
 
-    query =("SELECT replace(s.Seqtype,' ','_') "
+    query =("SELECT replace(st.Seqtype,' ','_') "
             "from Lane l "
             "JOIN prepT p on l.prepid=p.prepid "
             "JOIN Flowcell f on f.fcid=l.fcid "
             "JOIN SeqType st on p.prepid=st.prepid "
-            "where s.CHGVID='{}' and "
+            "where p.CHGVID='{}' and "
             "f.FCillumID='{}' and "
             "LaneNum={}").format(SampleID,FCID,LaneNum)
     sequenceDB.execute(query)

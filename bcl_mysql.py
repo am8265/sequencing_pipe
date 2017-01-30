@@ -69,7 +69,7 @@ def getReads(sequenceDB,FCID):
 
 def updateFC(sequenceDB,FCID,Machine,pwd):
     logger = logging.getLogger('updateFC')
-    seqLoc = 'fastq16'
+    seqLoc = 'fastq18'
     DateBcl = cur_datetime()
     DateRTA = getRTAdate(pwd)
     DateRead1 = getRead1Date(FCID)
@@ -311,11 +311,11 @@ def main():
     FCID = info[3]
     Machine = info[1]
 
-    setup_logging(Machine,FCID,'fastq16')
+    setup_logging(Machine,FCID,'fastq18')
     print 'BCL MySQL updates started'
     logger = logging.getLogger('main')
     logger.info('BCL MySQL updates started')
-    logger.debug('Initializing Parameters: pwd:%s, FCID:%s, Machine:%s, seqsata_drive:%s', (pwd,FCID,Machine,'fastq16'))
+    logger.debug('Initializing Parameters: pwd:%s, FCID:%s, Machine:%s, seqsata_drive:%s', (pwd,FCID,Machine,'fastq18'))
     try:
         updateFC(sequenceDB,FCID,Machine,pwd)
         updateLane(sequenceDB,FCID,Machine,pwd)

@@ -7,9 +7,9 @@ import sys
 def main():
     pwd = os.getcwd()
     sequenceDB = getSequenceDB()
-    
+
     if len(sys.argv) == 1:
-        
+
         info = pwd.split('/')[4].split('_')
         Date = info[0]
         FCID = info[3]

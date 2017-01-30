@@ -14,8 +14,8 @@ import re
 import sys
 
 def fastqc(script,sample,seqsata,FCID,seqtype):
-    seqsata_drive = 'fastq16'
-    seqsata = '/nfs/fastq16/'
+    seqsata_drive = 'fastq18'
+    seqsata = '/nfs/fastq18/'
 
     #print seqsata,sample,FCID,seqtype
     #print 'cd %s/%s/%s/%s' % (seqsata,seqtype,sample,FCID)
