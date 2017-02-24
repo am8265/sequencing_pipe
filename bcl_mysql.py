@@ -60,9 +60,9 @@ def getReads(sequenceDB,FCID):
     elif Recipe =='4':
         return "LenR1='100', LenR2='100', LenI1='9'," #Extended Index read
     elif Recipe =='5':
-        return "LenR1='126', LenR2='126', LenI1='7'," #HiSeq 2500
+        return "LenR1='126', LenR2='126', LenI1='7'," #HiSeq 2500, NovaSeq
     elif Recipe =='6':
-        return "LenR1='151', LenR2='151', LenI1='7'," #HiSeq X
+        return "LenR1='151', LenR2='151', LenI1='7'," #HiSeq X, NovaSeq
     elif Recipe =='8':
         return "LenR1='251', LenR2='251', LenI1='7'," #Rapid V2
 
