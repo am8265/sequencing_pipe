@@ -272,6 +272,9 @@ def create_sss(runPath,FCID,Machine,date,sequenceDB):
                     WHEN f.recipe=6 THEN '101x8x101'\
                     WHEN f.recipe=7 THEN '151x7x151'\
                     WHEN f.recipe=8 THEN '251x7x251'\
+                    WHEN f.recipe=9 THEN '51x7x51'\
+                    WHEN f.recipe=10 THEN '51x7x7x51'\
+                    WHEN f.recipe=11 THEN '151x7x7x151'\
                 END) Recipe,\
                 replace(u.name,' ','') Operator,\
                 replace(s.GAFbin,' ','') Project \

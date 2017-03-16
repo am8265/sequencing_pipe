@@ -174,7 +174,7 @@ def getSampleTinfo(sequenceDB,prepID):
         "SelfDeclEthnic,SelfDeclEthnicDetail,SelfDeclGender,GwasGender,"
         "GwasEthnic,GenoChip,GAFbin,FundCode,RepConFamMem,"
         "FamilyRelationProband,priority,OrigID,CurrProjLeader,AlignedBuild36,"
-        "priority,BroadPhenotype,DetailedPhenotype "
+        "priority,BroadPhenotype,DetailedPhenotype,Species "
         "from SampleT s "
         "JOIN prepT pt on s.DBID=pt.DBID "
         "WHERE pt.prepID={0}"
@@ -271,6 +271,7 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
         columns.append(('RepConFamMem',sInfo[19],0))
         columns.append(('FamilyRelationProband',sInfo[20],0))
         columns.append(('OrigID',sInfo[22],0))
+        columns.append(('Species',sInfo[28],0))
         columns.append(('prepID',prepID,0))
         columns.append(('FastqLoc',FastqLoc,0))
         columns.append(('SeqCoreRelDate','curdate()',1))
@@ -330,6 +331,7 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
             columns.append(('RepConFamMem',sInfo[19],0))
             columns.append(('FamilyRelationProband',sInfo[20],0))
             columns.append(('OrigID',sInfo[22],0))
+            columns.append(('Species',sInfo[28],0))
             columns.append(('idnum',DBID,0))
             columns.append(('prepID',prepID,0))
             columns.append(('FastqLoc',FastqLoc,0))

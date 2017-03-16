@@ -23,7 +23,8 @@ def getBestBCLDrive():
 
             bcl_seqsata = jobs.split('_')[2]
             runningSeqscratchList.append(bcl_seqsata)
-    seqscratchDrives = ['fastq18','seqscratch09','seqscratch10','seqscratch11']
+    seqscratchDrives = ['seqscratch_ssd','seqscratch09','seqscratch10','seqscratch11']
+    #seqscratchDrives = ['fastq18','seqscratch09','seqscratch10','seqscratch11']
     #seqscratchDrives = ['seqscratch09','seqscratch10','seqscratch11']
 
     availSeqscratchDrives = set(seqscratchDrives) - set(runningSeqscratchList)
