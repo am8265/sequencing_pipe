@@ -42,7 +42,7 @@ def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
     logger = logging.getLogger('submit')
     address = 'jb3816@cumc.columbia.edu'
     pythonProgram = '/nfs/goldstein/software/python2.7/bin/python2.7'
-    scriptLoc = '/home/jb3816/github/sequencing_pipe'
+    scriptLoc = '/nfs/goldstein/software/sequencing_pipe/production/'
 
     BCLCmd =         ("{0} {1}/bcl.py -i {2} -b {3}").format(pythonProgram,scriptLoc,runFolder,BCLDrive)
     BCLMySQLCmd =    ("{0} {1}/bcl_mysql.py -i {2}").format(pythonProgram,scriptLoc,runFolder)
