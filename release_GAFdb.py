@@ -173,7 +173,7 @@ def getSampleTinfo(sequenceDB,prepID):
         "FinalRepLoc,Topstrandfile,AKA,ProjName,Protocol,AvaiContUsed,"
         "SelfDeclEthnic,SelfDeclEthnicDetail,SelfDeclGender,GwasGender,"
         "GwasEthnic,GenoChip,GAFbin,FundCode,RepConFamMem,"
-        "FamilyRelationProband,priority,OrigID,CurrProjLeader,AlignedBuild36,"
+        "FamilyRelationProband,priority,OrigID,CurrProjLeader,"
         "priority,BroadPhenotype,DetailedPhenotype "
         "from SampleT s "
         "JOIN prepT pt on s.DBID=pt.DBID "
@@ -246,11 +246,11 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
         columns.append(('SamMultiplex',SamMultiplex,0))
         columns.append(('StatusChangeDate','curdate()',1))
         columns.append(('Phenotype',sInfo[1],0))
-        columns.append(('BroadPhenotype',sInfo[26],0))
+        columns.append(('BroadPhenotype',sInfo[25],0))
         try:
-            columns.append(('DetailedPhenotype',sInfo[27].replace("'",''),0))
+            columns.append(('DetailedPhenotype',sInfo[26].replace("'",''),0))
         except:
-            columns.append(('DetailedPhenotype',sInfo[27],0))
+            columns.append(('DetailedPhenotype',sInfo[26],0))
         columns.append(('FamilyID',sInfo[2],0))
         columns.append(('DNASrc',sInfo[3],0))
         columns.append(('GwasID',sInfo[4],0))
@@ -282,8 +282,7 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
         columns.append(('SamMultiplex',SamMultiplex,0))
         columns.append(('CoreSeqSoftware',CoreSeqSoftware,0))
         columns.append(('CurrProjLeader',sInfo[23],0))
-        columns.append(('AlignedBuild36',sInfo[24],0))
-        columns.append(('BioinfoPriority',sInfo[25],0))
+        columns.append(('BioinfoPriority',sInfo[24],0))
         columns.append(('PlateName',plateInfo[0],0))
         columns.append(('Well',plateInfo[1],0))
         columns.append(('Concentration',plateInfo[2],0))
@@ -305,11 +304,11 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
             columns.append(('CHGVID',sInfo[0],0))
             columns.append(('Seqtype',seqtype,0))
             columns.append(('Phenotype',sInfo[1],0))
-            columns.append(('BroadPhenotype',sInfo[26],0))
+            columns.append(('BroadPhenotype',sInfo[25],0))
             try:
-                columns.append(('DetailedPhenotype',sInfo[27].replace("'",''),0))
+                columns.append(('DetailedPhenotype',sInfo[26].replace("'",''),0))
             except:
-                columns.append(('DetailedPhenotype',sInfo[27],0))
+                columns.append(('DetailedPhenotype',sInfo[26],0))
             columns.append(('FamilyID',sInfo[2],0))
             columns.append(('DNASrc',sInfo[3],0))
             columns.append(('GwasID',sInfo[4],0))
@@ -342,8 +341,7 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
             columns.append(('SamMultiplex',SamMultiplex,0))
             columns.append(('CoreSeqSoftware',CoreSeqSoftware,0))
             columns.append(('CurrProjLeader',sInfo[23],0))
-            columns.append(('AlignedBuild36',sInfo[24],0))
-            columns.append(('BioinfoPriority',sInfo[25],0))
+            columns.append(('BioinfoPriority',sInfo[24],0))
             columns.append(('StatusChangeDate','curdate()',1))
             columns.append(('PlateName',plateInfo[0],0))
             columns.append(('Well',plateInfo[1],0))
