@@ -1,29 +1,45 @@
 #CHGV_gaf.py module
-from MySQLdb import Connect
-from datetime import datetime
-from commands import getoutput
+import configparser
 import logging
 import os
+import pymysql
+import subprocess
+from datetime import datetime
 #mysql cursors
 
-def getGAFdb():
-    gafdb=Connect(read_default_group="clientgaf")
-    gaf_curs=gafdb.cursor()
-    gaf_curs.execute('BEGIN;')
-    return gaf_curs
-
 def getTestSequenceDB():
-    seqdb=Connect(read_default_group="clienttestdb")
-    seq_curs=seqdb.cursor()
-    seq_curs.execute('BEGIN;')
-    return seq_curs
+    reader = configparser.RawConfigParser()
+    reader.read('/home/jb3816/.my.cnf')
+    db = 'clienttestdb'
+    dbHost = reader.get(db, 'host')
+    dbUser = reader.get(db, 'user')
+    dbPass = reader.get(db,'password')
+    dbDatabase = reader.get(db,'database')
+    print(dbHost,dbUser,dbPass,dbDatabase)
+    connection = pymysql.connect(host=dbHost,
+                                 user=dbUser,
+                                 password=dbPass,
+                                 db=dbDatabase,
+                                 cursorclass=pymysql.cursors.DictCursor)
+    connection.cursor().execute('BEGIN')
+    return connection.cursor()
 
 def getSequenceDB():
     """Get the SequenceDB Cursor"""
-    seqdb=Connect(read_default_group="clientsequenceDB")
-    seq_curs=seqdb.cursor()
-    seq_curs.execute('BEGIN;')
-    return seq_curs
+    reader = configparser.RawConfigParser()
+    reader.read('/home/jb3816/.my.cnf')
+    db = 'clientsequencedb'
+    dbHost = reader.get(db, 'host')
+    dbUser = reader.get(db, 'user')
+    dbPass = reader.get(db,'password')
+    dbDatabase = reader.get(db,'database')
+    connection = pymysql.connect(host=dbHost,
+                                 user=dbUser,
+                                 password=dbPass,
+                                 db=dbDatabase,
+                                 cursorclass=pymysql.cursors.DictCursor)
+    connection.cursor().execute('BEGIN')
+    return connection.cursor()
 
 def getSampleID(gaf_curs,idnum):
         gaf_curs.execute("SELECT SampleID from Sample WHERE idnum=%s", (idnum))
@@ -46,16 +62,6 @@ def getSamYield(gaf_curs,idnum):
     if SamYield == None:
         SamYield = '0'
         return str(SamYield[0])
-
-def getUserID():
-    sequenceDB = getSequenceDB()
-    userName = getoutput('echo $LOGNAME')
-    if userName == 'solexa':
-        userName = 'jb3816'
-    sequenceDB.execute("SELECT userID FROM users WHERE netid='%s'" % (userName))
-    userID = sequenceDB.fetchone()
-    return userID[0]
-
 
 def MachineCheck(sequenceDB,Machine,FCID):
     sql = """SELECT MACHINE
@@ -165,20 +171,6 @@ def getPL(seq_curs,SampleID):
 		raise Exception("%s or PL does not exist in SeqDB build37" % (SampleID))
 	else:
 		return PL[0]
-
-def getIndexBase(IndexNum,SampleID):
-        if IndexNum == 'na' or IndexNum == None or IndexNum == '0' or IndexNum == 'none':
-                IndexNum = ''
-                IndexBase = ''
-        elif IndexNum == '':
-                IndexBase = ''
-        elif int(IndexNum) < 28 :
-                IndexBase = getoutput('egrep ^'+IndexNum+ ', /home/solexa/indices.csv | cut -d, -f2')
-        elif int(IndexNum) > 27:
-                raise Exception('Index Number '+IndexNum+' does not exist!')
-        else:
-                raise Exception('Check Index for '+SampleID+'!')
-        return IndexBase
 
 def getNM(gaf_curs,idnum):
 	gaf_curs.execute("SELECT KapaNM from Sample WHERE idnum=%s", (idnum))

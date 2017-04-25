@@ -33,11 +33,16 @@ def checkS2R(sequenceDB,SampleID,prepID):
 
 def check_Lane(sequenceDB,prepID,CHGVID):
 	#check to see if LnYield is populated for another check
-	sequenceDB.execute("SELECT prepID,LnYield FROM Lane WHERE prepID=%s and FailR1 is NULL and FailR2 is NULL and LnYield is NULL", prepID)
-	sequencing_lanes = sequenceDB.fetchall()
-	#print sequencing_lanes
-	if sequencing_lanes != ():
-		raise Exception, "Sample %s is still sequencing or LnYield is NULL!" % CHGVID
+    query = ("SELECT prepID,LnYield "
+            "FROM Lane "
+            "WHERE prepID={} and FailR1 is NULL and FailR2 is NULL and LnYield is NULL"
+            ).format(prepID)
+    print query
+    sequenceDB.execute(query)
+    sequencing_lanes = sequenceDB.fetchall()
+    #print sequencing_lanes
+    if sequencing_lanes != ():
+        raise Exception, "Sample %s is still sequencing or LnYield is NULL!" % CHGVID
 
 #Determines what Platforms the sample was on
 def getPlatformChemVer(sequenceDB,prepID):
@@ -174,7 +179,7 @@ def getSampleTinfo(sequenceDB,prepID):
         "SelfDeclEthnic,SelfDeclEthnicDetail,SelfDeclGender,GwasGender,"
         "GwasEthnic,GenoChip,GAFbin,FundCode,RepConFamMem,"
         "FamilyRelationProband,priority,OrigID,CurrProjLeader,"
-        "priority,BroadPhenotype,DetailedPhenotype "
+        "priority,BroadPhenotype,DetailedPhenotype,AgeAtCollection "
         "from SampleT s "
         "JOIN prepT pt on s.DBID=pt.DBID "
         "WHERE pt.prepID={0}"
@@ -251,6 +256,7 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
             columns.append(('DetailedPhenotype',sInfo[26].replace("'",''),0))
         except:
             columns.append(('DetailedPhenotype',sInfo[26],0))
+        columns.append(('AgeAtCollection',sInfo[27],0))
         columns.append(('FamilyID',sInfo[2],0))
         columns.append(('DNASrc',sInfo[3],0))
         columns.append(('GwasID',sInfo[4],0))
@@ -309,6 +315,7 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
                 columns.append(('DetailedPhenotype',sInfo[26].replace("'",''),0))
             except:
                 columns.append(('DetailedPhenotype',sInfo[26],0))
+            columns.append(('AgeAtCollection',sInfo[27],0))
             columns.append(('FamilyID',sInfo[2],0))
             columns.append(('DNASrc',sInfo[3],0))
             columns.append(('GwasID',sInfo[4],0))
@@ -451,7 +458,6 @@ def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
 
     failYield = ''
     poolID = ''
-
     #-->code a better check for External Data Submitted <--#
     if status[0] == 'External Data Submitted':
         pass

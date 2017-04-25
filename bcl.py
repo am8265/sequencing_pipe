@@ -13,17 +13,17 @@ import re
 import getopt
 import sys
 from commands import getoutput
-from CHGV_mysql import getGAFdb
 from CHGV_mysql import setup_logging
 from CHGV_mysql import getSequenceDB
+from CHGV_mysql import getTestSequenceDB
 from CHGV_mysql import getUserID
 from CHGV_mysql import MachineCheck
-from create_sss import create_sss_bcl_2_18
+from create_sss import create_sss_bcl_2
 from sss_check import sss_qc
 
 def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
     logger = logging.getLogger('bcl')
-    in_dir = runPath + '/Data/Intensities/BaseCalls/'
+    in_dir = runPath
     script_dir = '/home/jb3816/github/sequencing_pipe'
     pwd = os.getcwd()
 
@@ -32,13 +32,12 @@ def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
     HiSeq = info[1]
     Date = info[0][3:7]
     Date_Long = info[0]
-    Script = HiSeq+'_'+Date+'_BCL.sh'
 
-    out_dir = '{0}/{1}_{2}_{3}_Unaligned'.format(BCLDrive,Date_Long,HiSeq,FCID)
+    out_dir = '{}/{}_{}_{}_Unaligned'.format(BCLDrive,Date_Long,HiSeq,FCID)
+    scriptLoc = out_dir + '/' + HiSeq + '_' + Date_Long + '_BCL.sh'
     dir_check(BCLDrive + out_dir)
-
-    base_script = '/nfs/goldstein/software/bcl2fastq2_v2.18.0.12/bin/bcl2fastq '
-    base_script += '--runfolder-dir %s --output-dir %s --mismatches 1 ' % (in_dir,out_dir)
+    base_script = '/nfs/goldstein/software/bcl2fastq2_v2.19.0/bin/bcl2fastq '
+    base_script += '--runfolder-dir %s --output-dir %s --barcode-mismatches 1 ' % (in_dir,out_dir)
 
     # Use if bcl or stats are missing.  They should never be missing unless 
     # there was a data transfer problem or corruption.
@@ -55,7 +54,6 @@ def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
 
     # Tile specify what tiles on the flowcell can be converted to fastq
     # This adds tiles parameter to BCL script if specified
-
     if tiles != False:
 
         sql = ("UPDATE Flowcell "
@@ -73,20 +71,18 @@ def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
     # Used to mask any bases on the read
     if base_mask != False:
         base_script = base_script + '--use-bases-mask '+base_mask+' '
-    print base_script
+    #print base_script
 
     logger.info(base_script)
-
-    #Run base script
-    os.system(base_script + ' 2>> /nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % ('fastq18',machine,FCID,'fastq18'))
+    os.mkdir(out_dir)
 
     #Submit bcl job to the cluster
-    os.system('cp {0}/run_C1.8.sh {1}/{2}'.format(script_dir,out_dir,Script))
-    bcl_script = open(Script,'a')
+    os.system('cp {}/SGE_header {}'.format(script_dir,scriptLoc))
+    bcl_script = open(scriptLoc,'a')
     bcl_script.write(base_script + '\n')
-    bcl.script.close()
+    bcl_script.close()
     qsubLoc = '/opt/sge6_2u5/bin/lx24-amd64/qsub'
-    cmd = 'cd {0} ; {1} -cwd -v PATH -N {2}_{3}_{4}_bcl {0}/{5}'.format(out_dir,qsubLoc,machine,FCID,BCLDrive.split('/')[2],Script)
+    cmd = 'cd {0} ; {1} -cwd -v PATH -N {2}_{3}_{4}_bcl {5}'.format(out_dir,qsubLoc,machine,FCID,BCLDrive.split('/')[2],scriptLoc)
     if verbose == True:
         print cmd
 
@@ -110,11 +106,12 @@ def checkSataLoc(sata_loc):
 
 
 def usage():
+    print '-b, --output\t\tPath to output folder'
     print '-h, --help\t\tShows this help message and exit'
-    print '-o, --output\t\tPath to output folder'
-    print '-s, --sampleSheet\tAllows user-specified sample sheet'
-    print '-v, --verbose\t\tVerbose output'
     print '-n, --noSSS\t\tForbids creation of a sample sheet'
+    print '-s, --sampleSheet\tAllows user-specified sample sheet'
+    print '-t, --testdb\tAll database updates occur on the test database'
+    print '-v, --verbose\t\tVerbose output'
     print '--noStatus\t\tDoes not update the status of the samples on the flowcell'
     print '--tiles\t\t\tSpecifies what tiles you want BCL performed on.  Ex: s_[12]_1[123]0[1-7]'
     print '--use-bases-mask\tSpecifies what bases you want to mask.  Ex: y100n,I6n,y50n'
@@ -167,9 +164,11 @@ def opts(argv):
     noStatus = False
     global runPath
     global BCLDrive
+    global testdb
+    testdb = False
     try:
         opts,args = getopt.getopt(argv, "fhi:nb:vs:",
-            ['input=','help','force','bcl=','tiles=','use-bases-mask=','verbose','sampleSheet=','noSSS','noStatus'])
+            ['input=','help','force','bcl=','tiles=','use-bases-mask=','verbose','sampleSheet=','noSSS','noStatus','testdb'])
     except getopt.GetoptError, err:
         print err
         usage()
@@ -190,6 +189,8 @@ def opts(argv):
             sampleSheet = a
         elif o in ('--tiles'):
             tiles = a
+        elif o in ('--testdb'):
+            testdb = True
         elif o in ('--use-bases-mask'):
             base_mask = a
         elif o in ('-v','--verbose'):
@@ -207,8 +208,12 @@ def RTA_check(runPath):
         print "RTA has already completed"
 
 def main():
-    sequenceDB = getSequenceDB()
     opts(sys.argv[1:])
+    if testdb:
+        sequenceDB = getTestSequenceDB()
+    else:
+        print 'fail'
+        sequenceDB = getSequenceDB()
     info = runPath.split('/')[4].split('_')
     Date = info[0]
     FCID = info[3]
@@ -225,7 +230,7 @@ def main():
 
     RTA_check(runPath)
     if noSSS == False:
-        create_sss_bcl_2_18(runPath,FCID,Machine,Date,sequenceDB)
+        create_sss_bcl_2(runPath,FCID,Machine,Date,sequenceDB)
     #check_sss(FCID)
     bcl(info,runPath,BCLDrive,seqsata_drive,Machine,sequenceDB)
     if noStatus == False:
