@@ -458,6 +458,7 @@ def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
 
     failYield = ''
     poolID = ''
+
     #-->code a better check for External Data Submitted <--#
     if status[0] == 'External Data Submitted':
         pass
