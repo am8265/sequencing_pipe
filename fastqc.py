@@ -15,8 +15,8 @@ import re
 import sys
 
 def fastqc(script,sample,seqsata,FCID,seqtype):
-    seqsata_drive = 'fastq18'
-    seqsata = '/nfs/fastq18/'
+    seqsata_drive = 'igmdata01'
+    seqsata = '/nfs/igmdata01/'
 
     os.chdir('%s/%s/%s/%s' % (seqsata,seqtype,sample,FCID))
     Lanes = getoutput("ls *.fastq.gz | grep -o L00[0-9] | sed 's/L00//g' | sort -u").split('\n')

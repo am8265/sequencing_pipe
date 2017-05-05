@@ -219,7 +219,7 @@ def main():
     FCID = info[3]
     Machine = MachineCheck(sequenceDB,info[1],FCID)
 
-    seqsata_drive = 'fastq18'
+    seqsata_drive = 'igmdata01'
 
     setup_logging(Machine,FCID,seqsata_drive)
     logger = logging.getLogger('main')

@@ -171,8 +171,8 @@ def create_sss_bcl_2(runPath,FCID,Machine,date,sequenceDB):
             outfile.write(",".join(map(str,ss_line))+'\n')
     outfile.close()
     #copies sequencing sample sheet to genotyping location
-    os.system('cp %s/%s_%s_%s.csv /nfs/fastq16/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
-    logger.info('cp %s/%s_%s_%s.csv /nfs/fastq16/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
+    os.system('cp %s/%s_%s_%s.csv /nfs/igmdata01/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
+    logger.info('cp %s/%s_%s_%s.csv /nfs/igmdata01/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
 
 def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
 

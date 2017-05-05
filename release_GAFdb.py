@@ -520,8 +520,8 @@ def check_Storage(sequenceDB,prepID,SeqType):
         #checks how many files are there for that FC, LaneNum and Sample.  If 0 warning sent out
 
         SeqType=SeqType.upper().replace(' ','_')
-        r1files = len(glob.glob("/nfs/fastq18/%s/%s/%s/%s*L00%s*R1*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
-        r2files = len(glob.glob("/nfs/fastq18/%s/%s/%s/%s*L00%s*R2*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
+        r1files = len(glob.glob("/nfs/igmdata01/%s/%s/%s/%s*L00%s*R1*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
+        r2files = len(glob.glob("/nfs/igmdata01/%s/%s/%s/%s*L00%s*R2*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
 
         if r1files == 0 or r2files == 0:
             r1files = len(glob.glob("/nfs/seqsata*/seqfinal*/whole_genome/%s/%s/%s*L00%s*R1*fastq.gz" % (SampleID,FCID,SampleID,LaneNum)))

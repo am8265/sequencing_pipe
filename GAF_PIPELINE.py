@@ -23,8 +23,7 @@ def getBestBCLDrive():
 
             bcl_seqsata = jobs.split('_')[2]
             runningSeqscratchList.append(bcl_seqsata)
-    seqscratchDrives = ['fastq18','seqscratch09','seqscratch10','seqscratch11']
-    #seqscratchDrives = ['seqscratch09','seqscratch10','seqscratch11']
+    seqscratchDrives = ['seqscratch09','seqscratch10','seqscratch11']
 
     availSeqscratchDrives = set(seqscratchDrives) - set(runningSeqscratchList)
 
@@ -32,8 +31,6 @@ def getBestBCLDrive():
         seqscratchCount = Counter(runningSeqscratchList)
         #print seqscratchCount
         return '/nfs/%s/BCL' % (min(seqscratchCount,key=seqscratchCount.get))
-    elif 'fastq18' in availSeqscratchDrives:
-        return '/nfs/fastq18/BCL'
     else:
         return '/nfs/' + list(availSeqscratchDrives)[0] + '/BCL'
 
@@ -136,7 +133,7 @@ def opts(argv):
     global _debug
     _debug = False
     global seqsata
-    seqsata = 'fastq18'
+    seqsata = 'igmdata01'
     global BCLDrive
     BCLDrive = ''
 
@@ -165,7 +162,7 @@ def opts(argv):
 
 def getRunPath(FCID):
     '''Grabs the run folder with the highest run number for edge cases where
-       there the flowcell was rerun and there are multiple run folders.  This 
+       there the flowcell was rerun and there are multiple run folders.  This
        assumes the duplicate run folders have the name except for the run number
        within run folder name
     '''

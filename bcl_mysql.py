@@ -78,9 +78,8 @@ def getReads(sequenceDB,FCID):
     else:
         raise Execption("Unhandled recipe code: {}!".format(Recipe))
 
-def updateFC(sequenceDB,FCID,Machine,pwd):
+def updateFC(sequenceDB,FCID,Machine,pwd,seqLoc):
     logger = logging.getLogger('updateFC')
-    seqLoc = 'fastq18'
     DateBcl = cur_datetime()
     DateRTA = getRTAdate(pwd)
     DateRead1 = getRead1Date(pwd)
@@ -263,14 +262,14 @@ def main():
     #print(info)
     FCID = info[3]
     Machine = info[1]
-
-    setup_logging(Machine,FCID,'fastq18')
+    seqloc = 'igmdata01'
+    setup_logging(Machine,FCID,seqloc)
     print('BCL MySQL updates started')
     logger = logging.getLogger('main')
     logger.info('BCL MySQL updates started')
-    logger.debug('Initializing Parameters: pwd:%s, FCID:%s, Machine:%s, seqsata_drive:%s', (pwd,FCID,Machine,'fastq18'))
+    logger.debug('Initializing Parameters: pwd:%s, FCID:%s, Machine:%s, seqsata_drive:%s', (pwd,FCID,Machine,seqloc))
     try:
-        updateFC(sequenceDB,FCID,Machine,pwd)
+        updateFC(sequenceDB,FCID,Machine,pwd,seqloc)
         run_summary = getMetricsSummary(pwd)
         updateLane(sequenceDB,FCID,Machine,pwd,run_summary)
 
