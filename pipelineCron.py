@@ -14,8 +14,6 @@ def main():
             "where (pipelineComplete != 1 and complete = 1 and fail != 1) "
             "group by l.FCID "
             "order by min(priority) asc , from_unixtime(seqend) asc")
-    print query
-    raw_input
     sequenceDB.execute(query)
     completeFlowcell = sequenceDB.fetchall()
     if len(completeFlowcell) != 0:
