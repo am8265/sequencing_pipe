@@ -21,7 +21,7 @@ from CHGV_mysql import MachineCheck
 from create_sss import create_sss_bcl_2
 from sss_check import sss_qc
 
-def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
+def bcl(info,Machine,runPath,BCLDrive,seqsata,machine,sequenceDB):
     logger = logging.getLogger('bcl')
     in_dir = runPath
     script_dir = '/home/jb3816/github/sequencing_pipe'
@@ -37,8 +37,11 @@ def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
     scriptLoc = out_dir + '/' + HiSeq + '_' + Date_Long + '_BCL.sh'
     dir_check(BCLDrive + out_dir)
     base_script = '/nfs/goldstein/software/bcl2fastq2_v2.19.0/bin/bcl2fastq '
-    #base_script += '--runfolder-dir %s --output-dir %s --barcode-mismatches 1 ' % (in_dir,out_dir)
-    base_script += '--runfolder-dir %s --output-dir %s ' % (in_dir,out_dir)
+
+    if Machine[0] == 'N': #NovaSeq
+        base_script += '--runfolder-dir %s --output-dir %s ' % (in_dir,out_dir)
+    else: #HiSeq
+        base_script += '--runfolder-dir %s --output-dir %s --barcode-mismatches 1 ' % (in_dir,out_dir)
 
     # Use if bcl or stats are missing.  They should never be missing unless 
     # there was a data transfer problem or corruption.
@@ -233,7 +236,7 @@ def main():
     if noSSS == False:
         create_sss_bcl_2(runPath,FCID,Machine,Date,sequenceDB)
     #check_sss(FCID)
-    bcl(info,runPath,BCLDrive,seqsata_drive,Machine,sequenceDB)
+    bcl(info,Machine,runPath,BCLDrive,seqsata_drive,Machine,sequenceDB)
     if noStatus == False:
         updateSamples(sequenceDB,FCID)
 
