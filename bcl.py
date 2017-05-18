@@ -37,7 +37,8 @@ def bcl(info,runPath,BCLDrive,seqsata,machine,sequenceDB):
     scriptLoc = out_dir + '/' + HiSeq + '_' + Date_Long + '_BCL.sh'
     dir_check(BCLDrive + out_dir)
     base_script = '/nfs/goldstein/software/bcl2fastq2_v2.19.0/bin/bcl2fastq '
-    base_script += '--runfolder-dir %s --output-dir %s --barcode-mismatches 1 ' % (in_dir,out_dir)
+    #base_script += '--runfolder-dir %s --output-dir %s --barcode-mismatches 1 ' % (in_dir,out_dir)
+    base_script += '--runfolder-dir %s --output-dir %s ' % (in_dir,out_dir)
 
     # Use if bcl or stats are missing.  They should never be missing unless 
     # there was a data transfer problem or corruption.
