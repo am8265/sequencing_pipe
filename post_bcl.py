@@ -11,14 +11,14 @@ import getopt
 import logging
 import os
 import re
+import subprocess
 import sys
 import traceback
-from commands import getoutput
 from datetime import datetime
-from CHGV_mysql import getSequenceDB
-from CHGV_mysql import getTestSequenceDB
-from CHGV_mysql import setup_logging
-from CHGV_mysql import getUserID
+from CHGV_mysql_3_6 import getSequenceDB
+from CHGV_mysql_3_6 import getTestSequenceDB
+from CHGV_mysql_3_6 import setup_logging
+from CHGV_mysql_3_6 import getUserID
 from xml.etree.ElementTree import fromstring
 
 def UpdateFC(sequenceDB,FCID,Unaligned,sampleInfo):
@@ -33,7 +33,9 @@ def UpdateFC(sequenceDB,FCID,Unaligned,sampleInfo):
         LnYield = int(sampleInfo[i][1].replace(',',''))
         fcYield += LnYield
 
-    CasavaVer = getoutput(('grep bcl2fastq -m1 {}/nohup.sge | cut -d\  -f2').format(Unaligned))
+    casavaCmd = ['grep','bcl2fastq','-m1','{}/nohup.sge'.format(Unaligned)]
+    proc = subprocess.Popen(casavaCmd, stdout=subprocess.PIPE)
+    CasavaVer = proc.stdout.read().decode().split()[1].strip()
     sql = ("UPDATE Flowcell f "
         "JOIN Lane l ON f.FCID=l.FCID "
         "SET fcYield={0},CasavaVer='{1}' "
@@ -41,7 +43,7 @@ def UpdateFC(sequenceDB,FCID,Unaligned,sampleInfo):
         ).format(fcYield,CasavaVer,FCID)
 
     if verbose == True:
-        print sql
+        print(sql)
     logger.info(sql)
     sequenceDB.execute(sql)
 
@@ -92,13 +94,13 @@ def UpdateSampleLane(sequenceDB,Unaligned,FCID):
                 sampleInfo[key].append(datarows[sampleNum][num].text)
 
     for i in sampleInfo.keys():
-        #print sampleInfo[i],i
+        #print(sampleInfo[i],i)
         LaneNum,SampleID,adapter = i.split('_')
         LnFractionAct = sampleInfo[i][0]
         LnYield = sampleInfo[i][1].replace(',','')
 
         if SampleID == 'Undetermined' and float(LnFractionAct) > 5:
-            print 'Percent of Undetermined Indexes is '+LnFractionAct+' for Lane '+LaneNum+'!'
+            print('Percent of Undetermined Indexes is '+LnFractionAct+' for Lane '+LaneNum+'!')
             logger.info('Percent of Undetermined Indexes is '+LnFractionAct+' for Lane '+LaneNum+'!')
         else:
             sql = ("UPDATE Lane l "
@@ -109,7 +111,7 @@ def UpdateSampleLane(sequenceDB,Unaligned,FCID):
                 ).format(LnYield,LnFractionAct,SampleID,FCID,LaneNum)
 
             if verbose == True:
-                print sql
+                print(sql)
             logger.info(sql)
             sequenceDB.execute(sql)
     return sampleInfo
@@ -122,32 +124,32 @@ def checkStatus(sequenceDB,FCID):
     samples = sequenceDB.fetchall()
     except_swt = 0
     for prepID in samples:
-        sequenceDB.execute('SELECT CHGVID,status FROM statusT WHERE prepID=%s ORDER BY status_time DESC LIMIT 1', (prepID))
+        sequenceDB.execute('SELECT CHGVID,status FROM statusT WHERE prepID=%s ORDER BY status_time DESC LIMIT 1',(prepID['prepID']))
         status = sequenceDB.fetchone()
-        sequenceDB.execute('SELECT SeqType from SeqType WHERE prepID=%s', prepID)
+        sequenceDB.execute('SELECT SeqType from SeqType WHERE prepID=%s', prepID['prepID'])
         SeqType = sequenceDB.fetchone()
         # Sometimes multiple flowcells of Genomes finish bcl2fastq near the same time so its status =='storage'
-        if status[1] != 'BCL' and SeqType[0] != 'Genome':
+        if status['status'] != 'BCL' and SeqType['SeqType'] != 'Genome':
             except_swt = 1
             logger.warn("%s does not have the correct status!  Current status: '%s'" % (status[0],status[1]))
-            print "%s does not have the correct status!  Current status: '%s'" % (status[0],status[1])
+            print("%s does not have the correct status!  Current status: '%s'" % (status[0],status[1]))
         else:
-            if status[1] != 'BCL':
+            if status['status'] != 'BCL':
                 except_swt = 1
                 logger.warn("%s does not have the correct status!  Current status: '%s'" % (status[0],status[1]))
-                print "%s does not have the correct status!  Current status: '%s'" % (status[0],status[1])
+                print("%s does not have the correct status!  Current status: '%s'" % (status[0],status[1]))
 
     if except_swt == 1:
         logger.warn("Samples in the {} does not have the correct status!".format(FCID))
-        raise Exception, 'Samples in the {} does not have the correct status!'.format(FCID)
+        raise Exception('Samples in the {} does not have the correct status!'.format(FCID))
 
 
 def usage():
-    print '-i, --input\t\tParameter is the location of the Unaligned folder'
-    print '-h, --help\t\tShows this help message and exit'
-    print '-v, --verbose\t\tPrints out MYSQL injection commands'
-    print '--noStatusCheck\t\tDoes not perform a status check of all samples in the flowcell'
-    print '--noStatusUpdate\tDoes not update the status of all samples in the flowcell'
+    print('-i, --input\t\tParameter is the location of the Unaligned folder')
+    print('-h, --help\t\tShows this help message and exit')
+    print('-v, --verbose\t\tPrints out MYSQL injection commands')
+    print('--noStatusCheck\t\tDoes not perform a status check of all samples in the flowcell')
+    print('--noStatusUpdate\tDoes not update the status of all samples in the flowcell')
     sys.exit(2)
 
 def getTotalLanes(sequenceDB,FCID):
@@ -156,12 +158,12 @@ def getTotalLanes(sequenceDB,FCID):
                 "join Flowcell f on l.fcid=f.fcid "
                 "where FCILLUMID='{}'").format(FCID)
     sequenceDB.execute(query)
-    totalLanes = sequenceDB.fetchone()[0]
+    totalLanes = sequenceDB.fetchone()['max(laneNum)']
     return totalLanes
 
 def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned,sampleInfo):
     logger = logging.getLogger('checkLaneFractions')
-    email = open('%s/LnFractionEmail.txt' % Unaligned,'wb')
+    email = open('%s/LnFractionEmail.txt' % Unaligned,'w')
     lane = 1
     emailSwitch = 0
     demulti_d = collections.defaultdict(list)
@@ -201,7 +203,7 @@ def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned,sampleInfo):
                             "AND LaneNum={}"
                             ).format(FCID,SampleID,LaneNum)
             sequenceDB.execute(LnFracQuery)
-            LnFrac = sequenceDB.fetchone()[0]
+            LnFrac = sequenceDB.fetchone()['LnFraction']
             query = ("SELECT SeqType "
                     "FROM SeqType s "
                     "WHERE prepID=(SELECT Distinct l.prepID "
@@ -214,9 +216,9 @@ def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned,sampleInfo):
                     ).format(SampleID,FCID,LaneNum)
             sequenceDB.execute(query)
             SeqType = sequenceDB.fetchone()
-            #print SampleID,FCID,Lane,SeqType
-            #print SampleID,FCID,SeqType
-            SeqType = SeqType[0]
+            #print(SampleID,FCID,Lane,SeqType)
+            #print(SampleID,FCID,SeqType)
+            SeqType = SeqType['SeqType']
         if LnFractionAct != 0:
             LnFracDiff = LnFrac/LnFractionAct
         else:
@@ -231,9 +233,9 @@ def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned,sampleInfo):
         highlightRowNumber = []
 
         for samp in lanes:
-            #print samp
+            #print(samp)
             ClusterDensity = getClusterDensity(sequenceDB,FCID,lanes[0][5])
-            #print ClusterDensity,ClusterDensity == None,ClusterDensity == ''
+            #print(ClusterDensity,ClusterDensity == None,ClusterDensity == '')
 
             if samp[0][0:4] == 'lane':
                 if float(samp[1]) > 5:
@@ -251,7 +253,7 @@ def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned,sampleInfo):
                 lane_switch = 1
                 highlightRowNumber.append(4)
 
-            #print samp,lane_switch,samp[0][0:4] == 'lane' and samp[1] > 5 
+            #print(samp,lane_switch,samp[0][0:4] == 'lane' and samp[1] > 5) 
         if lane_switch == 1:
             EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber)
 
@@ -263,7 +265,7 @@ def send_email(emailSwitch,FCID,Machine,Unaligned):
 
     if emailSwitch ==1 and os.path.isfile('%s/EmailSent.txt' % Unaligned) == False:
         address = "igm-hts@columbia.edu"
-        address = 'jb3816@cumc.columbia.edu'
+        #address = 'jb3816@cumc.columbia.edu'
         emailProgramLocation = '/nfs/goldstein/software/mutt-1.5.23/bin/mutt '
         emailCmd = emailProgramLocation + '-e "set content_type=text/html" '
         emailCmd += '-s \"Problem with Lane Fractions for flowcell %s %s\" ' % (FCID,Machine)
@@ -271,14 +273,14 @@ def send_email(emailSwitch,FCID,Machine,Unaligned):
         emailCmd += " < %s/LnFractionEmail.txt" % Unaligned
 
         logger.info(emailCmd)
-        print emailCmd
+        #print(emailCmd)
         os.system(emailCmd)
         os.system("touch %s/EmailSent.txt" % Unaligned)
 
 def getClusterDensity(sequenceDB,FCID,LaneNum):
 	sequenceDB.execute("SELECT DISTINCT ClustDen FROM Lane l JOIN Flowcell f on l.FCID=f.FCID WHERE FCillumID=%s AND LaneNum=%s", (FCID,LaneNum))
 	ClustDen = sequenceDB.fetchone()
-	return ClustDen[0]
+	return ClustDen['ClustDen']
 
 
 def getKapaPicoDBID(sequenceDB,FCID,CHGVID):
@@ -289,13 +291,13 @@ def getKapaPicoDBID(sequenceDB,FCID,CHGVID):
                 pm.poolID=l.poolID)  WHERE FCIllumID=%s and\
                 pt.CHGVID=%s", (FCID,CHGVID))
     kapaPicoDBID = sequenceDB.fetchone()
-    #print kapaPicoDBID
+    #print(kapaPicoDBID)
     return kapaPicoDBID
 
 def getPoolName(sequenceDB,DBID):
     sequenceDB.execute("select CHGVID from SampleT WHERE dbid=%s", DBID)
     poolName = sequenceDB.fetchone()
-    return poolName[0]
+    return poolName['CHGVID']
 
 def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
     logger = logging.getLogger('EmailLane')
@@ -308,23 +310,20 @@ def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
             pass
         else:
             kapaPicoDBID = getKapaPicoDBID(sequenceDB,FCID,samp[0])
-            poolName = getPoolName(sequenceDB,kapaPicoDBID[2])
+            poolName = getPoolName(sequenceDB,kapaPicoDBID['dbid'])
             logging.info('%s\t%s\t%s\t%s\t%s\t%s\t%s' %
-                    (samp[0],samp[4],samp[2],samp[1]*100,ClusterDensity,poolName,kapaPicoDBID[0]))
-
+                    (samp[0],samp[4],samp[2],samp[1],ClusterDensity,poolName,kapaPicoDBID['kapa_conc']))
 
             email.write("<tr>\n")
             highlightRowCount = 0
-            for column in (samp[0],samp[4],samp[2],samp[1]*100,ClusterDensity,poolName,kapaPicoDBID[0]):
-                #print highlightRowNumber,highlightRowCount
+            for column in (samp[0],samp[4],samp[2],samp[1],ClusterDensity,poolName,kapaPicoDBID['kapa_conc']):
+                #print(highlightRowNumber,highlightRowCount)
                 if highlightRowCount not in  highlightRowNumber:
                     email.write("<td>%s</td>\n" % column)
                 else:
                     email.write('<td bgcolor="#FFFF00">%s</td>\n' % column)
                 highlightRowCount += 1
-
             email.write("</tr>\n")
-
 
     for samp in lanes:
         if samp[0][0:4] == 'lane':
@@ -332,7 +331,6 @@ def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
             if 10 in highlightRowNumber:
                 email.write('<tr><td colspan="8" align="center" bgcolor="#FFFF00">Lane %s\'s unmatched reads percent: %s</td></tr>\n' %
                     (lanes[0][5],samp[1]))
-
             else:
                 email.write('<tr><td colspan="8" align="center">Lane %s\'s unmatched reads percent: %s</td></tr>\n' %
                     (lanes[0][5],samp[1]))
@@ -357,8 +355,7 @@ def opts(argv):
     try:
         opts,args = getopt.getopt(argv, "ab:hvi:s:",
             ['bcl=','input=','help','seqsata=','verbose','noStatusUpdate','noStatusCheck','test'])
-    except getopt.GetoptError, err:
-        print str(err)
+    except getopt.GetoptError:
         usage()
 
     for o,a in opts:
@@ -406,13 +403,13 @@ def main():
         sequenceDB.execute('COMMIT;')
         sequenceDB.close()
         logger.info('Done')
-        print 'Done'
+        print('Done')
     except:
         traceback.print_exc()
         sequenceDB.execute('ROLLBACK;')
         sequenceDB.close()
         logger.info('Post BCL Failure')
-        print 'Post BCL Failure'
+        print('Post BCL Failure')
         sys.exit(1)
 
 main()

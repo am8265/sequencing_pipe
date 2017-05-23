@@ -216,7 +216,6 @@ def main():
     if testdb:
         sequenceDB = getTestSequenceDB()
     else:
-        print 'fail'
         sequenceDB = getSequenceDB()
     info = runPath.split('/')[4].split('_')
     Date = info[0]

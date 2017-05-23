@@ -40,13 +40,17 @@ def getRead1Date(pwd):
     Read1Date = tmp[5] + ' ' + tmp[6].split('.')[0]
     return Read1Date
 
-def ver_num(pwd):
-    RTAcmd = ['grep','-i','-m1','rta','{}/RunParameters.xml'.format(pwd)]
+def ver_num(pwd,Machine):
+    if Machine[0] == 'N':
+        runParametersFile = 'RunParameters.xml'
+    else:
+        runParametersFile = 'runParameters.xml'
+    RTAcmd = ['grep','-i','-m1','rta','{}/{}'.format(pwd,runParametersFile)]
     proc = subprocess.Popen(RTAcmd, stdout=subprocess.PIPE)
     tmp = proc.stdout.read().decode().split()
     RTAVer = tmp[0].split('>')[1].split('<')[0]
 
-    HCScmd = ['grep','ApplicationVersion','{}/RunParameters.xml'.format(pwd),'-m1']
+    HCScmd = ['grep','ApplicationVersion','{}/{}'.format(pwd,runParametersFile),'-m1']
     proc2 = subprocess.Popen(RTAcmd, stdout=subprocess.PIPE)
     tmp2 = proc2.stdout.read().decode().split()
     HCSVer = tmp2[0].split('>')[1].split('<')[0]
@@ -83,7 +87,7 @@ def updateFC(sequenceDB,FCID,Machine,pwd,seqLoc):
     DateBcl = cur_datetime()
     DateRTA = getRTAdate(pwd)
     DateRead1 = getRead1Date(pwd)
-    RTAVer,HCSver = ver_num(pwd)
+    RTAVer,HCSver = ver_num(pwd,Machine)
     Read_SQL_Command = getReads(sequenceDB,FCID)
     #print(DateRTA)
 
@@ -105,7 +109,6 @@ def updateLane(sequenceDB,FCID,Machine,pwd,run_summary):
     logger.debug('Running updateLane')
 
     sss_lanes = run_summary.lane_count()
-    run_summary.lane_count()
 
     for LaneNum in list(range(0,sss_lanes)):
         ClustDen = run_summary.at(0).at(LaneNum).density().mean() / 1000
@@ -142,7 +145,6 @@ def totalLanesCheck(sss_lanes,FCID):
         actualNumLanes = [2,4]
     else:
         raise Exception('Unhandled FCID for flowcell %s' % FCID)
-
     for lanes in actualNumLanes:
         match = 0
         if sss_lanes in actualNumLanes:
@@ -167,11 +169,12 @@ def updateLnFraction(sequenceDB,FCID,pwd):
     sampleSheet = glob.glob('{}/*{}*.csv'.format(pwd,FCID))[0]
     sampleDict = {}
     with open(sampleSheet) as csvfile:
-        reader = csv.DictReader(csvfile)
+        skipAheadCSV = csvfile.readlines()[17:]
+        reader = csv.DictReader(skipAheadCSV)
         for row in reader:
-            key = '{}_{}'.format(row['SampleID'],row['Lane'])
+            #print(row)
+            key = '{}_{}'.format(row['Sample_ID'],row['Lane'])
             sampleDict[key] = row
-
     for samp in info:
         key = '{}_{}'.format(samp['CHGVID'],samp['lanenum'])
         LnFraction = sampleDict[key]['Description'].split('_')[0]
@@ -215,7 +218,6 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID,run_summary):
 def getMetricsSummary(run_folder):
     #run_folder is suppose to be a raw string literal
     run_folder = run_folder.replace("\\", "\\\\")
-    run_folder = r"/nfs/seqscratch1/Runs/170329_N1A_0016_H22NYDMXX_FirstRun"
     run_metrics = py_interop_run_metrics.run_metrics()
     valid_to_load = py_interop_run.uchar_vector(py_interop_run.MetricCount, 0)
     py_interop_run_metrics.list_summary_metrics_to_load(valid_to_load)

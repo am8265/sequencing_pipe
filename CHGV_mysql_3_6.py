@@ -63,6 +63,15 @@ def getSamYield(gaf_curs,idnum):
         SamYield = '0'
         return str(SamYield[0])
 
+def getUserID(sequenceDB):
+    userName = os.getlogin()
+    #GAF user name back at duke
+    if userName == 'solexa':
+        userName = 'jb3816'
+    sequenceDB.execute("SELECT userID FROM users WHERE netid='{}'".format(userName))
+    userID = sequenceDB.fetchone()
+    return userID['userID']
+
 def MachineCheck(sequenceDB,Machine,FCID):
     sql = """SELECT MACHINE
             FROM Flowcell
