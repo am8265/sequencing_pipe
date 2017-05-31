@@ -38,7 +38,8 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
     logger.info('Starting Storage script')
 
     archiveLoc = '/nfs/' + seqsataLoc
-    emailAddress = ['jb3816@cumc.columbia.edu','dn2404@cumc.columbia.edu']
+    emailAddress = ['jb3816@cumc.columbia.edu','dn2404@cumc.columbia.edu','sif2110@cumc.columbia.edu']
+    emailAddress = ['jb3816@cumc.columbia.edu']
 
     logger.info('inputFolder:{}, archiveLoc:{}'.format(inputFolder,archiveLoc))
 
@@ -54,6 +55,7 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
             print('Done')
 
     except:
+        logger.exeception("traceback.print_exc()")
         traceback.print_exc()
         sequenceDB.execute('ROLLBACK;')
         sequenceDB.close()
@@ -84,6 +86,7 @@ def storage(sequenceDB,verbose,bclDrive,archiveLoc,inputFolder,noStatus):
         fastqSize = os.path.getsize(fastq)
         logger.info('{} original filesize: {}'.format(fastq,fastqSize))
         origTotalFastqSize += fastqSize
+        print(fastq)
         sampleName = fastq.split('/')[6].split('_')[0]
         seqtype = getSeqtype(sequenceDB,FCIllumID,sampleName)
         GAFbin = getGAFbin(sequenceDB,sampleName)
@@ -139,6 +142,7 @@ def storage(sequenceDB,verbose,bclDrive,archiveLoc,inputFolder,noStatus):
         processSAV(verbose,FCIllumID,date,machine,archiveLoc,seqscratchBase)
         processBcl2fastqLog(verbose,FCIllumID,date,machine,archiveLoc,UnalignedLoc)
         UpdateStatus(verbose,sequenceDB,FCIllumID,noStatus)
+        updateFlowcell(verbose,sequenceDB,FCIllumID)
         createStorageCompleteFlag(verbose,seqscratchBase,FCIllumID,date,machine)
         removeFastqs(verbose,folderList)
 
@@ -152,7 +156,10 @@ def removeFastqs(verbose,folderList):
 def getGAFbin(sequenceDB,sampleName):
     GAFbinQuery = ("SELECT GAFbin FROM SampleT WHERE CHGVID = '{}'").format(sampleName)
     sequenceDB.execute(GAFbinQuery)
-    return sequenceDB.fetchone()['GAFbin']
+    """ It appears that the bcl2fastq software removes whitespace from the
+    inputted GAFbin which is used as the project folder name hence the
+    replace """
+    return sequenceDB.fetchone()['GAFbin'].replace(' ','')
 
 def getSeqtype(sequenceDB,FCIllumID,sampleName):
     logger = logging.getLogger('getSeqtype')
@@ -164,6 +171,7 @@ def getSeqtype(sequenceDB,FCIllumID,sampleName):
             "WHERE FCIllumID='{}' AND CHGVID='{}'"
             ).format(FCIllumID,sampleName)
     logger.info(seqtypeQuery)
+    print(seqtypeQuery)
     sequenceDB.execute(seqtypeQuery)
     seqtype = sequenceDB.fetchone()['seqtype'].upper().replace(' ','_')
     return seqtype
@@ -208,7 +216,6 @@ def UpdateStatus(verbose,sequenceDB,FCID,noStatus):
     """sequenceDB Sample Update"""
     logger = logging.getLogger('UpdateStatus')
     userID = getUserID(sequenceDB)
-    print(userID)
     #Status update for entire flowcell
     if noStatus == False:
         query = ("INSERT INTO statusT "
@@ -223,6 +230,15 @@ def UpdateStatus(verbose,sequenceDB,FCID,noStatus):
             print(query)
         logger.info(query)
         sequenceDB.execute(query)
+def updateFlowcell(verbose,sequenceDB,FCID):
+    logger = logging.getLogger('UpdateStatus')
+    query = ("UPDATE Flowcell "
+             "SET DateStor=unix_timestamp() "
+             "WHERE FCIllumid='{}'").format(FCID)
+    if verbose:
+        print(query)
+    logger.info(query)
+    sequenceDB.execute(query)
 
 def mkdir_p(path):
     try:
