@@ -23,7 +23,7 @@ def getBestBCLDrive():
 
             bcl_seqsata = jobs.split('_')[2]
             runningSeqscratchList.append(bcl_seqsata)
-    seqscratchDrives = ['seqscratch09','seqscratch10','seqscratch11']
+    seqscratchDrives = ['seqscratch_ssd','seqscratch09','seqscratch10']
 
     availSeqscratchDrives = set(seqscratchDrives) - set(runningSeqscratchList)
 
@@ -100,7 +100,7 @@ def stage2(seqsata,runFolder,machine,FCID,address,postBCLCmd,storageCmd,fastqCmd
 
     stage2_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_%s_stage2.sh' % (runFolder,machine,FCID,seqsata),'w')
     header(seqsata,stage2_script,FCID)
-
+    stage2_script.write("export LD_LIBRARY_PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/lib:$LD_LIBRARY_PATH ; export PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/bin:$PATH \n")
     stage2_script.write(postBCLCmd + '\n')
     stage2_script.write('if [ $? -eq 0 ] ; then echo "Post BCL completed successfully" ; else echo "Post BCL failed"\n')
     stage2_script.write('/nfs/goldstein/software/mutt-1.5.23 -s "Post_BCL failure: %s %s" %s < /dev/null; exit 1; fi\n' % (machine,FCID,address))
@@ -234,7 +234,8 @@ def main():
     Machine_check(sequenceDB,FCID,machine)
     global BCLDrive
     if BCLDrive == '':
-        BCLDrive = getBestBCLDrive()
+        BCLDrive = '/nfs/seqscratch_ssd/BCL'
+        #BCLDrive = getBestBCLDrive()
 
     setup_logging(machine,FCID,seqsata)
     logger = logging.getLogger(__name__)
