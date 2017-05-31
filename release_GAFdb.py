@@ -48,7 +48,6 @@ def check_Lane(sequenceDB,prepID,CHGVID):
 def getPlatformChemVer(sequenceDB,prepID):
     sequenceDB.execute("SELECT DISTINCT f.Machine,f.FCillumID FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s", prepID)
     Machines = sequenceDB.fetchall()
-    ChemVer = 'v4'
     query="SELECT DISTINCT chemver FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s" % prepID
 
     if verbose == True:
@@ -59,34 +58,40 @@ def getPlatformChemVer(sequenceDB,prepID):
     if type(ChemVer) == tuple:
         ChemVer = ChemVer[0]
 
-    #print Machines,prepID
+    #available Machine run types as of 5/30/2017.  Removed H2000 and HiSeq X code
     H2500 = 0
-    H2000 = 0
-    HX = 0 #placeholder for HiSeq X
+    Nova = 0
     rapid = 0
+    unknown = 0
 
+    #determine if its rapid or NovaSeq
     for HiSeq in Machines:
         #print HiSeq,HiSeq[0][0]
-        if HiSeq[1][0] == 'H':
+        if HiSeq[1][0] == 'H' and HiSeq[0][0] == 'H':
+            H2500 = 1
             rapid = 1
-
-    if HiSeq[0] is None:
-        H2500 = 1
-    elif HiSeq[0] == 'H8A' or HiSeq[0] == 'H8B' or len(HiSeq[0]) > 3:
-        H2500 = 1
-    else:
-        H2000 = 1
+        #currently HiSeq high output flowcells only start with 'C' and 'D'
+        elif HiSeq[1][0] in 'CD' and HiSeq[0][0] == 'H':
+            H2500 = 1
+        elif HiSeq[1][0] == 'H' and HiSeq[0][0] == 'N':
+            Nova = 1
+        #All faked flowcells for external data start with 'X'
+        elif HiSeq[1][0] == 'X':
+            unknown = 1
+        else:
+            raise Exception, "Unhandled FCID/Machine combo {}".format(HiSeq)
 
     #print rapid,H2500,H2000
-    if H2500 == 1 and H2000 == 1:
-        platform = 'HiSeq2000 and HiSeq2500'
-    elif H2000 == 1 and H2500 == 0:
-        platform = 'HiSeq2000'
-    elif H2000 == 0 and H2500 == 1:
-        if rapid == 1:
-            platform = 'HiSeq2500'
-        else:
-            platform = 'HiSeq2500'
+    if H2500 == 1 and Nova == 1:
+        platform = 'HiSeq2500 and NovaSeq'
+    elif Nova == 1 :
+        platform = 'NovaSeq'
+    elif H2500 == 1:
+        platform = 'HiSeq2500'
+    elif unknown == 1:
+        if H2500 or Nova or rapid:
+            raise Exception, 'Sample with both unknown external sequencing and internal sequencing!  prepID: {}.  Please investigate'.format(prepID)
+        platform = 'Unknown'
     else:
         raise Exception, "Check Machine for prepID %s!" % (prepID)
     return platform,ChemVer
@@ -263,7 +268,7 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
         columns.append(('FinalRepLoc',sInfo[5],0))
         columns.append(('Topstrandfile',sInfo[6],0))
         columns.append(('AKA',sInfo[7],0))
-        columns.append(('ProjName',sInfo[8],0))
+        columns.append(('ProjName',sInfo[8].replace("'",''),0))
         columns.append(('Protocol',sInfo[9],0))
         columns.append(('AvaiContUsed',sInfo[10],0))
         columns.append(('SelfDeclEthnic',sInfo[11],0))
@@ -322,7 +327,7 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
             columns.append(('FinalRepLoc',sInfo[5],0))
             columns.append(('Topstrandfile',sInfo[6],0))
             columns.append(('AKA',sInfo[7],0))
-            columns.append(('ProjName',sInfo[8],0))
+            columns.append(('ProjName',sInfo[8].replace("'",''),0))
             columns.append(('Protocol',sInfo[9],0))
             columns.append(('AvaiContUsed',sInfo[10],0))
             columns.append(('SelfDeclEthnic',sInfo[11],0))
@@ -446,9 +451,9 @@ def email_PL(sequenceDB,samples,name):
 def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
     sequenceDB.execute("SELECT status from statusT WHERE (prepID=%s and Status='Sequencing Complete') or (prepID=%s and Status='External Data Submitted')", (prepID,prepID))
     complete = sequenceDB.fetchone()
-    complete = ('Sequencing Complete',)
-    #if complete is None:
-    #    raise Exception, "Flowcell has not been completed SequenceDB for %s.  Old sample?" % SampleID
+    #complete = ('Sequencing Complete',)
+    if complete is None:
+        raise Exception, "Flowcell has not been completed SequenceDB for %s.  Old sample?" % SampleID
     sequenceDB.execute("SELECT SUM(LnYield) from Lane where prepID=%s and failr1 is NULL and failr2 is NULL", prepID)
     info = sequenceDB.fetchone()
 
