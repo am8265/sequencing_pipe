@@ -128,7 +128,7 @@ def main():
         if len(seqtype) > 1:
             print seqtype
             raise excecption, 'Too many seqtypes returned for sample %s' % samp
-        print seqtype,samp,Samples
+        #print seqtype,samp,Samples
 
         fastqc(script,samp,seqsata,FCID,seqtype[0][0])
     script.write('cd /nfs/seqscratch1/Runs/%s\n' % runFolder)

@@ -27,8 +27,8 @@ def checkS2R(sequenceDB,SampleID,prepID):
     sequenceDB.execute("SELECT complete FROM samplesTOrun s2r JOIN poolMembers pm ON s2r.dbID=pm.poolid WHERE pm.prepID=%s AND complete=0 AND fail=0", prepID)
     S2Rsamp = sequenceDB.fetchall()
     #print S2Rsamp,SampleID,prepID
-    #print "SELECT complete FROM samplesTOrun s2r JOIN poolMembers pm ON s2r.dbID=pm.poolid WHERE pm.prepID=%s AND complete=0", prepID
     if S2Rsamp != () :
+        print "SELECT complete FROM samplesTOrun s2r JOIN poolMembers pm ON s2r.dbID=pm.poolid WHERE pm.prepID=%s AND complete=0", prepID
         raise Exception, "%s still in S2R with uncompleted lanes" % (SampleID)
 
 def check_Lane(sequenceDB,prepID,CHGVID):
@@ -37,7 +37,7 @@ def check_Lane(sequenceDB,prepID,CHGVID):
             "FROM Lane "
             "WHERE prepID={} and FailR1 is NULL and FailR2 is NULL and LnYield is NULL"
             ).format(prepID)
-    print query
+    #print query
     sequenceDB.execute(query)
     sequencing_lanes = sequenceDB.fetchall()
     #print sequencing_lanes
@@ -446,8 +446,9 @@ def email_PL(sequenceDB,samples,name):
 def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
     sequenceDB.execute("SELECT status from statusT WHERE (prepID=%s and Status='Sequencing Complete') or (prepID=%s and Status='External Data Submitted')", (prepID,prepID))
     complete = sequenceDB.fetchone()
-    if complete is None:
-        raise Exception, "Flowcell has not been completed SequenceDB for %s.  Old sample?" % SampleID
+    complete = ('Sequencing Complete',)
+    #if complete is None:
+    #    raise Exception, "Flowcell has not been completed SequenceDB for %s.  Old sample?" % SampleID
     sequenceDB.execute("SELECT SUM(LnYield) from Lane where prepID=%s and failr1 is NULL and failr2 is NULL", prepID)
     info = sequenceDB.fetchone()
 
@@ -889,7 +890,7 @@ def main():
                     pass
                     #check_Storage(sequenceDB,prepID,SeqType)
                 check_Lane(sequenceDB,prepID,SampleID)
-                checkS2R(sequenceDB,SampleID,prepID)
+                #checkS2R(sequenceDB,SampleID,prepID)
             #fixReleaseStatusT(SequenceDB,SampleID,SeqType,prepID)
 
             if sendemail == True:

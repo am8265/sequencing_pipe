@@ -131,8 +131,8 @@ def checkStatus(sequenceDB,FCID):
         # Sometimes multiple flowcells of Genomes finish bcl2fastq near the same time so its status =='storage'
         if status['status'] != 'BCL' and SeqType['SeqType'] != 'Genome':
             except_swt = 1
-            logger.warn("%s does not have the correct status!  Current status: '%s'" % (status[0],status[1]))
-            print("%s does not have the correct status!  Current status: '%s'" % (status[0],status[1]))
+            logger.warn("{} does not have the correct status!  Current status: '{}'".format(status[0],status[1]))
+            print("{} does not have the correct status!  Current status: '{}'".format(status[0],status[1]))
         else:
             if status['status'] != 'BCL':
                 except_swt = 1
@@ -237,7 +237,7 @@ def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned,sampleInfo):
             ClusterDensity = getClusterDensity(sequenceDB,FCID,lanes[0][5])
             #print(ClusterDensity,ClusterDensity == None,ClusterDensity == '')
 
-            if samp[0][0:4] == 'lane':
+            if samp[0] == 'Undetermined':
                 if float(samp[1]) > 5:
                     emailSwitch = 1
                     lane_switch = 1
@@ -262,8 +262,7 @@ def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned,sampleInfo):
 
 def send_email(emailSwitch,FCID,Machine,Unaligned):
     logger = logging.getLogger('send_email')
-
-    if emailSwitch ==1 and os.path.isfile('%s/EmailSent.txt' % Unaligned) == False:
+    if emailSwitch == 1 and os.path.isfile('%s/EmailSent.txt' % Unaligned) == False:
         address = "igm-hts@columbia.edu"
         #address = 'jb3816@cumc.columbia.edu'
         emailProgramLocation = '/nfs/goldstein/software/mutt-1.5.23/bin/mutt '
@@ -302,7 +301,7 @@ def getPoolName(sequenceDB,DBID):
 def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
     logger = logging.getLogger('EmailLane')
     logger.info('Lane fraction problem with lane: %s' % lanes[0][5])
-    email.write('<tr><td colspan="8">Lane %s</td></tr>\n' %lanes[0][5]+'\n')
+    email.write('<tr><td colspan="7">Lane %s</td></tr>\n' %lanes[0][5]+'\n')
     ClusterDensity = getClusterDensity(sequenceDB,FCID,lanes[0][5])
 
     for samp in lanes:
@@ -325,16 +324,17 @@ def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
                 highlightRowCount += 1
             email.write("</tr>\n")
 
+    #demulti_d[LaneNum].append((SampleID,LnFractionAct,LnFrac,LnFracDiff,SeqType,LaneNum))
     for samp in lanes:
-        if samp[0][0:4] == 'lane':
+        if samp[0] == 'Undetermined':
             logging.info("Lane %s's unmatched reads percent: %s" % (lanes[0][5],samp[1]))
             if 10 in highlightRowNumber:
-                email.write('<tr><td colspan="8" align="center" bgcolor="#FFFF00">Lane %s\'s unmatched reads percent: %s</td></tr>\n' %
+                email.write('<tr><td colspan="7" align="center" bgcolor="#FFFF00">Lane %s\'s unmatched reads percent: %s</td></tr>\n' %
                     (lanes[0][5],samp[1]))
             else:
-                email.write('<tr><td colspan="8" align="center">Lane %s\'s unmatched reads percent: %s</td></tr>\n' %
+                email.write('<tr><td colspan="7" align="center">Lane %s\'s unmatched reads percent: %s</td></tr>\n' %
                     (lanes[0][5],samp[1]))
-            email.write('<tr><td colspan="8" align="center">&nbsp</td></tr>\n')
+            email.write('<tr><td colspan="7" align="center">&nbsp</td></tr>\n')
 
 def opts(argv):
     global verbose
