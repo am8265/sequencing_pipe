@@ -216,7 +216,6 @@ def main():
     runFolder = runPath.split('/')[4]
     info =  runFolder.split('_')
     FCID = info[3]
-
     """Sequencing output is in the following format:
     [Date]_[IGM Machine Name]_[HiSeq Run Number]_[Flowcell ID]_[Project Name]
     However in cases of Illumina maintence they will re-image the machine and
