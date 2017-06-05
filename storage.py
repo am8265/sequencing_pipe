@@ -65,10 +65,12 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
         sys.exit(255)
 
 def email(emailAddress,storageStatus,FCID):
+    logger = logging.getLogger('email')
     emailProgramLocation = 'mail '
     emailCmd = ('echo "BCL move {} for {}"  | mail -s "IGM:BCL move {}" {}'
         ).format(storageStatus,FCID,storageStatus,' '.join(emailAddress))
     print(emailCmd)
+    logger.info(emailCmd)
     os.system(emailCmd)
 
 def storage(sequenceDB,verbose,bclDrive,archiveLoc,inputFolder,noStatus):
