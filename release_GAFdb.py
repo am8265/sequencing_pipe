@@ -46,7 +46,7 @@ def check_Lane(sequenceDB,prepID,CHGVID):
 
 #Determines what Platforms the sample was on
 def getPlatformChemVer(sequenceDB,prepID):
-    sequenceDB.execute("SELECT DISTINCT f.Machine,f.FCillumID FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s", prepID)
+    sequenceDB.execute("SELECT DISTINCT f.Machine,f.FCillumID FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s and fail=0", prepID)
     Machines = sequenceDB.fetchall()
     query="SELECT DISTINCT chemver FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s" % prepID
 
@@ -578,12 +578,10 @@ def updateStatus(sequenceDB,prepID,SampleID,DBID):
 
 
 def get_release_var():
-
     #release_loc = 'IGMC'
 	release_loc = 'LSRC'
 
 	Summary_Path = '/nfs/sva01/Summaries/'
-
 	tVersion = raw_input('Version 1.7 or 1.8? ')
 	if tVersion == '1.7':
 		Version = '1.7'
