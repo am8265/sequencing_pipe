@@ -27,8 +27,8 @@ def checkS2R(sequenceDB,SampleID,prepID):
     sequenceDB.execute("SELECT complete FROM samplesTOrun s2r JOIN poolMembers pm ON s2r.dbID=pm.poolid WHERE pm.prepID=%s AND complete=0 AND fail=0", prepID)
     S2Rsamp = sequenceDB.fetchall()
     #print S2Rsamp,SampleID,prepID
-    #print "SELECT complete FROM samplesTOrun s2r JOIN poolMembers pm ON s2r.dbID=pm.poolid WHERE pm.prepID=%s AND complete=0", prepID
     if S2Rsamp != () :
+        print "SELECT complete FROM samplesTOrun s2r JOIN poolMembers pm ON s2r.dbID=pm.poolid WHERE pm.prepID=%s AND complete=0", prepID
         raise Exception, "%s still in S2R with uncompleted lanes" % (SampleID)
 
 def check_Lane(sequenceDB,prepID,CHGVID):
@@ -37,7 +37,11 @@ def check_Lane(sequenceDB,prepID,CHGVID):
             "FROM Lane "
             "WHERE prepID={} and FailR1 is NULL and FailR2 is NULL and LnYield is NULL"
             ).format(prepID)
+<<<<<<< HEAD
     print query
+=======
+    #print query
+>>>>>>> novaseq
     sequenceDB.execute(query)
     sequencing_lanes = sequenceDB.fetchall()
     #print sequencing_lanes
@@ -46,9 +50,8 @@ def check_Lane(sequenceDB,prepID,CHGVID):
 
 #Determines what Platforms the sample was on
 def getPlatformChemVer(sequenceDB,prepID):
-    sequenceDB.execute("SELECT DISTINCT f.Machine,f.FCillumID FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s", prepID)
+    sequenceDB.execute("SELECT DISTINCT f.Machine,f.FCillumID FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s and fail=0", prepID)
     Machines = sequenceDB.fetchall()
-    ChemVer = 'v4'
     query="SELECT DISTINCT chemver FROM Lane l JOIN Flowcell f ON l.FCID=f.FCID WHERE l.prepID=%s" % prepID
 
     if verbose == True:
@@ -59,34 +62,40 @@ def getPlatformChemVer(sequenceDB,prepID):
     if type(ChemVer) == tuple:
         ChemVer = ChemVer[0]
 
-    #print Machines,prepID
+    #available Machine run types as of 5/30/2017.  Removed H2000 and HiSeq X code
     H2500 = 0
-    H2000 = 0
-    HX = 0 #placeholder for HiSeq X
+    Nova = 0
     rapid = 0
+    unknown = 0
 
+    #determine if its rapid or NovaSeq
     for HiSeq in Machines:
         #print HiSeq,HiSeq[0][0]
-        if HiSeq[1][0] == 'H':
+        if HiSeq[1][0] == 'H' and HiSeq[0][0] == 'H':
+            H2500 = 1
             rapid = 1
-
-    if HiSeq[0] is None:
-        H2500 = 1
-    elif HiSeq[0] == 'H8A' or HiSeq[0] == 'H8B' or len(HiSeq[0]) > 3:
-        H2500 = 1
-    else:
-        H2000 = 1
+        #currently HiSeq high output flowcells only start with 'C' and 'D'
+        elif HiSeq[1][0] in 'CD' and HiSeq[0][0] == 'H':
+            H2500 = 1
+        elif HiSeq[1][0] == 'H' and HiSeq[0][0] == 'N':
+            Nova = 1
+        #All faked flowcells for external data start with 'X'
+        elif HiSeq[1][0] == 'X':
+            unknown = 1
+        else:
+            raise Exception, "Unhandled FCID/Machine combo {}".format(HiSeq)
 
     #print rapid,H2500,H2000
-    if H2500 == 1 and H2000 == 1:
-        platform = 'HiSeq2000 and HiSeq2500'
-    elif H2000 == 1 and H2500 == 0:
-        platform = 'HiSeq2000'
-    elif H2000 == 0 and H2500 == 1:
-        if rapid == 1:
-            platform = 'HiSeq2500'
-        else:
-            platform = 'HiSeq2500'
+    if H2500 == 1 and Nova == 1:
+        platform = 'HiSeq2500 and NovaSeq'
+    elif Nova == 1 :
+        platform = 'NovaSeq'
+    elif H2500 == 1:
+        platform = 'HiSeq2500'
+    elif unknown == 1:
+        if H2500 or Nova or rapid:
+            raise Exception, 'Sample with both unknown external sequencing and internal sequencing!  prepID: {}.  Please investigate'.format(prepID)
+        platform = 'Unknown'
     else:
         raise Exception, "Check Machine for prepID %s!" % (prepID)
     return platform,ChemVer
@@ -263,7 +272,7 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
         columns.append(('FinalRepLoc',sInfo[5],0))
         columns.append(('Topstrandfile',sInfo[6],0))
         columns.append(('AKA',sInfo[7],0))
-        columns.append(('ProjName',sInfo[8],0))
+        columns.append(('ProjName',sInfo[8].replace("'",''),0))
         columns.append(('Protocol',sInfo[9],0))
         columns.append(('AvaiContUsed',sInfo[10],0))
         columns.append(('SelfDeclEthnic',sInfo[11],0))
@@ -322,7 +331,7 @@ def updateDB(sequenceDB,prepID,SampleID,seqtype,DBID):
             columns.append(('FinalRepLoc',sInfo[5],0))
             columns.append(('Topstrandfile',sInfo[6],0))
             columns.append(('AKA',sInfo[7],0))
-            columns.append(('ProjName',sInfo[8],0))
+            columns.append(('ProjName',sInfo[8].replace("'",''),0))
             columns.append(('Protocol',sInfo[9],0))
             columns.append(('AvaiContUsed',sInfo[10],0))
             columns.append(('SelfDeclEthnic',sInfo[11],0))
@@ -446,6 +455,7 @@ def email_PL(sequenceDB,samples,name):
 def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
     sequenceDB.execute("SELECT status from statusT WHERE (prepID=%s and Status='Sequencing Complete') or (prepID=%s and Status='External Data Submitted')", (prepID,prepID))
     complete = sequenceDB.fetchone()
+    #complete = ('Sequencing Complete',)
     if complete is None:
         raise Exception, "Flowcell has not been completed SequenceDB for %s.  Old sample?" % SampleID
     sequenceDB.execute("SELECT SUM(LnYield) from Lane where prepID=%s and failr1 is NULL and failr2 is NULL", prepID)
@@ -520,8 +530,8 @@ def check_Storage(sequenceDB,prepID,SeqType):
         #checks how many files are there for that FC, LaneNum and Sample.  If 0 warning sent out
 
         SeqType=SeqType.upper().replace(' ','_')
-        r1files = len(glob.glob("/nfs/fastq18/%s/%s/%s/%s*L00%s*R1*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
-        r2files = len(glob.glob("/nfs/fastq18/%s/%s/%s/%s*L00%s*R2*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
+        r1files = len(glob.glob("/nfs/igmdata01/%s/%s/%s/%s*L00%s*R1*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
+        r2files = len(glob.glob("/nfs/igmdata01/%s/%s/%s/%s*L00%s*R2*fastq.gz" % (SeqType,SampleID,FCID,SampleID,LaneNum)))
 
         if r1files == 0 or r2files == 0:
             r1files = len(glob.glob("/nfs/seqsata*/seqfinal*/whole_genome/%s/%s/%s*L00%s*R1*fastq.gz" % (SampleID,FCID,SampleID,LaneNum)))
@@ -572,12 +582,10 @@ def updateStatus(sequenceDB,prepID,SampleID,DBID):
 
 
 def get_release_var():
-
     #release_loc = 'IGMC'
 	release_loc = 'LSRC'
 
 	Summary_Path = '/nfs/sva01/Summaries/'
-
 	tVersion = raw_input('Version 1.7 or 1.8? ')
 	if tVersion == '1.7':
 		Version = '1.7'
@@ -889,7 +897,7 @@ def main():
                     pass
                     #check_Storage(sequenceDB,prepID,SeqType)
                 check_Lane(sequenceDB,prepID,SampleID)
-                checkS2R(sequenceDB,SampleID,prepID)
+                #checkS2R(sequenceDB,SampleID,prepID)
             #fixReleaseStatusT(SequenceDB,SampleID,SeqType,prepID)
 
             if sendemail == True:
