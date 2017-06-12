@@ -22,28 +22,9 @@ def main():
     create_sss_bcl_2(pwd,FCID,Machine,Date,sequenceDB)
 
 def getReadsRecipe(FCID,sequenceDB):
-    query = "SELECT recipe FROM Flowcell WHERE FCILLUMID = '{}'".format(FCID)
+    query = "SELECT LenR1,LenI1,LenI2,LenR2 FROM Flowcell WHERE FCILLUMID = '{}'".format(FCID)
     sequenceDB.execute(query)
-    encoded_recipe = sequenceDB.fetchone()[0]
-
-    if encoded_recipe == '1':
-        recipe = [101,7,101]
-    elif encoded_recipe == '2':
-        recipe = [101,101]
-    elif encoded_recipe == '3':
-        recipe = [101,7,7,101]
-    elif encoded_recipe == '4':
-        recipe = [100,9,100]
-    elif encoded_recipe == '5':
-        recipe = [126,7,126]
-    elif encoded_recipe == '6':
-        recipe = [151,8,151]
-    elif encoded_recipe == '8':
-        recipe = [251,7,251]
-    elif encoded_recipe == '9':
-        recipe = [151,7,7,151]
-    else:
-        raise Exception, "Unhandled recipe code: {}!".format(encoded_recipe)
+    recipe = sequenceDB.fetchone()[0]
     return recipe
 
 def getLaneNum(FCID):
