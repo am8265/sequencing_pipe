@@ -54,7 +54,7 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
             print('Done')
 
     except:
-        logger.exeception("traceback.print_exc()")
+        logger.info(traceback.print_excection())
         traceback.print_exc()
         sequenceDB.execute('ROLLBACK;')
         sequenceDB.close()
@@ -236,12 +236,20 @@ def UpdateStatus(verbose,sequenceDB,FCID,noStatus):
 def updateFlowcell(verbose,sequenceDB,FCID):
     logger = logging.getLogger('updateFlowcell')
     query = ("UPDATE Flowcell "
-             "SET DateStor=unix_timestamp() "
-             "WHERE FCIllumID='{}'").format(FCID)
+             "SET DateStor=CURRENT_TIMESTAMP() "
+             "WHERE FCIllumid='{}'").format(FCID)
     if verbose:
         print(query)
     logger.info(query)
-    sequenceDB.execute(query)
+    exception_count=0
+    try:
+        sequenceDB.execute(query)
+    except():
+        if exception_count <=3:
+            sequenceDB.execute(query)
+            exception_count += 1
+        else:
+            raise Exception('Could not complete Flowcell MySQL update')
 
 def mkdir_p(path):
     try:

@@ -62,16 +62,37 @@ def getReads(sequenceDB,FCID):
     Recipe = sequenceDB.fetchone()
     Recipe = Recipe['recipe']
 
+<<<<<<< HEAD
+    #generated str to be inserted into mysql statement.
+=======
     #trailing comma since it isn't the last of the update command
+>>>>>>> novaseq
     if Recipe == '1':
-        return "LenR1='101', LenR2='101', LenI1='7'," #HiSeq 2000 V3 and Rapid V1 chemistry
+        return "LenR1='101', LenR2='101', LenI1='7'" #HiSeq 2000 V3 and Rapid V1 chemistry
     elif Recipe =='2':
         return "LenR1='101', LenR2='101'," #No index
     elif Recipe =='3':
-        return "LenR1='101', LenR2='101', LenI1='7', LenI2='7'," #Dual Indexed v3
+        return "LenR1='101', LenR2='101', LenI1='7', LenI2='7'" #Dual Indexed v3, Nova S3,S4
     elif Recipe =='4':
-        return "LenR1='100', LenR2='100', LenI1='9'," #Extended Index read
+        return "LenR1='100', LenR2='100', LenI1='9'" #Extended Index read
     elif Recipe =='5':
+<<<<<<< HEAD
+        return "LenR1='126', LenR2='126', LenI1='7'" #HiSeq 2500
+    elif Recipe =='6':
+        return "LenR1='151', LenR2='151', LenI1='7'" #HiSeq X,Nova S1,S2,S3,S4
+    elif Recipe =='8':
+        return "LenR1='251', LenR2='251', LenI1='7'" #Rapid V2
+    elif Recipe =='9':
+        return "LenR1='50', LenR2='50', LenI1='7'" #RNASeq
+    elif Recipe =='10':
+        return "LenR1='50', LenR2='50', LenI1='7', LenI2='7'" #Highly multiplexed RNASeq
+    elif Recipe =='11':
+        return "LenR1='151', LenR2='151', LenI1='7', LenI2='7'" #Highly multiplexed Nova S3,S4
+    else:
+        raise Exception, "Unhandled Recipe code:{}".format(Recipe)
+
+def updateFC(sequenceDB,FCID,Machine,pwd):
+=======
         return "LenR1='126', LenR2='126', LenI1='7'," #HiSeq 2500,
     elif Recipe =='6':
         return "LenR1='151', LenR2='151', LenI1='7'," #Rapid V2, NovaSeq
@@ -83,6 +104,7 @@ def getReads(sequenceDB,FCID):
         raise Execption("Unhandled recipe code: {}!".format(Recipe))
 
 def updateFC(sequenceDB,FCID,Machine,pwd,seqLoc):
+>>>>>>> novaseq
     logger = logging.getLogger('updateFC')
     DateBcl = cur_datetime()
     DateRTA = getRTAdate(pwd)
@@ -92,7 +114,7 @@ def updateFC(sequenceDB,FCID,Machine,pwd,seqLoc):
     #print(DateRTA)
 
     sql = ("UPDATE Flowcell "
-        "SET {0} RTAVer='{1}', HCSVer='{2}', DateRead1='{3}', DateRTA='{4}', "
+        "SET {0}, RTAVer='{1}', HCSVer='{2}', DateRead1='{3}', DateRTA='{4}', "
         "DateBcl='{5}', SeqsataLoc='{6}' "
         "WHERE FCillumID='{7}'"
         ).format(Read_SQL_Command,RTAVer,HCSver,DateRead1,DateRTA,DateBcl,seqLoc,FCID)

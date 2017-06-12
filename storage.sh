@@ -94,7 +94,7 @@ for s in $source/*$FCID*/Project*/Sample*; do
 	ls -ltr $s* >>  $seqsata/$seqtype/$sampleID/$FCID/$sampleID.$FCID.files.txt	
  
 	#add if statement 
-	if [ $source == "/nfs/fastq16/BCL/" ] ; then
+	if [ $source == "/nfs/fastq18/BCL/" ] ; then
 		echo $(date) mv $s/* $seqsata/$seqtype/$sampleID/$FCID >> $LOG_FILE
 		mv $s/* $seqsata/$seqtype/$sampleID/$FCID
 	else

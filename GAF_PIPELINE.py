@@ -23,7 +23,13 @@ def getBestBCLDrive():
 
             bcl_seqsata = jobs.split('_')[2]
             runningSeqscratchList.append(bcl_seqsata)
+<<<<<<< HEAD
+    seqscratchDrives = ['seqscratch_ssd','seqscratch09','seqscratch10','seqscratch11']
+    #seqscratchDrives = ['fastq18','seqscratch09','seqscratch10','seqscratch11']
+    #seqscratchDrives = ['seqscratch09','seqscratch10','seqscratch11']
+=======
     seqscratchDrives = ['seqscratch_ssd','seqscratch09','seqscratch10']
+>>>>>>> novaseq
 
     availSeqscratchDrives = set(seqscratchDrives) - set(runningSeqscratchList)
 
@@ -38,8 +44,12 @@ def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
     logger = logging.getLogger('submit')
     address = 'jb3816@cumc.columbia.edu'
     pythonProgram = '/nfs/goldstein/software/python2.7/bin/python2.7'
+<<<<<<< HEAD
+    scriptLoc = '/nfs/goldstein/software/sequencing_pipe/production/'
+=======
     pythonProgram36 = '/nfs/goldstein/software/python3.6.1-x86_64_shared/bin/python'
     scriptLoc = '/home/jb3816/github/sequencing_pipe'
+>>>>>>> novaseq
 
     BCLCmd =         ("{0} {1}/bcl.py -i {2} -b {3}").format(pythonProgram,scriptLoc,runFolder,BCLDrive)
     BCLMySQLCmd =    ("{0} {1}/bcl_mysql.py -i {2}").format(pythonProgram36,scriptLoc,runFolder)
