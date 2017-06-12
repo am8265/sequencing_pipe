@@ -31,7 +31,7 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
     else:
         sequenceDB = getSequenceDB()
 
-    date,machine,runNumber,FCIllumID,projectName = inputFolder.split('_')
+    date,machine,runNumber,FCIllumID,*rest = inputFolder.split('_')
     logger = logging.getLogger('main')
     setup_logging(machine,FCIllumID,seqsataLoc)
     logger = logging.getLogger('main')
@@ -44,9 +44,8 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
     logger.info('inputFolder:{}, archiveLoc:{}'.format(inputFolder,archiveLoc))
 
     #completeCheck(bclDrive,inputFolder)
-
     try:
-        storage(sequenceDB,verbose,bclDrive,archiveLoc,inputFolder,noStatus)
+        storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputFolder,noStatus)
         sequenceDB.execute('COMMIT;')
         sequenceDB.close()
         email(emailAddress,'SUCCESS',FCIllumID)
@@ -73,9 +72,8 @@ def email(emailAddress,storageStatus,FCID):
     logger.info(emailCmd)
     os.system(emailCmd)
 
-def storage(sequenceDB,verbose,bclDrive,archiveLoc,inputFolder,noStatus):
+def storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputFolder,noStatus):
     logger = logging.getLogger('storage')
-    date,machine,runNumber,FCIllumID,projectName = inputFolder.split('_')
     UnalignedLoc = '{}/{}_{}_{}_Unaligned'.format(bclDrive,date,machine,FCIllumID)
     folderList = glob('{}/*/*fastq.gz'.format(UnalignedLoc))
     origNumFastq = len(folderList)
@@ -173,7 +171,7 @@ def getSeqtype(sequenceDB,FCIllumID,sampleName):
             "WHERE FCIllumID='{}' AND CHGVID='{}'"
             ).format(FCIllumID,sampleName)
     logger.info(seqtypeQuery)
-    print(seqtypeQuery)
+    #print(seqtypeQuery)
     sequenceDB.execute(seqtypeQuery)
     seqtype = sequenceDB.fetchone()['seqtype'].upper().replace(' ','_')
     return seqtype
@@ -188,7 +186,7 @@ def createStorageCompleteFlag(verbose,seqscratchBase,FCIllumID,date,machine):
 
 def processSAV(verbose,FCIllumID,date,machine,archiveLoc,seqscratchBase):
     logger = logging.getLogger('processSAV')
-    if machine[0] == 'N':
+    if machine[0] == 'A':
         runParametersFile = 'RunParameters.xml'
     else:
         runParametersFile = 'runParameters.xml'
@@ -201,7 +199,8 @@ def processSAV(verbose,FCIllumID,date,machine,archiveLoc,seqscratchBase):
     if verbose:
         print(' '.join(tarCmd))
     logger.info(tarCmd)
-    subprocess.check_call(tarCmd)
+    returnCode = subprocess.check_call(tarCmd)
+    logger.info(returnCode)
 
 def processBcl2fastqLog(verbose,FCIllumID,date,machine,archiveLoc,UnalignedLoc):
     logger = logging.getLogger('processBcl2fastqLog')
@@ -212,7 +211,8 @@ def processBcl2fastqLog(verbose,FCIllumID,date,machine,archiveLoc,UnalignedLoc):
     if verbose:
         print(' '.join(zipCmd))
     logger.info(zipCmd)
-    subprocess.check_call(zipCmd)
+    returnCode = subprocess.check_call(zipCmd)
+    logger.info(returnCode)
 
 def UpdateStatus(verbose,sequenceDB,FCID,noStatus):
     """sequenceDB Sample Update"""
@@ -232,11 +232,12 @@ def UpdateStatus(verbose,sequenceDB,FCID,noStatus):
             print(query)
         logger.info(query)
         sequenceDB.execute(query)
+
 def updateFlowcell(verbose,sequenceDB,FCID):
-    logger = logging.getLogger('UpdateStatus')
+    logger = logging.getLogger('updateFlowcell')
     query = ("UPDATE Flowcell "
              "SET DateStor=unix_timestamp() "
-             "WHERE FCIllumid='{}'").format(FCID)
+             "WHERE FCIllumID='{}'").format(FCID)
     if verbose:
         print(query)
     logger.info(query)

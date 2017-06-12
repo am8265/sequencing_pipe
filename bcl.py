@@ -38,7 +38,7 @@ def bcl(info,Machine,runPath,BCLDrive,seqsata,machine,sequenceDB):
     dir_check(BCLDrive + out_dir)
     base_script = '/nfs/goldstein/software/bcl2fastq2_v2.19.0/bin/bcl2fastq '
 
-    if Machine[0] == 'N': #NovaSeq
+    if Machine[0] == 'A': #NovaSeq
         base_script += '--runfolder-dir %s --output-dir %s ' % (in_dir,out_dir)
     else: #HiSeq
         base_script += '--runfolder-dir %s --output-dir %s --barcode-mismatches 1 ' % (in_dir,out_dir)

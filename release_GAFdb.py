@@ -73,7 +73,7 @@ def getPlatformChemVer(sequenceDB,prepID):
         #currently HiSeq high output flowcells only start with 'C' and 'D'
         elif HiSeq[1][0] in 'CD' and HiSeq[0][0] == 'H':
             H2500 = 1
-        elif HiSeq[1][0] == 'H' and HiSeq[0][0] == 'N':
+        elif HiSeq[1][0] == 'H' and ( HiSeq[0][0] == 'N' or HiSeq[0][0] == 'A'):
             Nova = 1
         #All faked flowcells for external data start with 'X'
         elif HiSeq[1][0] == 'X':

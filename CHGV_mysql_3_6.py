@@ -73,6 +73,10 @@ def getUserID(sequenceDB):
     return userID['userID']
 
 def MachineCheck(sequenceDB,Machine,FCID):
+    if Machine == 'A00116':
+        Machine == 'N1'
+    elif Machine == 'A00123':
+        Machine == 'N2'
     sql = """SELECT MACHINE
             FROM Flowcell
             WHERE FCIllumID = '{0}'

@@ -385,7 +385,8 @@ def main():
         sequenceDB = getTestSequenceDB()
     else:
         sequenceDB = getSequenceDB()
-    Date,Machine,RunNum,FCID,Experiment = runFolder.split('_')
+    #often the experiment field has extra underscores
+    Date,Machine,RunNum,FCID,*rest = runFolder.split('_')
 
     Unaligned = '{0}/{1}_{2}_{3}_Unaligned'.format(BCLDrive,Date,Machine,FCID)
     setup_logging(Machine,FCID,seqsata_drive)

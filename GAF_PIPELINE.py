@@ -50,6 +50,7 @@ def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
 
 
     if run_pipeline == False:
+        #prints out all the commands to run manually
         print
         print("="*35+'Scripts Commands'+"="*35)
         print(BCLCmd)
@@ -65,7 +66,7 @@ def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
             ).format(seqsata,machine,FCID))
 
     else:
-
+        #submits everything to the cluster
         #stage 1
         os.system(BCLCmd)
         logger.info(BCLCmd)
@@ -96,6 +97,7 @@ def header(seqsata,file,FCID):
     file.write('\n')
 
 def stage2(seqsata,runFolder,machine,FCID,address,postBCLCmd,storageCmd,fastqCmd,fastqMySQLCmd):
+    #writes out the stage 2 script
     logger = logging.getLogger('stage2')
 
     stage2_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_%s_stage2.sh' % (runFolder,machine,FCID,seqsata),'w')

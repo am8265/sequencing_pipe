@@ -41,7 +41,7 @@ def getRead1Date(pwd):
     return Read1Date
 
 def ver_num(pwd,Machine):
-    if Machine[0] == 'N':
+    if Machine[0] == 'A':
         runParametersFile = 'RunParameters.xml'
     else:
         runParametersFile = 'runParameters.xml'
