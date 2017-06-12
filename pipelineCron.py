@@ -14,11 +14,7 @@ def main():
             "where (pipelineComplete != 1 and complete = 1 and fail != 1) "
             "group by l.FCID "
             "order by min(priority) asc , from_unixtime(seqend) asc")
-<<<<<<< HEAD
     #print query
-    raw_input
-=======
->>>>>>> novaseq
     sequenceDB.execute(query)
     completeFlowcell = sequenceDB.fetchall()
     if len(completeFlowcell) != 0:
@@ -47,12 +43,7 @@ def checkBCLFolderExist(completeFlowcell,sequenceDB):
         RTAComplete = RTACompleteCheck(FCIllumID)
         #print RTAComplete == True and BCLFolder == []
         if BCLFolder == [] and RTAComplete == True:
-<<<<<<< HEAD
-            cmd = "/nfs/goldstein/software/python2.7/bin/python2.7 /nfs/goldstein/software/sequencing_pipe/production/GAF_PIPELINE.py --FCID %s -r" % FCIllumID
-            #cmd = "/nfs/goldstein/software/python2.7/bin/python2.7 /home/jb3816/github/sequencing_pipe/GAF_PIPELINE.py --FCID %s -r" % FCIllumID
-=======
             cmd = "/nfs/goldstein/software/python3.6.1-x86_64_shared/bin/python3.6 /home/jb3816/github/sequencing_pipe/GAF_PIPELINE.py --FCID %s -r" % FCIllumID
->>>>>>> novaseq
             print "Starting GAF pipeline..."
             #print cmd
             query = ("UPDATE Flowcell "

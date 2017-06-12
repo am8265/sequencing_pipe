@@ -37,11 +37,7 @@ def check_Lane(sequenceDB,prepID,CHGVID):
             "FROM Lane "
             "WHERE prepID={} and FailR1 is NULL and FailR2 is NULL and LnYield is NULL"
             ).format(prepID)
-<<<<<<< HEAD
-    print query
-=======
     #print query
->>>>>>> novaseq
     sequenceDB.execute(query)
     sequencing_lanes = sequenceDB.fetchall()
     #print sequencing_lanes

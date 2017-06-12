@@ -131,7 +131,6 @@ def check_sss(FCID):
 	else:
 		sss_qc(FCID)
 
-<<<<<<< HEAD
 
 def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
 
@@ -311,8 +310,6 @@ def create_sss(runPath,FCID,Machine,date,sequenceDB):
     os.system('cp %s/%s_%s_%s.csv /nfs/genotyping/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
     logger.info('cp %s/%s_%s_%s.csv /nfs/genotyping/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
 
-=======
->>>>>>> novaseq
 def updateSamples(sequenceDB,FCID):
     logger = logging.getLogger('updateSamples')
     userID = getUserID()
