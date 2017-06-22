@@ -121,8 +121,6 @@ def updateRedcap(allSamples):
                 to_import_json = dumps([record], separators=(',',':'))
                 payload['data'] = to_import_json
                 response = post(URL, data=payload)
-
-
                 sampleSites.append((record['igm_seq'],'Columbia'))
 
     return sampleSites

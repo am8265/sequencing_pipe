@@ -24,7 +24,8 @@ def main():
 def getReadsRecipe(FCID,sequenceDB):
     query = "SELECT LenR1,LenI1,LenI2,LenR2 FROM Flowcell WHERE FCILLUMID = '{}'".format(FCID)
     sequenceDB.execute(query)
-    recipe = sequenceDB.fetchone()[0]
+    recipe = sequenceDB.fetchone()
+    print recipe
     return recipe
 
 def getLaneNum(FCID):
@@ -85,8 +86,8 @@ def create_sss_bcl_2(runPath,FCID,Machine,date,sequenceDB):
     outfile.write("Chemistry,Default\n")
     outfile.write("\n")
     outfile.write("[Reads]\n")
-    outfile.write("{}\n".format(recipe[0]))
-    outfile.write("{}\n".format(recipe[-1]))
+    outfile.write("{}\n".format(str(recipe[0])))
+    outfile.write("{}\n".format(str(recipe[-1])))
     outfile.write("\n")
     outfile.write("[Data]\n")
     outfile.write("\n")

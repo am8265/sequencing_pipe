@@ -10,6 +10,7 @@ import csv
 import getopt
 import glob
 import logging
+import math
 import subprocess
 import sys
 import traceback
@@ -63,12 +64,13 @@ def updateFC(sequenceDB,FCID,Machine,pwd,seqLoc):
     DateRTA = getRTAdate(pwd)
     DateRead1 = getRead1Date(pwd)
     RTAVer,HCSver = ver_num(pwd,Machine)
+    print(RTAVer,HCSver)
     #print(DateRTA)
 
     sql = ("UPDATE Flowcell "
-        "SET RTAVer='{1}', HCSVer='{2}', DateRead1='{3}', DateRTA='{4}', "
-        "DateBcl='{5}', SeqsataLoc='{6}' "
-        "WHERE FCillumID='{7}'"
+        "SET RTAVer='{}', HCSVer='{}', DateRead1='{}', DateRTA='{}', "
+        "DateBcl='{}', SeqsataLoc='{}' "
+        "WHERE FCillumID='{}'"
         ).format(RTAVer,HCSver,DateRead1,DateRTA,DateBcl,seqLoc,FCID)
     if verbose == True:
         print(sql)
@@ -174,7 +176,9 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID,run_summary):
         errorR2 = run_summary.at(2).at(LaneNum).error_rate().mean()
         percentAlignR1 = run_summary.at(0).at(LaneNum).percent_aligned().mean()
         percentAlignR2 = run_summary.at(2).at(LaneNum).percent_aligned().mean()
-
+        # when read2 fails, perQ30R2 == 'nan' 
+        if math.isnan(perQ30R2):
+            perQ30R2 = '0'
         #interOP LaneNum is zero-indexed while sql LaneNum is not.
         LaneNum += 1
         sql = ("UPDATE Lane l "

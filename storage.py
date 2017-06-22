@@ -38,7 +38,7 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
     logger.info('Starting Storage script')
 
     archiveLoc = '/nfs/' + seqsataLoc
-    emailAddress = ['jb3816@cumc.columbia.edu','dn2404@cumc.columbia.edu','sif2110@cumc.columbia.edu']
+    emailAddress = ['jb3816@cumc.columbia.edu','sif2110@cumc.columbia.edu']
     emailAddress = ['jb3816@cumc.columbia.edu']
 
     logger.info('inputFolder:{}, archiveLoc:{}'.format(inputFolder,archiveLoc))
@@ -46,15 +46,17 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
     #completeCheck(bclDrive,inputFolder)
     try:
         storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputFolder,noStatus)
+        logger.info('Starting commit')
         sequenceDB.execute('COMMIT;')
         sequenceDB.close()
+        logger.info('Closing sequenceDB cursor')
         email(emailAddress,'SUCCESS',FCIllumID)
         logger.info('Done')
         if verbose:
             print('Done')
 
     except:
-        logger.info(traceback.print_excection())
+        logger.exception('Got exception')
         traceback.print_exc()
         sequenceDB.execute('ROLLBACK;')
         sequenceDB.close()
@@ -65,7 +67,7 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
 
 def email(emailAddress,storageStatus,FCID):
     logger = logging.getLogger('email')
-    emailProgramLocation = 'mail '
+    logger.info('Starting email')
     emailCmd = ('echo "BCL move {} for {}"  | mail -s "IGM:BCL move {}" {}'
         ).format(storageStatus,FCID,storageStatus,' '.join(emailAddress))
     print(emailCmd)
@@ -112,7 +114,7 @@ def storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputF
         if verbose:
             print(' '.join(reportCpCmd))
         logger.info(reportCpCmd)
-        subprocess.check_call(reportCpCmd)
+        subprocess.call(reportCpCmd)
 
     mvFolderList = glob('{}/*/*/{}/*fastq.gz'.format(archiveLoc,FCIllumID))
     mvNumFastq = len(mvFolderList)
@@ -141,17 +143,19 @@ def storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputF
         seqscratchBase = '/nfs/seqscratch1/Runs'
         processSAV(verbose,FCIllumID,date,machine,archiveLoc,seqscratchBase)
         processBcl2fastqLog(verbose,FCIllumID,date,machine,archiveLoc,UnalignedLoc)
-        UpdateStatus(verbose,sequenceDB,FCIllumID,noStatus)
+        updateStatus(verbose,sequenceDB,FCIllumID,noStatus)
         updateFlowcell(verbose,sequenceDB,FCIllumID)
         createStorageCompleteFlag(verbose,seqscratchBase,FCIllumID,date,machine)
         removeFastqs(verbose,folderList)
 
 def removeFastqs(verbose,folderList):
+    logger = logging.getLogger('removeFastqs')
     for fastq in folderList:
         rmCmd = ['rm',fastq]
         if verbose:
             print(' '.join(rmCmd))
-        subprocess.check_call(rmCmd)
+        logger.info(rmCmd)
+        subprocess.call(rmCmd)
 
 def getGAFbin(sequenceDB,sampleName):
     GAFbinQuery = ("SELECT GAFbin FROM SampleT WHERE CHGVID = '{}'").format(sampleName)
@@ -182,7 +186,7 @@ def createStorageCompleteFlag(verbose,seqscratchBase,FCIllumID,date,machine):
     touchCmd = ['touch',flagloc]
     if verbose:
         print(' '.join(touchCmd))
-    subprocess.check_call(touchCmd)
+    subprocess.call(touchCmd)
 
 def processSAV(verbose,FCIllumID,date,machine,archiveLoc,seqscratchBase):
     logger = logging.getLogger('processSAV')
@@ -199,7 +203,7 @@ def processSAV(verbose,FCIllumID,date,machine,archiveLoc,seqscratchBase):
     if verbose:
         print(' '.join(tarCmd))
     logger.info(tarCmd)
-    returnCode = subprocess.check_call(tarCmd)
+    returnCode = subprocess.call(tarCmd)
     logger.info(returnCode)
 
 def processBcl2fastqLog(verbose,FCIllumID,date,machine,archiveLoc,UnalignedLoc):
@@ -211,12 +215,12 @@ def processBcl2fastqLog(verbose,FCIllumID,date,machine,archiveLoc,UnalignedLoc):
     if verbose:
         print(' '.join(zipCmd))
     logger.info(zipCmd)
-    returnCode = subprocess.check_call(zipCmd)
+    returnCode = subprocess.call(zipCmd)
     logger.info(returnCode)
 
-def UpdateStatus(verbose,sequenceDB,FCID,noStatus):
+def updateStatus(verbose,sequenceDB,FCID,noStatus):
     """sequenceDB Sample Update"""
-    logger = logging.getLogger('UpdateStatus')
+    logger = logging.getLogger('updateStatus')
     userID = getUserID(sequenceDB)
     #Status update for entire flowcell
     if noStatus == False:

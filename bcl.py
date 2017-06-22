@@ -12,7 +12,6 @@ import os
 import re
 import getopt
 import sys
-from commands import getoutput
 from CHGV_mysql import setup_logging
 from CHGV_mysql import getSequenceDB
 from CHGV_mysql import getTestSequenceDB
