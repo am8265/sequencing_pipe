@@ -11,14 +11,15 @@ from commands import getoutput
 from datetime import datetime
 from MySQLdb import Connect
 from CHGV_mysql import getSequenceDB
+from CHGV_mysql import getTestSequenceDB
 from CHGV_mysql import getUserID
 from checkRelease import checkUpdateDB
 
 #Checks sample list
 def Samples():
     path = sys.argv[1]
+    print os.path.isfile(path)
     if os.path.isfile(path) == False:
-        print '/nfs/genotyping/bridgers/'+path
         raise Exception, "sample list file does not exist"
     return path
 
@@ -98,7 +99,22 @@ def getPlatformChemVer(sequenceDB,prepID):
 
 #Processes Fastq Location information from the Flowcell and Lane tables
 def getFastqLoc(sequenceDB,SampleID,prepID,seqtype):
-    sequenceDB.execute("SELECT GROUP_CONCAT(DISTINCT(CONCAT('/nfs/',f.SeqSataLoc,'/',%s,'/',%s,'/',fcillumid)) SEPARATOR ' ') FROM Flowcell f JOIN Lane l ON f.FCID=l.FCID WHERE SeqSataLoc IS NOT NULL and SeqSataLoc != '' and prepID=%s", (seqtype,SampleID,prepID))
+    query = ("SELECT "
+                "CASE "
+                    "WHEN FCILLUMID LIKE 'X%' THEN '/nfs/igmdata01/{seqtype}/{SampleID}/1' "
+                    "ELSE GROUP_CONCAT(DISTINCT(CONCAT('/nfs/',f.SeqSataLoc,'/',UPPER(st.seqtype),'/',CHGVID,'/',fcillumid)) SEPARATOR ' ') "
+                "END "
+                "FROM Flowcell f "
+                "JOIN Lane l ON f.FCID=l.FCID "
+                "JOIN prepT p on p.prepid=l.prepid "
+                "JOIN SeqType st on p.prepid=st.prepid "
+                "WHERE SeqSataLoc IS NOT NULL and "
+                "SeqSataLoc != '' and p.prepID={prepID}"
+                ).format(seqtype=seqtype.upper(),
+                        prepID=prepID,
+                        SampleID=SampleID)
+    print query
+    sequenceDB.execute(query)
     FastqLoc = sequenceDB.fetchone()[0]
     #print FastqLoc
     return FastqLoc

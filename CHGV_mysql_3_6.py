@@ -64,7 +64,9 @@ def getSamYield(gaf_curs,idnum):
         return str(SamYield[0])
 
 def getUserID(sequenceDB):
-    userName = os.getlogin()
+    p = os.popen(' echo $USER ')
+    userName = p.readline().strip()
+    p.close()
     #GAF user name back at duke
     if userName == 'solexa':
         userName = 'jb3816'
