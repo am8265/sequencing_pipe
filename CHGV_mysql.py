@@ -47,15 +47,16 @@ def getSamYield(gaf_curs,idnum):
         SamYield = '0'
         return str(SamYield[0])
 
-def getUserID():
-    sequenceDB = getSequenceDB()
-    userName = getoutput('echo $LOGNAME')
+def getUserID(sequenceDB):
+    p = os.popen('echo $USER')
+    userName = p.readline().strip()
+    p.close()
+    #GAF user name back at duke
     if userName == 'solexa':
         userName = 'jb3816'
-    sequenceDB.execute("SELECT userID FROM users WHERE netid='%s'" % (userName))
+    sequenceDB.execute("SELECT userID FROM users WHERE netid='{}'".format(userName))
     userID = sequenceDB.fetchone()
     return userID[0]
-
 
 def MachineCheck(sequenceDB,Machine,FCID):
     sql = """SELECT MACHINE
