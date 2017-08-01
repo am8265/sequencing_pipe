@@ -50,9 +50,8 @@ def ver_num(pwd,Machine):
     proc = subprocess.Popen(RTAcmd, stdout=subprocess.PIPE)
     tmp = proc.stdout.read().decode().split()
     RTAVer = tmp[0].split('>')[1].split('<')[0]
-
     HCScmd = ['grep','ApplicationVersion','{}/{}'.format(pwd,runParametersFile),'-m1']
-    proc2 = subprocess.Popen(RTAcmd, stdout=subprocess.PIPE)
+    proc2 = subprocess.Popen(HCScmd, stdout=subprocess.PIPE)
     tmp2 = proc2.stdout.read().decode().split()
     HCSVer = tmp2[0].split('>')[1].split('<')[0]
     return RTAVer,HCSVer
@@ -64,7 +63,6 @@ def updateFC(sequenceDB,FCID,Machine,pwd,seqLoc):
     DateRTA = getRTAdate(pwd)
     DateRead1 = getRead1Date(pwd)
     RTAVer,HCSver = ver_num(pwd,Machine)
-    print(RTAVer,HCSver)
     #print(DateRTA)
 
     sql = ("UPDATE Flowcell "
