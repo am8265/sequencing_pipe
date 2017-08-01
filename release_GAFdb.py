@@ -577,7 +577,7 @@ def updateStatus(sequenceDB,prepID,SampleID,DBID):
     logger = logging.getLogger('updateStatus')
 
     global userID
-    userID = getUserID()
+    userID = getUserID(sequenceDB)
 
     logger.info("INSERT INTO statusT(CHGVID,status_time,status,DBID,prepID,userID) VALUES(%s,unix_timestamp(),'Released to Bioinformatics Team',%s,%s,%s)" % (SampleID,DBID,prepID,userID))
     if verbose == True:

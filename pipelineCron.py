@@ -31,7 +31,11 @@ def RTACompleteCheck(FCIllumID):
     if RTACompleteFile != []:
         return True
     else:
-        return False
+        RTACompleteFile = glob.glob("/nfs/seqscratch_temp1/Runs/*{0}*/RTAComplete.txt".format(FCIllumID[0]))
+        if RTACompleteFile != []:
+            return True
+        else:
+            return False
 
 def checkBCLFolderExist(completeFlowcell,sequenceDB):
     '''Checks for the exisitance of a bcl2fastq folder.  The folder has to be

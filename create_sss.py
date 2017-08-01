@@ -5,8 +5,7 @@ import sys
 
 def main():
     pwd = os.getcwd()
-    sequencedb = getSequenceDB()
-    sequenceDB = getTestSequenceDB()
+    sequenceDB = getSequenceDB()
 
     if len(sys.argv) == 1:
 
@@ -25,7 +24,6 @@ def getReadsRecipe(FCID,sequenceDB):
     query = "SELECT LenR1,LenI1,LenI2,LenR2 FROM Flowcell WHERE FCILLUMID = '{}'".format(FCID)
     sequenceDB.execute(query)
     recipe = sequenceDB.fetchone()
-    print recipe
     return recipe
 
 def getLaneNum(FCID):
