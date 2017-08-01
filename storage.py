@@ -39,7 +39,7 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
 
     archiveLoc = '/nfs/' + seqsataLoc
     emailAddress = ['jb3816@cumc.columbia.edu','sif2110@cumc.columbia.edu']
-    emailAddress = ['jb3816@cumc.columbia.edu']
+    #emailAddress = ['jb3816@cumc.columbia.edu']
 
     logger.info('inputFolder:{}, archiveLoc:{}'.format(inputFolder,archiveLoc))
 
@@ -88,7 +88,6 @@ def storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputF
         fastqSize = os.path.getsize(fastq)
         logger.info('{} original filesize: {}'.format(fastq,fastqSize))
         origTotalFastqSize += fastqSize
-        print(fastq)
         sampleName = fastq.split('/')[6].split('_')[0]
         seqtype = getSeqtype(sequenceDB,FCIllumID,sampleName)
         GAFbin = getGAFbin(sequenceDB,sampleName)
@@ -141,10 +140,11 @@ def storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputF
         raise Exception('Total number of files after move do not match!!!')
     else:
         seqscratchBase = '/nfs/seqscratch1/Runs'
+        sequenceDB = getSequenceDB()
         processSAV(verbose,FCIllumID,date,machine,archiveLoc,seqscratchBase)
         processBcl2fastqLog(verbose,FCIllumID,date,machine,archiveLoc,UnalignedLoc)
         updateStatus(verbose,sequenceDB,FCIllumID,noStatus)
-        updateFlowcell(verbose,sequenceDB,FCIllumID)
+        updateFlowcell(verbose,sequenceDB,FCIllumID,archiveLoc)
         createStorageCompleteFlag(verbose,seqscratchBase,FCIllumID,date,machine)
         removeFastqs(verbose,folderList)
 
@@ -237,11 +237,12 @@ def updateStatus(verbose,sequenceDB,FCID,noStatus):
         logger.info(query)
         sequenceDB.execute(query)
 
-def updateFlowcell(verbose,sequenceDB,FCID):
+def updateFlowcell(verbose,sequenceDB,FCID,archiveLoc):
     logger = logging.getLogger('updateFlowcell')
     query = ("UPDATE Flowcell "
-             "SET DateStor=CURRENT_TIMESTAMP() "
-             "WHERE FCIllumid='{}'").format(FCID)
+             "SET DateStor=CURRENT_TIMESTAMP(), "
+             "SeqsataLoc={} "
+             "WHERE FCIllumid='{}'").format(archiveLoc,FCID)
     if verbose:
         print(query)
     logger.info(query)
