@@ -76,7 +76,7 @@ def bcl(info,Machine,runPath,BCLDrive,seqsata,machine,sequenceDB):
     # Used to mask any bases on the read
     if base_mask != False:
         base_script = base_script + '--use-bases-mask '+base_mask+' '
-    #print base_script
+    print base_script
 
     logger.info(base_script)
     os.mkdir(out_dir)
@@ -134,7 +134,7 @@ def check_sss(FCID):
 
 def updateSamples(sequenceDB,FCID):
     logger = logging.getLogger('updateSamples')
-    userID = getUserID()
+    userID = getUserID(sequenceDB)
     sql = ("INSERT INTO statusT "
         "(CHGVID,status_time,status,DBID,prepID,userID) "
         "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'BCL',pt.DBID,pt.prepID,{0} "
