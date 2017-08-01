@@ -63,7 +63,6 @@ def MachineCheck(sequenceDB,Machine,FCID):
             FROM Flowcell
             WHERE FCIllumID = '{0}'
             """.format(FCID)
-
     sequenceDB.execute(sql)
     MachineFromDB = sequenceDB.fetchall()
     if len(MachineFromDB) != 1:

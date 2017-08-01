@@ -11,6 +11,7 @@ from CHGV_mysql_3_6 import setup_logging
 from CHGV_mysql_3_6 import getSequenceDB
 from CHGV_mysql_3_6 import getTestSequenceDB
 from collections import Counter
+from operator import itemgetter
 
 def getBestBCLDrive():
     runningSeqscratchList =[]
@@ -119,11 +120,11 @@ def checkSeqsata(seqsata):
 
 
 def usage():
-    print('-b, --bcl\t\tSpecify BCL drive.  Ex: seqscratch09')
-    print('-d, --debug\t\tShows additional informaion such as Pipeline Executing and bcl jobs')
+    print('-b, --bcl\t\tSpecify BCL Unaligned destination drive.  Ex: seqscratch09')
+    print('-d, --debug\t\tShows additional informaion')
     print('-h, --help\t\tShows this help message and exit')
     print('-r, --run\t\tSubmits pipeline to the cluster')
-    print('-s, --seqsata\t\tSpecify seqsata drive.  Ex: seqsata02')
+    print('-s, --seqsata\t\tSpecify the archive destination drive.  Ex: seqsata02')
     print('--FCID\t\t\tSpecify the flowcell Illumina ID')
 
     sys.exit(2)
@@ -137,9 +138,10 @@ def opts(argv):
     _debug = False
     global seqsata
     seqsata = 'igmdata01'
+    seqsata = 'fastq_temp2'
     global BCLDrive
-    BCLDrive = ''
-
+    BCLDrive = '/nfs/seqscratch_ssd/BCL'
+    RunsDrive = '/nfs/seqscratch1'
     global runPath
     runPath = ''
 
@@ -151,9 +153,10 @@ def opts(argv):
         if o in ('-h','--help'):
             usage()
         elif o in ('-b','--bcl'):
-            BCLDrive = '/nfs/' + a + '/BCL'
+            BCLDrive = '/nfs/' + a
+            print(BCLDrive)
         elif o in ('--FCID'):
-            runPath = getRunPath(a)
+            runPath = getRunPath(a,RunsDrive)
         elif o in ('-r','--run'):
             run_pipeline = True
         elif o in ('-d','--debug'):
@@ -163,14 +166,17 @@ def opts(argv):
         else:
             assert False, "Unhandled argument present"
 
-def getRunPath(FCID):
+def getRunPath(FCID,RunsDrive):
     '''Grabs the run folder with the highest run number for edge cases where
        there the flowcell was rerun and there are multiple run folders.  This
        assumes the duplicate run folders have the name except for the run number
        within run folder name
     '''
-    runPaths = max(glob.glob('/nfs/seqscratch1/Runs/*%s*' % FCID),key=os.path.getctime)
-    runPath = runPaths
+    try:
+        runPath = max(glob.glob('{}/Runs/*{}*'.format(RunsDrive,FCID)),key=os.path.getctime)
+    except ValueError:
+        runPath = max(glob.glob('/nfs/seqscratch_temp1/Runs/*{}*'.format(FCID)),key=os.path.getctime)
+
     return runPath
 
 def check_cwd(runPath):
@@ -205,16 +211,16 @@ def Machine_check(sequenceDB,FCID,machine):
 
 
 def main():
+    global runPath
     opts(sys.argv[1:])
 
-    global runPath
     if runPath == '':
+        print('getting runFolder from CWD')
         runFolder = os.getcwd()
 
     #print(runFolder)
     #check_cwd(runPath)
     RTA_check(runPath)
-
     runFolder = runPath.split('/')[4]
     info =  runFolder.split('_')
     FCID = info[3]
