@@ -39,16 +39,13 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
 
     archiveLoc = '/nfs/' + seqsataLoc
     emailAddress = ['jb3816@cumc.columbia.edu','sif2110@cumc.columbia.edu']
-    #emailAddress = ['jb3816@cumc.columbia.edu']
+    emailAddressFail = ['jb3816@cumc.columbia.edu']
 
     logger.info('inputFolder:{}, archiveLoc:{}'.format(inputFolder,archiveLoc))
 
     #completeCheck(bclDrive,inputFolder)
     try:
         storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputFolder,noStatus)
-        logger.info('Starting commit')
-        sequenceDB.execute('COMMIT;')
-        sequenceDB.close()
         logger.info('Closing sequenceDB cursor')
         email(emailAddress,'SUCCESS',FCIllumID)
         logger.info('Done')
@@ -60,10 +57,12 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
         traceback.print_exc()
         sequenceDB.execute('ROLLBACK;')
         sequenceDB.close()
-        email(emailAddress,'FAILURE',FCIllumID)
+        email(emailAddressFail,'FAILURE',FCIllumID)
         logger.info('Storage Failure')
         print('Storage Failure')
         sys.exit(255)
+
+    sequenceDB.close()
 
 def email(emailAddress,storageStatus,FCID):
     logger = logging.getLogger('email')
@@ -147,6 +146,8 @@ def storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputF
         updateFlowcell(verbose,sequenceDB,FCIllumID,archiveLoc)
         createStorageCompleteFlag(verbose,seqscratchBase,FCIllumID,date,machine)
         removeFastqs(verbose,folderList)
+        logger.info('Starting commit')
+        sequenceDB.execute('COMMIT;')
 
 def removeFastqs(verbose,folderList):
     logger = logging.getLogger('removeFastqs')
@@ -241,8 +242,8 @@ def updateFlowcell(verbose,sequenceDB,FCID,archiveLoc):
     logger = logging.getLogger('updateFlowcell')
     query = ("UPDATE Flowcell "
              "SET DateStor=CURRENT_TIMESTAMP(), "
-             "SeqsataLoc={} "
-             "WHERE FCIllumid='{}'").format(archiveLoc,FCID)
+             "SeqsataLoc='{}' "
+             "WHERE FCIllumid='{}'").format(archiveLoc.split('/')[1],FCID)
     if verbose:
         print(query)
     logger.info(query)
