@@ -243,7 +243,7 @@ def updateFlowcell(verbose,sequenceDB,FCID,archiveLoc):
     query = ("UPDATE Flowcell "
              "SET DateStor=CURRENT_TIMESTAMP(), "
              "SeqsataLoc='{}' "
-             "WHERE FCIllumid='{}'").format(archiveLoc.split('/')[1],FCID)
+             "WHERE FCIllumid='{}'").format(archiveLoc.split('/')[2],FCID)
     if verbose:
         print(query)
     logger.info(query)
