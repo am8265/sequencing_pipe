@@ -63,6 +63,8 @@ def updateFC(sequenceDB,FCID,Machine,pwd,seqLoc):
     DateRTA = getRTAdate(pwd)
     DateRead1 = getRead1Date(pwd)
     RTAVer,HCSver = ver_num(pwd,Machine)
+    hasIndexRead = 1
+
     #print(DateRTA)
 
     sql = ("UPDATE Flowcell "
@@ -166,18 +168,50 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID,run_summary):
     logger = logging.getLogger('qmets')
     logger.info('Running loadQualityMetrics.pl')
 
+    #checkes number of index reads on flowcell 
+    indexCheckSQL = ("SELECT LenI1,LenI2 "
+                    "from Flowcell "
+                    "WHERE FCILLUMID='{}'"
+                    ).format(FCID)
+    sequenceDB.execute(indexCheckSQL)
+    indexLengths = sequenceDB.fetchone()
+    indexOneLength = indexLengths['LenI1']
+    indexTwoLength = indexLengths['LenI2']
+
     for LaneNum in list(range(0,total_lanes)):
+        readNumberOffset = 0
+
+        if indexTwoLength != 0: # no read2 index (standard FC run)
+            readNumberOffset += 2 # 4 total reads
+        elif indexOneLength != 0:
+            readNumberOffset += 1 # 3 total reads
+        elif indexOneLength == 0:
+            readNumberOffset = 0 # 2 total reads 
+        else:
+            raise Exception("Unhandled index reads")
+
         perQ30R1 = run_summary.at(0).at(LaneNum).percent_gt_q30()
-        perQ30I1 = run_summary.at(1).at(LaneNum).percent_gt_q30()
-        perQ30R2 = run_summary.at(2).at(LaneNum).percent_gt_q30()
         errorR1 = run_summary.at(0).at(LaneNum).error_rate().mean()
-        errorR2 = run_summary.at(2).at(LaneNum).error_rate().mean()
         percentAlignR1 = run_summary.at(0).at(LaneNum).percent_aligned().mean()
-        percentAlignR2 = run_summary.at(2).at(LaneNum).percent_aligned().mean()
+        perQ30R2 = run_summary.at(1 + readNumberOffset).at(LaneNum).percent_gt_q30()
+        errorR2 = run_summary.at(1 + readNumberOffset).at(LaneNum).error_rate().mean()
+        percentAlignR2 = run_summary.at(1 + readNumberOffset).at(LaneNum).percent_aligned().mean()
+
+        if readNumberOffset == 0:
+            perQ30I1 = '0'
+            perQ30I2 = '0'
+        elif readNumberOffset == 1:
+            perQ30I1 = run_summary.at(1).at(lanenum).percent_gt_q30()
+        elif readNumberOffset == 2:
+            perQ30I2 = run_summary.at(3).at(lanenum).percent_gt_q30()
+        else:
+            raise Exception("Unhandled readNumberOffset value")
+
         # when read2 fails, perQ30R2 == 'nan' 
         if math.isnan(perQ30R2):
             perQ30R2 = '0'
-        #interOP LaneNum is zero-indexed while sql LaneNum is not.
+
+        #SAV's interOP LaneNum is zero-indexed while sql LaneNum is not.
         LaneNum += 1
         sql = ("UPDATE Lane l "
             "join Flowcell f on l.FCID=f.FCID "
