@@ -38,7 +38,8 @@ def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
     logger.info('Starting Storage script')
 
     archiveLoc = '/nfs/' + seqsataLoc
-    emailAddress = ['jb3816@cumc.columbia.edu','sif2110@cumc.columbia.edu']
+    # Josh Bridgers, Sophia Frantz, Brett Copeland
+    emailAddress = ['jb3816@cumc.columbia.edu','sif2110@cumc.columbia.edu','bc2675@cumc.columbia.edu']
     emailAddressFail = ['jb3816@cumc.columbia.edu']
 
     logger.info('inputFolder:{}, archiveLoc:{}'.format(inputFolder,archiveLoc))
@@ -99,7 +100,7 @@ def storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputF
         if bclDrive.split('/')[2] == sampleArchiveLoc.split('/')[2]:
             fastqMoveCmd = ['mv',fastq,sampleArchiveLoc]
         else:
-            fastqMoveCmd = ['rsync','-aq',fastq,sampleArchiveLoc]
+            fastqMoveCmd = ['rsync','--inplace','-aq',fastq,sampleArchiveLoc]
         if verbose:
             print(' '.join(fastqMoveCmd))
         logger.info(fastqMoveCmd)
