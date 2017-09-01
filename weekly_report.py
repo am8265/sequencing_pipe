@@ -91,7 +91,7 @@ def DragenAlignedSamples(sequenceDB,lastMonday,fig):
                           ).format(lastMonday)
     sequenceDB.execute(externalDragenQuery)
     externalDragenAlignedSamples = sequenceDB.fetchall()
-    title = 'Internal Dragen Align Samples (n={})'.format(len(externalDragenAlignedSamples))
+    title = 'External Dragen Align Samples (n={})'.format(len(externalDragenAlignedSamples))
     getPieChart(externalDragenAlignedSamples,title,fig,'424')
 
 
@@ -106,7 +106,7 @@ def PassedSamples(sequenceDB,lastMonday,fig):
               ).format(lastMonday)
     sequenceDB.execute(internalQuery)
     internalPassedSamples = sequenceDB.fetchall()
-    title = 'Internal Passed Samples (n={})'.format(len(internalPassedSamples))
+    title = 'Internal Prod. Passed Samples (n={})'.format(len(internalPassedSamples))
     getPieChart(internalPassedSamples,title,fig,'425')
 
     externalQuery =  ("SELECT CHGVID FROM statusT st "
@@ -119,7 +119,7 @@ def PassedSamples(sequenceDB,lastMonday,fig):
               ).format(lastMonday)
     sequenceDB.execute(externalQuery)
     externalPassedSamples = sequenceDB.fetchall()
-    title = 'External Passed Samples (n={})'.format(len(externalPassedSamples))
+    title = 'External Prod. Passed Samples (n={})'.format(len(externalPassedSamples))
     getPieChart(externalPassedSamples,title,fig,'426')
 
     internalDragenQuery = ("SELECT CHGVID FROM Lane l "
@@ -147,7 +147,7 @@ def PassedSamples(sequenceDB,lastMonday,fig):
                           ).format(lastMonday)
     sequenceDB.execute(externalDragenQuery)
     externalDragenPassedSamples = sequenceDB.fetchall()
-    title = 'Internal Dragen Passed Samples (n={})'.format(len(externalDragenPassedSamples))
+    title = 'External Dragen Passed Samples (n={})'.format(len(externalDragenPassedSamples))
     getPieChart(externalDragenPassedSamples,title,fig,'428')
 
 def OverallActivity(sequenceDB,lastMonday,fig):
