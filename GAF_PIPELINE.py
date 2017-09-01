@@ -40,10 +40,13 @@ def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
     address = 'jb3816@cumc.columbia.edu'
     pythonProgram = '/nfs/goldstein/software/python2.7/bin/python2.7'
     pythonProgram36 = '/nfs/goldstein/software/python3.6.1-x86_64_shared/bin/python'
-    scriptLoc = '/nfs/goldstein/software/sequencing_pipe/production/'
+    if test:
+        scriptLoc = '/nfs/goldstein/software/sequencing_pipe/test/'
+    else:
+        scriptLoc = '/nfs/goldstein/software/sequencing_pipe/production/'
 
     BCLCmd =         ("{0} {1}/bcl.py -i {2} -b {3}").format(pythonProgram,scriptLoc,runFolder,BCLDrive)
-    BCLMySQLCmd =    ("{0} {1}/bcl_mysql.py -i {2}").format(pythonProgram36,scriptLoc,runFolder)
+    BCLMySQLCmd =    ("{0} {1}/bcl_mysql.py -i {2} -s {3}").format(pythonProgram36,scriptLoc,runFolder,seqsata)
     postBCLCmd =     ("{0} {1}/post_bcl.py -i {2} -s {3} -b {4}").format(pythonProgram36,scriptLoc,runFolder,seqsata,BCLDrive)
     storageCmd =     ("{0} {1}/storage.py -i {2} -s {3} -b {4}").format(pythonProgram36,scriptLoc,runFolder,seqsata,BCLDrive)
     fastqcCmd =      ("{0} {1}/fastqc.py -i {2} -s {3}").format(pythonProgram,scriptLoc,runFolder,seqsata)
@@ -133,11 +136,11 @@ def opts(argv):
     global run_pipeline
     run_pipeline = False
     global test
-    test = True
+    test = False
     global _debug
     _debug = False
     global seqsata
-    seqsata = 'igmdata01'
+    #seqsata = 'igmdata01'
     seqsata = 'fastq_temp2'
     global BCLDrive
     BCLDrive = '/nfs/seqscratch_ssd/BCL'
@@ -146,7 +149,7 @@ def opts(argv):
     runPath = ''
 
     try:
-        opts,args = getopt.getopt(argv, "b:drs:h", ['bcl=','debug','FCID=','seqsata=','help','run'])
+        opts,args = getopt.getopt(argv, "b:dhrs:t", ['bcl=','debug','FCID=','seqsata=','help','run','test'])
     except getopt.GetoptError:
         usage()
     for o,a in opts:
@@ -163,6 +166,8 @@ def opts(argv):
             _debug = True
         elif o in ('-s','--seqsata'):
             seqsata = a
+        elif o in ('-t','--test'):
+            test = True
         else:
             assert False, "Unhandled argument present"
 
