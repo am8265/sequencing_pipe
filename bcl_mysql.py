@@ -275,7 +275,7 @@ def main():
 
     pwd = '/nfs/seqscratch1/Runs/' + runPath
     info = pwd.split('/')[4].split('_')
-    print(info,pwd,runPath)
+    #print(info,pwd,runPath)
     FCID = info[3]
     Machine = info[1]
     if archiveLoc == '':
