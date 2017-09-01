@@ -201,9 +201,9 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID,run_summary):
             perQ30I1 = '0'
             perQ30I2 = '0'
         elif readNumberOffset == 1:
-            perQ30I1 = run_summary.at(1).at(lanenum).percent_gt_q30()
+            perQ30I1 = run_summary.at(1).at(LaneNum).percent_gt_q30()
         elif readNumberOffset == 2:
-            perQ30I2 = run_summary.at(3).at(lanenum).percent_gt_q30()
+            perQ30I2 = run_summary.at(3).at(LaneNum).percent_gt_q30()
         else:
             raise Exception("Unhandled readNumberOffset value")
 
@@ -248,9 +248,11 @@ def opts(argv):
     verbose = False
     global runPath
     runPath = ''
+    global archiveLoc
+    archiveLoc = ''
 
     try:
-        opts,args = getopt.getopt(argv, "hvi:", ['help','verbose','input='])
+        opts,args = getopt.getopt(argv, "hi:s:v:", ['seqsata=','help','verbose','input='])
     except getopt.GetoptError(err):
         print(str(err))
         usage()
@@ -261,6 +263,8 @@ def opts(argv):
             usage()
         elif o in ('-i','--input'):
             runPath = a
+        elif o in ('-s','--seqsata'):
+            archiveLoc = a
         else:
             assert False, "Unhandled argument present"
 
@@ -271,17 +275,18 @@ def main():
 
     pwd = '/nfs/seqscratch1/Runs/' + runPath
     info = pwd.split('/')[4].split('_')
-    #print(info)
+    print(info,pwd,runPath)
     FCID = info[3]
     Machine = info[1]
-    seqloc = 'igmdata01'
-    setup_logging(Machine,FCID,seqloc)
+    if archiveLoc == '':
+        raise Exception("Archive Location is missing!")
+    setup_logging(Machine,FCID,archiveLoc)
     print('BCL MySQL updates started')
     logger = logging.getLogger('main')
     logger.info('BCL MySQL updates started')
-    logger.debug('Initializing Parameters: pwd:%s, FCID:%s, Machine:%s, seqsata_drive:%s', (pwd,FCID,Machine,seqloc))
+    logger.debug('Initializing Parameters: pwd:%s, FCID:%s, Machine:%s, Archive drive:%s', (pwd,FCID,Machine,archiveLoc))
     try:
-        updateFC(sequenceDB,FCID,Machine,pwd,seqloc)
+        updateFC(sequenceDB,FCID,Machine,pwd,archiveLoc)
         run_summary = getMetricsSummary(pwd)
         updateLane(sequenceDB,FCID,Machine,pwd,run_summary)
 
