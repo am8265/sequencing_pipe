@@ -17,7 +17,7 @@ def getBestBCLDrive():
     runningSeqscratchList =[]
     bcl_jobs = getoutput('qstat -r | grep "Full jobname"').split()
     for jobs in bcl_jobs:
-        if 'bcl' in jobs and 'XX' in jobs:
+        if 'bcl' in jobs :
 
             if _debug == True:
                 print(jobs,'bcl jobs')
@@ -186,7 +186,7 @@ def getRunPath(FCID,RunsDrive):
 
 def check_cwd(runPath):
     print(runPath)
-    if 'seqscratch' not in runPath or 'Runs' not in runPath or 'XX' not in runPath:
+    if 'seqscratch' not in runPath or 'Runs' not in runPath:
         raise Exception('The CWD is not within a run folder of a seqscratch drive!')
 
 def RTA_check(runPath):
