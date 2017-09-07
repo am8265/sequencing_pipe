@@ -108,7 +108,12 @@ def create_sss_bcl_2(runPath,FCID,Machine,date,sequenceDB):
         #print ss_samples
         for DBID in ss_samples:
             DBID = str(DBID[0])
-            laneFraction = getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB)
+            if Machine[0] == 'H': #HiSeqs
+                laneFraction = getSSSLaneFractionHS(DBID,FCID,LaneNum,sequenceDB)
+            elif Machine[0] == 'A': #NovaSeqs' Illumina name.  != Flowcell.Machine values
+                laneFraction = getSSSLaneFractionNS(DBID,FCID,LaneNum,sequenceDB)
+            else:
+                raise ValueError, "Unknown Machine type: {}!".format(Machine)
 
             # empty strings are for 'Sample_Plate,Sample_Well,I7_Index_ID'
             # Description contains expected lane fraction, picomolar amount, flowcell user
@@ -154,7 +159,29 @@ def create_sss_bcl_2(runPath,FCID,Machine,date,sequenceDB):
     os.system('cp %s/%s_%s_%s.csv /nfs/igmdata01/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
     logger.info('cp %s/%s_%s_%s.csv /nfs/igmdata01/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
 
-def getSSSLaneFraction(DBID,FCID,LaneNum,sequenceDB):
+def getSSSLaneFractionNS(DBID,FCID,LaneNum,sequenceDB):
+    #get seqtype
+    sql = ("SELECT SeqType FROM Lane l "
+        "JOIN SeqType st ON st.prepID=l.prepID "
+        "JOIN Flowcell f on l.FCID=f.FCID "
+        "WHERE l.DBID={0} AND LaneNum={1} AND FCillumID='{2}'"
+        ).format(DBID,LaneNum,FCID)
+    sequenceDB.execute(sql)
+    seqtype = sequenceDB.fetchone()[0].lower()
+
+    #Values currently hard coded at Colin's request.  See Redmine#2320
+    if seqtype == 'exome':
+        return 1.0/96
+    elif seqtype == 'genome':
+        return 1.0/12
+    elif seqtype == 'custom capture': #note not custom_capture
+        return 1.0/960
+    elif seqtype == 'rnaseq':
+        return 1.0/96
+    else:
+        raise ValueError, "Unhandled seqtype: {}!".format(seqtype)
+
+def getSSSLaneFractionHS(DBID,FCID,LaneNum,sequenceDB):
 
     #get seqtype
     sql = ("SELECT SeqType FROM Lane l "
