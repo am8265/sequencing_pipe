@@ -26,18 +26,21 @@ def getReadsRecipe(FCID,sequenceDB):
     recipe = sequenceDB.fetchone()
     return recipe
 
-def getLaneNum(FCID):
-
-    lane_num = 8
-    if FCID[0] == 'H':
+def getLaneNum(sequenceDB,FCID):
+    getChemVerQuery=("SELECT chemver FROM Flowcell "
+                     "WHERE FCIllumID = '{}'").format(FCID)
+    sequenceDB.execute(getChemVerQuery)
+    chemVer = sequenceDB.fetchone()[0]
+    if chemVer == 'v3' or chemVer == 'v4':
+        lane_num = 8
+    elif chemVer == 'rv2' or chemVer =='rv1':
         lane_num = 2
-    """
-    #placeholder for NovaSeq Flowcells
-    elif FCID[0] == 'N1-2':
+    elif chemVer == 'NS1' or chemVer == 'NS2':
         lane_num = 2
-    elif FCID[0] == 'N3-4':
-        lane_num = 4
-    """
+    elif chemVer == 'NS3' or chemVer == 'NS4':
+        lane_num= 4
+    else:
+        raise ValueError, "Unhandled or missing Chemver for Flowcell {}".format(FCID)
     return lane_num
 
 def getAllProjects(FCID,sequenceDB):
@@ -68,7 +71,7 @@ def create_sss_bcl_2(runPath,FCID,Machine,date,sequenceDB):
     outfile=open('%s/%s_%s_%s.csv' % (runPath,Machine,date,FCID),'w')
     recipe = getReadsRecipe(FCID,sequenceDB)
     allProjects = getAllProjects(FCID,sequenceDB)
-    lane_num = getLaneNum(FCID)
+    lane_num = getLaneNum(sequenceDB,FCID)
     flowcellUser = getFlowcellUser(FCID,sequenceDB)
 
     #Sample Sheet Header
@@ -156,8 +159,8 @@ def create_sss_bcl_2(runPath,FCID,Machine,date,sequenceDB):
             outfile.write(",".join(map(str,ss_line))+'\n')
     outfile.close()
     #copies sequencing sample sheet to genotyping location
-    os.system('cp %s/%s_%s_%s.csv /nfs/igmdata01/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
-    logger.info('cp %s/%s_%s_%s.csv /nfs/igmdata01/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
+    #os.system('cp %s/%s_%s_%s.csv /nfs/igmdata01/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
+    #logger.info('cp %s/%s_%s_%s.csv /nfs/igmdata01/Sequencing_SampleSheets/' % (runPath,Machine,date,FCID))
 
 def getSSSLaneFractionNS(DBID,FCID,LaneNum,sequenceDB):
     #get seqtype
