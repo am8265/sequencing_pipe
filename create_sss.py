@@ -31,13 +31,13 @@ def getLaneNum(sequenceDB,FCID):
                      "WHERE FCIllumID = '{}'").format(FCID)
     sequenceDB.execute(getChemVerQuery)
     chemVer = sequenceDB.fetchone()[0]
-    if chemVer == 'v3' or chemVer == 'v4':
+    if chemVer == 'v3' or chemVer == 'v4': #HiSeqs
         lane_num = 8
-    elif chemVer == 'rv2' or chemVer =='rv1':
+    elif chemVer == 'rv2' or chemVer =='rv1': #Rapids
         lane_num = 2
-    elif chemVer == 'NS1' or chemVer == 'NS2':
+    elif chemVer == 'NS1' or chemVer == 'NS2': #2 lane NovaSeq
         lane_num = 2
-    elif chemVer == 'NS3' or chemVer == 'NS4':
+    elif chemVer == 'NS3' or chemVer == 'NS4': #4 lane NovaSeq
         lane_num= 4
     else:
         raise ValueError, "Unhandled or missing Chemver for Flowcell {}".format(FCID)
