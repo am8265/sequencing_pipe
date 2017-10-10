@@ -256,9 +256,6 @@ def getSSSLaneFractionHS(DBID,FCID,LaneNum,sequenceDB):
         #numPools = 0
         NumPoolSamples = 1
 
-    #print "LaneNum,DBID,seqtype,float(laneFraction),numPools,NumOtherSamples,NumLanesSampleOn,NumPoolSamples"
-    #print LaneNum,DBID,seqtype,float(laneFraction),numPools,NumOtherSamples,NumLanesSampleOn,NumPoolSamples
-
     if seqtype == 'Genome':
         #SampleLaneFraction = float(laneFraction)/(numPools+1)/NumPoolSamples/NumLanesSampleOn
         SampleLaneFraction = float(1)/(numPools + NumOtherSamples)
