@@ -18,7 +18,7 @@ def main():
         Machine = sys.argv[2]
         FCID = sys.argv[3]
 
-    create_sss_bcl_2(pwd,FCID,Machine,Date,sequenceDB)
+    create_sss_bcl_ver2(pwd,FCID,Machine,Date,sequenceDB)
 
 def getReadsRecipe(FCID,sequenceDB):
     query = "SELECT LenR1,LenI1,LenI2,LenR2 FROM Flowcell WHERE FCILLUMID = '{}'".format(FCID)

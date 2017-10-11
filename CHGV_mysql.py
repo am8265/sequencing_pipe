@@ -91,14 +91,6 @@ def getPredYield(gaf_curs,idnum):
 def setup_logging(machine,FCID,seqsata_drive):
 	logging.basicConfig(level=logging.INFO,format='%(asctime)s: %(name)s: [%(levelname)s] - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',filename='/nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % (seqsata_drive,machine,FCID,seqsata_drive))
 	logger = logging.getLogger(__name__)
-	#create a file handler
-	#handler = logging.FileHandler('/nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % (seqsata_drive,machine,FCID,seqsata_drive))
-	#handler.setLevel(logging.INFO)
-
-	#create a logging format
-	#formatter = logging.Formatter('%(asctime)s: %(name)s: %(levelname)s - %(message)s')
-
-	#logger.addHandler(handler)
 
 def getSamMultiplex(curs,Idnum):
 	multiplexSamples = []
