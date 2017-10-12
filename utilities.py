@@ -2,6 +2,7 @@ import configparser
 import pymysql
 import os
 import sys
+from db_statements import *
 
 def get_connection(database):
     try:
@@ -21,31 +22,71 @@ def get_connection(database):
     except pymysql.err.OperationalError:
             sys.exit("Wrong username/database or password found, please try again")
 
-def check_machine(machine,fcillumid,database):
-    get_machine_query = ("SELECT MACHINE "
-                          "FROM Flowcell "
-                          "WHERE FCIllumID = '{0}'"
-                         ).format(fcillumid)
-    machine_from_db = run_query(get_machine_query)[0]['machine']
-    if len(machine_from_db) != 1:
-        raise Exception("Incorrect number of FCIDs found!")
+def check_number_query_results(results,expected):
+    if len(results) == 0:
+        raise ValueError("No results found!").format(results,expected)
+    elif len(results) > 1 and expected == 'many':
+        pass
+    elif len(results) =< 1 and expected == 'many':
+        raise ValueError("Number of results: {} < expected: {}").format(results,expected)
+    elif len(results) == expected:
+        pass
+    elif len(results) < expected:
+        raise ValueError("Number of results: {} < expected: {}").format(results,expected)
+    elif len(results) > expected:
+        raise ValueError("Number of results: {} > expected: {}").format(results,expected)
     else:
-        if machine_from_db != Machine:
+        raise Exception("Unhandled {} condition. Results: {}  Expected: {}").format(__name__,results,expected)
 
-            #Updates database entry if incorrect.  Need to add logging
-            sql = """UPDATE Flowcell
-                    SET Machine='{0}' 
-                    WHERE FCIllumID = '{1}'
-                    """.format(Machine,FCID)
+def check_machine(machine,fcillumid,database):
+    """Confirms the machine in the database matches machine value in the
+       runParameters.xml. If they differ we update the Flowcell.machine
+       entry.  Differeneces can exist in cases of re-hybridization of a
+       flowcell on a different machine.
 
-            sequenceDB.execute(sql)
-            sequenceDB.execute('COMMIT;')
+       Note that NS1 is the HTS name for the novaseq and the database
+       but on the NovaSeq itself its called A00116 from the runParameters.xml
+    """
+    machine_from_db = run_query(
+        GET_MACHINE_FROM_FCILLUMID_QUERY.format(
+            fcillumid=fcillumid),database)
+    check_number_query_results(machine_from_db,1)
+    machine_from_db = machine_from_db[0]['MACHINE']
 
-    return Machine
+    if machine_from_db == 'NS1':
+        machine_from_db = 'A00116'
+    elif machine_from_db == 'NS2':
+        machine_from_db = 'A00123'
 
+    if machine_from_db != machine
+        update_machine_query = """UPDATE Flowcell
+            SET Machine='{0}'
+            WHERE FCIllumID = '{1}'
+            """.format(Machine,FCID)
+        run_query(update_machine_query,database)
 
-def setup_logging(machine,FCID,seqsata_drive):
-	logging.basicConfig(level=logging.INFO,format='%(asctime)s: %(name)s: [%(levelname)s] - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',filename='/nfs/%s/summary/GAF_PIPELINE_LOGS/%s_%s_%s.log' % (seqsata_drive,machine,FCID,seqsata_drive))
+def check_machine_status(machine,fcillumid,database):
+    machine_complete = run_query(
+        GET_MACHINE_COMPLETE_STATUS_FROM_FCILLUMID_QUERY.format(
+            fcillumid=fcillumid),database)
+    check_number_query_results(machine_complete,1)
+    if machine_complete[0]['COMPLETE'] != '1':
+        raise ValueError("Flowcell {} has not yet been completed".format(fcillumid))
+
+    machine_failed = run_query(
+        GET_MACHINE_FAILED_STATUS_FROM_FCILLUMID_QUERY.format(
+            fcillumid=fcillumid),database)
+    if machine_failed[0]['FAIL'] != '1':
+        raise ValueError("Flowcell {} has been failed".format(fcillumid))
+
+def setup_logging(machine,FCID,fastq_archive_drive,bcl2fastq_scratch_dir):
+    bcl2fastq_drive = bcl2fastq_scratch_dir.split('/')[2]
+	logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s: %(name)s: [%(levelname)s] - %(message)s',
+                        datefmt='%m/%d/%Y %I:%M:%S %p',
+                        filename=('/nfs/{}/summary/GAF_PIPELINE_LOGS/{}_{}_{}.log'
+                                 ).format(fastq_archive_drive,machine,
+                                          fcillumid,bcl2fastq_scratch_dir)
 	logger = logging.getLogger(__name__)
 
 def run_query(query,database):

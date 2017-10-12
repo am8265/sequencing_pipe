@@ -3,9 +3,9 @@
 
 import logging
 import os
-import utilities
 from CHGV_mysql import (create_sss_bcl_2)
 from glob import glob
+from utilities import *
 from xml.etree import ElementTree
 
 config = get_config()
@@ -193,9 +193,12 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info("Starting bcl2fastq job creation...")
     print "Starting bcl2fastq job creation..."
+
     check_fcillumid(args.fcillumid,run_info_dict['FCIllumID'])
     check_machine(machine,args.fcillumid,database)
+    check_machine_status(machine,fcillumid,database)
     check_rta_complete(run_folder_path)
+
     create_sss(args.noSSS)
     run_bcl2fastq(machine,database)
     if noStatus == False:
