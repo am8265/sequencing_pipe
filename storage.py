@@ -183,7 +183,7 @@ def getSeqtype(sequenceDB,FCIllumID,sampleName):
     return seqtype
 
 def createStorageCompleteFlag(verbose,seqscratchBase,FCIllumID,date,machine):
-    flagloc = glob('{}/{}_{}_*_{}_*/'.format(seqscratchBase,date,machine,FCIllumID))[0]
+    flagloc = glob('{}/{}_{}_*_{}/'.format(seqscratchBase,date,machine,FCIllumID))[0]
     flagloc += 'StorageComplete'
     touchCmd = ['touch',flagloc]
     if verbose:
