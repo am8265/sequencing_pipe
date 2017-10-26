@@ -15,10 +15,6 @@ import subprocess
 import sys
 import traceback
 from datetime import datetime
-from CHGV_mysql_3_6 import getSequenceDB
-from CHGV_mysql_3_6 import getTestSequenceDB
-from CHGV_mysql_3_6 import setup_logging
-from CHGV_mysql_3_6 import getUserID
 from xml.etree.ElementTree import fromstring
 
 def UpdateFC(sequenceDB,FCID,Unaligned,sampleInfo):
@@ -161,13 +157,7 @@ def getTotalLanes(sequenceDB,FCID):
     totalLanes = sequenceDB.fetchone()['max(laneNum)']
     return totalLanes
 
-def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned,sampleInfo):
-    logger = logging.getLogger('checkLaneFractions')
-    email = open('%s/LnFractionEmail.txt' % Unaligned,'w')
-    lane = 1
-    emailSwitch = 0
-    demulti_d = collections.defaultdict(list)
-
+def addHeader(email):
     #email header
     email.write("<style>\n")
     email.write("th, td {padding: 5px;}\n")
@@ -185,7 +175,23 @@ def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned,sampleInfo):
     email.write("<th>Kapa</th>\n")
     email.write("</tr>\n")
 
+    return email
+
+def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned,sampleInfo):
+    logger = logging.getLogger('checkLaneFractions')
+    email = open('%s/LnFractionEmail.txt' % Unaligned,'w')
+    lane = 1
+    emailSwitch = 0
+    demulti_d = collections.defaultdict(list)
+    email = addHeader(email)
+
+    chemVerQuery = ("SELECT chemVer FROM Flowcell "
+                    "WHERE FCILLUMID='{}'").format(FCID)
+    sequenceDB.execute(chemVerQuery)
+    chemVer = sequenceDB.fetchone()[0]
+
     for sample in sampleInfo.keys():
+        #print(sample)
         LaneNum,SampleID,adapter = sample.split('_')
         LnFractionAct = float(sampleInfo[sample][0])
         LnYield = sampleInfo[sample][1].replace(',','')
@@ -235,23 +241,39 @@ def checkLaneFractions(sequenceDB,FCID,Machine,Unaligned,sampleInfo):
         for samp in lanes:
             #print(samp)
             ClusterDensity = getClusterDensity(sequenceDB,FCID,lanes[0][5])
-            #print(ClusterDensity,ClusterDensity == None,ClusterDensity == '')
-
-            if samp[0] == 'Undetermined':
-                if float(samp[1]) > 5:
+            #HiSeqs
+            if chemVer[0] == 'H':
+                if samp[0] == 'undetermined':
+                    if float(samp[1]) > 3:
+                        emailSwitch = 1
+                        lane_switch = 1
+                        highlightRowNumber.append(10)
+                elif (float(samp[3])*100 > 1.25 or float(samp[3])*100 < 0.80):
                     emailSwitch = 1
                     lane_switch = 1
-                    highlightRowNumber.append(10)
+                    highlightRowNumber.append(3)
+                elif float(ClusterDensity) > 1375 or float(ClusterDensity) < 1000: #HiSeq ClustDen Check
+                    emailSwitch = 1
+                    lane_switch = 1
+                    highlightRowNumber.append(4)
+            #NovaSeqs
+            elif chemVer[0] == 'N':
+                if samp[0] == 'undetermined':
+                    if float(samp[1]) > 3:
+                        emailSwitch = 1
+                        lane_switch = 1
+                        highlightRowNumber.append(10)
+                elif (float(samp[3])*100 > 8 or float(samp[3])*100 < 0.5):
+                    emailSwitch = 1
+                    lane_switch = 1
+                    highlightRowNumber.append(3)
+                elif float(ClusterDensity) != 2961.28: #NovaSeq N2 ClustDen Check
+                    emailSwitch = 1
+                    lane_switch = 1
+                    highlightRowNumber.append(4)
 
-            elif (float(samp[3])*100 > 1.25 or float(samp[3])*100 < 0.80):
-                emailSwitch = 1
-                lane_switch = 1
-                highlightRowNumber.append(3)
-
-            elif float(ClusterDensity) > 1375 or float(ClusterDensity) < 1000:
-                emailSwitch = 1
-                lane_switch = 1
-                highlightRowNumber.append(4)
+            else:
+                raise Exception, "Unhandled chemVer type: {}!".format(chemVer)
 
             #print(samp,lane_switch,samp[0][0:4] == 'lane' and samp[1] > 5) 
         if lane_switch == 1:
@@ -336,63 +358,44 @@ def EmailLane(sequenceDB,FCID,lanes,email,highlightRowNumber):
                     (lanes[0][5],samp[1]))
             email.write('<tr><td colspan="7" align="center">&nbsp</td></tr>\n')
 
-def opts(argv):
-    global verbose
-    verbose = False
-    global runFolder
-    runFolder = os.getcwd()
-    global seqsata_drive
-    sata_loc = ''
-    global noStatusUpdate
-    noStatusUpdate = False
-    global noStatusCheck
-    noStatusCheck = False
-    global BCLDrive
-    BCLDrive = ''
-    global test
-    test = False
 
-    try:
-        opts,args = getopt.getopt(argv, "ab:hvi:s:",
-            ['bcl=','input=','help','seqsata=','verbose','noStatusUpdate','noStatusCheck','test'])
-    except getopt.GetoptError:
-        usage()
-
-    for o,a in opts:
-        if o in ('-v','--verbose'):
-            verbose = True
-        elif o in ('-h','--help'):
-            usage()
-        elif o in ('-i','--input'):
-            runFolder =  a
-        elif o in ('--noStatusUpdate'):
-            noStatusUpdate = True
-        elif o in ('-b','--bcl'):
-            BCLDrive = a
-        elif o in ('--noStatusCheck'):
-            noStatusCheck = True
-        elif o in ('-s','--seqsata'):
-            seqsata_drive = a
-        elif o in ('--test'):
-            test = True
-        else:
-            assert False, "Unhandled argument present"
+def parse_arguments():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("-f", "--fcillumid", dest='fcillumid', required=True,
+                        help="Specify Illumina's Flowcell ID")
+    parser.add_argument("-v", "--verbose", default=False, action="store_true",
+                        help="Display verbose output")
+    parser.add_argument('-b','--bcl_drive', default='seqscratch_ssd', dest='bcl_drive',
+                        help="Specify scratch dir for bcl2fastq")
+    parser.add_argument('-a','--archive_dir', default='igmdata01', dest='archive_dir',
+                        help="Specify scratch dir for bcl2fastq")
+    parser.add_argument('--noStatus', action='store_true', default=False,
+                        help="Do not update status")
+    parser.add_argument('--noStatusCheck', action='store_true', default=False,
+                        help="Do not update status")
+    parser.add_argument("--test", default=False, action="store_true",
+                        help="Query and updates to the database occur on the "
+                        "test server")
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s v3.0')
+    args=parser.parse_args()
+    return args
 
 def main():
-    opts(sys.argv[1:])
-    #accessing mysql gaf database
-    if test:
-        sequenceDB = getTestSequenceDB()
-    else:
-        sequenceDB = getSequenceDB()
-    #often the experiment field has extra underscores
-    Date,Machine,RunNum,FCID,*rest = runFolder.split('_')
+    config = get_config()
+    args = parse_arguments()
+    run_info_dict = parse_run_parameters_xml(args.fcillumid)
 
-    Unaligned = '{0}/{1}_{2}_{3}_Unaligned'.format(BCLDrive,Date,Machine,FCID)
-    setup_logging(Machine,FCID,seqsata_drive)
-    logger = logging.getLogger('main')
+    if args.test:
+        database = 'testDB'
+    else:
+        database = 'sequenceDB'
+    setup_logging(run_info_dict['machine'],args.fcillumid,args.archive_dir,config.get('locs','bcl_dir'))
+    logger = logging.getLogger(__name__)
     logger.info('Starting post BCL script')
 
+
+    Unaligned = '{0}/{1}_{2}_{3}_Unaligned'.format(BCLDrive,Date,Machine,FCID)
 
     try:
         sampleInfo = UpdateSampleLane(sequenceDB,Unaligned,FCID)
@@ -401,14 +404,10 @@ def main():
         UpdateFC(sequenceDB,FCID,Unaligned,sampleInfo)
         checkLaneFractions(sequenceDB,FCID,Machine,Unaligned,sampleInfo)
 
-        sequenceDB.execute('COMMIT;')
-        sequenceDB.close()
         logger.info('Done')
         print('Done')
     except:
         traceback.print_exc()
-        sequenceDB.execute('ROLLBACK;')
-        sequenceDB.close()
         logger.info('Post BCL Failure')
         print('Post BCL Failure')
         sys.exit(1)

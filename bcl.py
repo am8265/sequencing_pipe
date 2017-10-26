@@ -4,19 +4,22 @@
 import argparse
 import logging
 import os
+from datetime import datetime
 from glob import glob
+from interop import py_interop_run_metrics, py_interop_run, py_interop_summary
 from utilities import *
 
-def run_bcl2fastq(machine,fcillumid,args,run_info_dict,config,sss_loc,database):
+def run_bcl2fastq(args,run_info_dict,config,sss_loc,database):
+    fcillumid = args.fcillumid
     logger = logging.getLogger(__name__)
     script_dir = config.get('locs','scr_dir')
     bcl2fastq_loc = config.get('programs','bcl2fastq_program')
     bcl_dir = '{}/{}'.format(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
     out_dir = '{}/{}_{}_{}_Unaligned'.format(config.get('locs','bcl2fastq_scratch_dir'),
                                              run_info_dict['runDate'],
-                                             machine,
+                                             run_info_dict['machine'],
                                              run_info_dict['FCIllumID'])
-    script_loc = '{}/{}_{}_BCL.sh'.format(out_dir,run_info_dict['FCIllumID'],machine)
+    script_loc = '{}/{}_{}_BCL.sh'.format(out_dir,run_info_dict['FCIllumID'],run_info_dict['machine'])
 
     check_exist_bcl_dir(out_dir)
     bcl2fastq_cmd = build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,database)
@@ -25,7 +28,6 @@ def run_bcl2fastq(machine,fcillumid,args,run_info_dict,config,sss_loc,database):
     os.mkdir(out_dir)
 
     #Submit bcl job to the cluster
-    os.system('cp {}/SGE_header {}'.format(script_dir,script_loc))
     with open(script_loc,'w') as bcl_script:
         add_sge_header_to_script(bcl_script)
         add_libraries_to_script(bcl_script)
@@ -36,11 +38,11 @@ def run_bcl2fastq(machine,fcillumid,args,run_info_dict,config,sss_loc,database):
                 "{} -cwd -v PATH -N {}_{}_{}_bcl {}"
                ).format(out_dir,
                         qsub_loc,
-                        machine,
+                        run_info_dict['machine'],
                         fcillumid,
                         bcl_dir.split('/')[2],
                         script_loc)
-
+    qsub_cmd = ['cd',out_dir,
     if args.verbose == True:
         print(qsub_cmd)
     logger.info(qsub_cmd)
@@ -148,7 +150,7 @@ def parse_arguments():
                         help="Query and updates to the database occur on the "
                         "test server")
     parser.add_argument('--version', action='version',
-                        version='%(prog)s v2.0')
+                        version='%(prog)s v3.0')
     args=parser.parse_args()
     return args
 
@@ -161,24 +163,22 @@ def main():
         database = 'testDB'
     else:
         database = 'sequenceDB'
-    # Ex A00123 + B = A00123B 
-    machine = run_info_dict['machineName'] + run_info_dict['machineSide']
-    setup_logging(machine,args.fcillumid,args.archive_dir,config.get('locs','bcl_dir'))
+    setup_logging(run_info_dict['machine'],args.fcillumid,args.archive_dir,config.get('locs','bcl_dir'))
     logger = logging.getLogger(__name__)
     logger.info("Starting bcl2fastq job creation for Flowcell: {}".format(args.fcillumid))
     print("Starting bcl2fastq job creation for Flowcell: {}".format(args.fcillumid))
 
     check_fcillumid(args.fcillumid,run_info_dict['FCIllumID'])
-    check_machine(machine,args.fcillumid,database)
-    check_rta_complete(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
+    check_machine(run_info_dict['machine'],args.fcillumid,database)
+    check_flowcell_complete(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
 
     if args.sss_loc is None:
-        sss_loc = create_sss_from_database(args.fcillumid,machine,run_info_dict,config,database)
+        sss_loc = create_sss_from_database(args.fcillumid,run_info_dict['machine'],run_info_dict,config,database)
     else:
         sss_loc = args.sss_loc
         print("Using SSS: {}".format(sss_loc))
     #check_sss(sss_loc)
-    run_bcl2fastq(machine,args.fcillumid,args,run_info_dict,config,sss_loc,database)
+    run_bcl2fastq(args,run_info_dict,config,sss_loc,database)
     if args.noStatus == False:
         update_sample_status(database,args.fcillumid)
     logger.info("bcl2fastq successfully started")
