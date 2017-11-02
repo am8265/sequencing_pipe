@@ -25,17 +25,18 @@ def parse_run_parameters_xml(fcillumid):
         run_info_dict = {}
         tree = ElementTree.parse(xml)
         if xml_type == 'NovaSeq':
-            run_info_dict['RTAVersion'] = tree.findall('RTAVersion')[0].text
+            run_info_dict['RtaVersion'] = tree.findall('RtaVersion')[0].text
             run_info_dict['experimentName'] = tree.findall('ExperimentName')[0].text
             run_info_dict['runFolder'] = tree.findall('RunId')[0].text
-            run_info_dict['runDate'] = runFolder.split('_')[0]
+            run_info_dict['runDate'] = run_info_dict['runFolder'].split('_')[0]
             run_info_dict['machineName'] = tree.findall('InstrumentName')[0].text
             run_info_dict['ControlSoftwareVer'] = tree.findall('ApplicationVersion')[0].text
             for FCInfo in tree.findall('RfidsInfo'):
-                run_info_dict['FCIllumID'] = FCInfo.find('FlowCellSerialBarcode')
-                run_info_dict['machineSide'] = FCInfo.find('FlowCellPartNumber')
+                run_info_dict['FCIllumID'] = FCInfo.find('FlowCellSerialBarcode').text
+                run_info_dict['machineSide'] = FCInfo.find('FlowCellPartNumber').text
+            run_info_dict['machine'] = run_info_dict['machineName'] + run_info_dict['machineSide'][0]
         elif xml_type == 'HiSeq':
-            run_info_dict['RTAVersion'] = tree.findall('Setup')[0].find('RTAVersion').text
+            run_info_dict['RtaVersion'] = tree.findall('Setup')[0].find('RTAVersion').text
             run_info_dict['experimentName'] = tree.findall('Setup')[0].find('ExperimentName').text
             run_info_dict['runFolder'] = tree.findall('Setup')[0].find('RunID').text
             run_info_dict['runDate'] = tree.findall('Setup')[0].find('RunStartDate').text
@@ -72,13 +73,13 @@ def check_number_query_results(results,expected):
     elif len(results) > 1 and expected == 'many':
         pass
     elif len(results) <= 1 and expected == 'many':
-        raise ValueError("Number of results: {} < expected: {}").format(results,expected)
+        raise ValueError("Number of results: {} < expected: {}".format(results,expected))
     elif len(results) == expected:
         pass
     elif len(results) < expected:
-        raise ValueError("Number of results: {} < expected: {}").format(results,expected)
+        raise ValueError("Number of results: {} < expected: {}".format(results,expected))
     elif len(results) > expected:
-        raise ValueError("Number of results: {} > expected: {}").format(results,expected)
+        raise ValueError("Number of results: {} > expected: {}".format(results,expected))
     else:
         raise Exception("Unhandled {} condition. Results: {}  Expected: {}").format(__name__,results,expected)
 
@@ -106,7 +107,7 @@ def check_machine(machine,fcillumid,database):
         update_machine_query = """UPDATE Flowcell
             SET Machine='{0}'
             WHERE FCIllumID = '{1}'
-            """.format(Machine,fcillumid)
+            """.format(machine,fcillumid)
         run_query(update_machine_query,database)
 
     machine_complete = run_query(
@@ -214,7 +215,7 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
             #print sql
             sss_line = run_query(sql,database)
             check_number_query_results(sss_line,1)
-            outfile.write("{Lane},{SampleID},{SampleID},,,,{Index},{Project},{str_desc}\n".format(**sss_line[0],str_desc=sss_line[0]['Description'].decode('UTF-8')))
+            outfile.write("{Lane},{SampleID},{SampleID},,,,{Index},{Project},{str_desc}\n".format(str_desc=sss_line[0]['Description'].decode('UTF-8'),**sss_line[0]))
     outfile.close()
     #copies sequencing sample sheet to genotyping location
     cp_cmd= ('cp {} /nfs/igmdata01/Sequencing_SampleSheets/'
@@ -222,14 +223,13 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
     os.system(cp_cmd)
     return sss_loc
 
-def setup_logging(machine,fcillumid,fastq_archive_drive,bcl_dir):
-    bcl_drive = bcl_dir.split('/')[2]
+def setup_logging(machine,fcillumid,logs_dir):
     logging.basicConfig(level=logging.INFO,
         format='%(asctime)s: %(name)s: [%(levelname)s] - %(message)s',
         datefmt='%m/%d/%Y %I:%M:%S %p',
-        filename=('/nfs/{}/summary/GAF_PIPELINE_LOGS/{}_{}_{}.log'
-                 ).format(fastq_archive_drive,machine,
-                          fcillumid,bcl_drive))
+        filename=('{}/{}_{}.log'
+                 ).format(logs_dir,machine,
+                          fcillumid))
     logger = logging.getLogger(__name__)
 
 def run_query(query,database):
@@ -245,7 +245,7 @@ def run_query(query,database):
 
 def get_config():
     config = configparser.ConfigParser()
-    config.read('config.ini')
+    config.read('/nfs/goldstein/software/sequencing_pipe/dev/config.ini')
     return config
 
 def check_exist_bcl_dir(BCLDrive):
@@ -253,12 +253,18 @@ def check_exist_bcl_dir(BCLDrive):
     if dir_path != []:
         raise Exception('BCL directory already exists: {}!'.format(BCLDrive))
 
-def check_rta_complete(bcl_dir,run_folder_path):
+def check_flowcell_complete(bcl_dir,run_folder_path):
     rta_complete_loc = bcl_dir + run_folder_path + '/RTAComplete.txt'
     if os.path.isfile(rta_complete_loc) == False:
+        print(rta_complete_loc)
         raise Exception("RTA has not completed!")
     else:
-        print("RTA has already completed")
+        print("RTAComplete.txt check: OK!")
+    storage_complete_loc = bcl_dir + run_folder_path + '/CopyComplete.txt'
+    if os.path.isfile(storage_complete_loc) == False:
+        raise Exception("Copy has not completed!")
+    else:
+        print("CopyComplete.txt check: OK!")
 
 def get_user_id(database):
     p = os.popen('echo $USER')
@@ -266,10 +272,5 @@ def get_user_id(database):
     p.close()
     get_userID_query = "SELECT userID FROM users WHERE netid='{}'".format(userName)
     userID = run_query(get_userID_query,database)
+    check_number_query_results(userID,1)
 
-    if len(userID) == 1:
-        return userID[0]['userID']
-    elif len(userID) > 1:
-        raise ValueError("Too many userIDs were found with netid {}!".format(userName))
-    else: #len == 0
-        raise ValueError("No userID was found with netid ()!".format(userName))

@@ -1,5 +1,6 @@
 #from CHGV_mysql import getSequenceDB
 
+import argparse
 import getopt
 import glob
 import logging
@@ -7,53 +8,31 @@ import os
 import sys
 import subprocess
 import time
-from CHGV_mysql_3_6 import setup_logging
-from CHGV_mysql_3_6 import getSequenceDB
-from CHGV_mysql_3_6 import getTestSequenceDB
 from collections import Counter
 from operator import itemgetter
+from utilities import *
 
-def getBestBCLDrive():
-    runningSeqscratchList =[]
-    bcl_jobs = getoutput('qstat -r | grep "Full jobname"').split()
-    for jobs in bcl_jobs:
-        if 'bcl' in jobs :
+def submit(config,args,run_info_dict,database):
+    bcl2fastq_scratch_drive = config.get('locs','bcl2fastq_scratch_drive')
+    archive_dir = config.get('locs','fastq_archive_drive')
+    logger = logging.getLogger(__name__)
+    address = '{}@cumc.columbia.edu'.format(get_user_id(database))
+    python36_program = config.get('programs','python36_program')
+    scriptLoc = '/nfs/goldstein/software/sequencing_pipe/dev/'
+    #scriptLoc = '/nfs/goldstein/software/sequencing_pipe/production/'
+    runFolder = run_info_dict['runFolder']
+    machine = run_info_dict['machine']
+    fcillumid=args.fcillumid
 
-            if _debug == True:
-                print(jobs,'bcl jobs')
-
-            bcl_seqsata = jobs.split('_')[2]
-            runningSeqscratchList.append(bcl_seqsata)
-    seqscratchDrives = ['seqscratch_ssd']
-
-    availSeqscratchDrives = set(seqscratchDrives) - set(runningSeqscratchList)
-
-    if availSeqscratchDrives == set([]):
-        seqscratchCount = Counter(runningSeqscratchList)
-        #print(seqscratchCount)
-        return '/nfs/%s/BCL' % (min(seqscratchCount,key=seqscratchCount.get))
-    else:
-        return '/nfs/' + list(availSeqscratchDrives)[0] + '/BCL'
-
-def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
-    logger = logging.getLogger('submit')
-    address = 'jb3816@cumc.columbia.edu'
-    pythonProgram = '/nfs/goldstein/software/python2.7/bin/python2.7'
-    pythonProgram36 = '/nfs/goldstein/software/python3.6.1-x86_64_shared/bin/python'
-    if test:
-        scriptLoc = '/nfs/goldstein/software/sequencing_pipe/test/'
-    else:
-        scriptLoc = '/nfs/goldstein/software/sequencing_pipe/production/'
-
-    BCLCmd =         ("{0} {1}/bcl.py -i {2} -b {3}").format(pythonProgram,scriptLoc,runFolder,BCLDrive)
-    BCLMySQLCmd =    ("{0} {1}/bcl_mysql.py -i {2} -s {3}").format(pythonProgram36,scriptLoc,runFolder,seqsata)
-    postBCLCmd =     ("{0} {1}/post_bcl.py -i {2} -s {3} -b {4}").format(pythonProgram36,scriptLoc,runFolder,seqsata,BCLDrive)
-    storageCmd =     ("{0} {1}/storage.py -i {2} -s {3} -b {4}").format(pythonProgram36,scriptLoc,runFolder,seqsata,BCLDrive)
-    fastqcCmd =      ("{0} {1}/fastqc.py -i {2} -s {3}").format(pythonProgram,scriptLoc,runFolder,seqsata)
-    fastqcMySQLCmd = ("{0} {1}/fastqc_mysql.py -i {2} -s {3}").format(pythonProgram,scriptLoc,runFolder,seqsata)
+    BCLCmd =         ("{} {}/bcl.py -f {}").format(python36_program,scriptLoc,fcillumid)
+    BCLMySQLCmd =    ("{} {}/bcl_mysql.py -f {}").format(python36_program,scriptLoc,fcillumid)
+    postBCLCmd =     ("{} {}/post_bcl.py -f {}").format(python36_program,scriptLoc,fcillumid)
+    storageCmd =     ("{} {}/storage.py -f {}").format(python36_program,scriptLoc,fcillumid)
+    fastqcCmd =      ("{} {}/fastqc.py -f {}").format(python36_program,scriptLoc,fcillumid)
+    fastqcMySQLCmd = ("{} {}/fastqc_mysql.py -f {}").format(python36_program,scriptLoc,fcillumid)
 
 
-    if run_pipeline == False:
+    if args.run == False:
         #prints out all the commands to run manually
         print
         print("="*35+'Scripts Commands'+"="*35)
@@ -66,197 +45,128 @@ def submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive):
         print(fastqcMySQLCmd)
         print("="*86)
         print
-        print(('Log file:  /nfs/{0}/summary/GAF_PIPELINE_LOGS/{1}_{2}_{0}.log'
-            ).format(seqsata,machine,FCID))
+        print(('Log file: {}' 
+            ).format(logging.getLoggerClass().root.handlers[0].baseFilename))
 
     else:
-        #submits everything to the cluster
-        #stage 1
-        os.system(BCLCmd)
+        #run bcl2fastq
+        os.system(BCLCmd) #bcl2fastq auto submits to cluster
         logger.info(BCLCmd)
-
-        os.system(BCLMySQLCmd)
+        os.system(BCLMySQLCmd) #quick msyql updates.  
         logger.info(BCLMySQLCmd)
 
-        #stage 2
-        stage2(seqsata,runFolder,machine,FCID,address,postBCLCmd,storageCmd,fastqcCmd,fastqcMySQLCmd)
-        qsubCmd =('/opt/sge6_2u5/bin/lx24-amd64/qsub -N {0}_{1}_stage2 -hold_jid {0}_{1}_{4}_bcl '
-            '/nfs/seqscratch1/Runs/{3}/{0}_{1}_{2}_stage2.sh'
-            ).format(machine,FCID,seqsata,runFolder,BCLDrive.split('/')[2])
+        #run post_bcl2fastq
+        create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,address,postBCLCmd)
+        create_run_qsub_command(sample,'post_bcl','bcl',run_info_dict)
+        create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address,storageCmd)
+        create_run_qsub_command(sample,'storage','post_bcl',run_info_dict)
+        create_fastqc_script(config,archive_dir,runFolder,machine,fcillumid,address,fastqcCmd)
+        create_run_qsub_command(sample,'fastqc','storage',run_info_dict)
 
-        os.system(qsubCmd)
-        logger.info(qsubCmd)
-        print(qsubCmd)
+def create_run_qsub_command(sample,step,fcillumid,run_info_dict):
+    logger = logging.getLogger(__name__)
+    qsub_cmd = ('{qsub_program} -N {machine}_{fcillumid}_{bcl2fastq_scratch_drive}_{step} '
+                '/nfs/seqscratch1/Runs/{runFolder}/{machine}_{fcillumid}_{archive_dir}_{step}.sh'
+               ).format(qsub_program=config.get('programs','qsub_program'),
+                        machine=run_info_dict['machine'],
+                        fcillumid=fcillumid,
+                        archive_dir=run_info_dict['marchive_dir'],
+                        runFolder=run_info_dict['runFolder'],
+                        bcl2fastq_scratch_drive=config.get('locs','bcl2fastq_scratch_drive'))
 
-def header(seqsata,file,FCID):
+    logger.info(qsub_cmd)
+    os.system(qsub_cmd)
+
+def add_sge_header(config,file,fcillumid,step):
+    log_dir = config.get('locs','logs_dir')
     file.write('#! /bin/bash\n')
     file.write('#\n')
     file.write('#$ -S /bin/bash -cwd\n')
-    file.write('#$ -o /nfs/%s/fastqc/%s_%s_fastqc_complete.sge\n' % (seqsata,FCID,seqsata))
-    file.write('#$ -e /nfs/%s/fastqc/%s_%s_fastqc_out.sge\n' % (seqsata,FCID,seqsata))
+    file.write('#$ -o {}/{}_{}.out\n'.format(log_dir,fcillumid,step))
+    file.write('#$ -e {}/{}_{}.err\n'.format(log_dir,fcillumid,step))
     file.write('#$ -V\n')
     file.write('#$ -M jb3816@cumc.columbia.edu\n')
     file.write('#$ -m bea\n')
     file.write('#\n')
     file.write('\n')
 
-def stage2(seqsata,runFolder,machine,FCID,address,postBCLCmd,storageCmd,fastqCmd,fastqMySQLCmd):
+def create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,address,postBCLCmd):
     #writes out the stage 2 script
-    logger = logging.getLogger('stage2')
+    logger = logging.getLogger(__name__)
 
-    stage2_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_%s_stage2.sh' % (runFolder,machine,FCID,seqsata),'w')
-    header(seqsata,stage2_script,FCID)
-    stage2_script.write("export LD_LIBRARY_PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/lib:$LD_LIBRARY_PATH ; export PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/bin:$PATH \n")
-    stage2_script.write(postBCLCmd + '\n')
-    stage2_script.write('if [ $? -eq 0 ] ; then echo "Post BCL completed successfully" ; else echo "Post BCL failed"\n')
-    stage2_script.write('/nfs/goldstein/software/mutt-1.5.23 -s "Post_BCL failure: %s %s" %s < /dev/null; exit 1; fi\n' % (machine,FCID,address))
-    stage2_script.write(storageCmd + '\n')
-    stage2_script.write('cd /nfs/seqscratch1/Runs/%s \n' % (runFolder) )
-    stage2_script.write(fastqCmd + '\n')
-    stage2_script.close()
+    post_bcl_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_%s_post_bcl.sh' % (runFolder,machine,fcillumid,archive_dir),'w')
+    add_sge_header(config,post_bcl_script,fcillumid,'post_bcl')
+    post_bcl_script.write("export LD_LIBRARY_PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/lib:$LD_LIBRARY_PATH ; export PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/bin:$PATH \n")
+    post_bcl_script.write(postBCLCmd + '\n')
+    post_bcl_script.write('if [ $? -eq 0 ] ; then echo "Post BCL completed successfully" ; else echo "Post BCL failed"\n')
+    post_bcl_script.write('/nfs/goldstein/software/mutt-1.5.23 -s "Post_BCL failure: %s %s" %s < /dev/null; exit 1; fi\n' % (machine,fcillumid,address))
 
-def checkSeqsata(seqsata):
+def create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address,storageCmd):
+    storage_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_%s_storage.sh' % (runFolder,machine,fcillumid,archive_dir),'w')
+    add_sge_header(config,storage_script,fcillumid,'storage')
+    storage_script.write(storageCmd + '\n')
+
+def create_fastqc_script(config,archive_dir,runFolder,machine,fcillumid,address,fastqcCmd):
+    add_sge_header(config,fastqc_script,fcillumid,'fastqc')
+    fastqc_script.write(fastqCmd + '\n')
+    fastqc_script.close()
+
+def checkSeqsata(archive_dir):
     try:
-        os.path.isdir(glob.glob('/nfs/%s' % seqsata)[0])
+        os.path.isdir(glob.glob('/nfs/%s' % archive_dir)[0])
     except:
         raise Exception('Input location does not exist!')
 
-
-def usage():
-    print('-b, --bcl\t\tSpecify BCL Unaligned destination drive.  Ex: seqscratch09')
-    print('-d, --debug\t\tShows additional informaion')
-    print('-h, --help\t\tShows this help message and exit')
-    print('-r, --run\t\tSubmits pipeline to the cluster')
-    print('-s, --seqsata\t\tSpecify the archive destination drive.  Ex: seqsata02')
-    print('--FCID\t\t\tSpecify the flowcell Illumina ID')
-
-    sys.exit(2)
-
-def opts(argv):
-    global run_pipeline
-    run_pipeline = False
-    global test
-    test = False
-    global _debug
-    _debug = False
-    global seqsata
-    #seqsata = 'igmdata01'
-    seqsata = 'fastq_temp2'
-    global BCLDrive
-    BCLDrive = '/nfs/seqscratch_ssd/BCL'
-    RunsDrive = '/nfs/seqscratch1'
-    global runPath
-    runPath = ''
-
-    try:
-        opts,args = getopt.getopt(argv, "b:dhrs:t", ['bcl=','debug','FCID=','seqsata=','help','run','test'])
-    except getopt.GetoptError:
-        usage()
-    for o,a in opts:
-        if o in ('-h','--help'):
-            usage()
-        elif o in ('-b','--bcl'):
-            BCLDrive = '/nfs/' + a
-            print(BCLDrive)
-        elif o in ('--FCID'):
-            runPath = getRunPath(a,RunsDrive)
-        elif o in ('-r','--run'):
-            run_pipeline = True
-        elif o in ('-d','--debug'):
-            _debug = True
-        elif o in ('-s','--seqsata'):
-            seqsata = a
-        elif o in ('-t','--test'):
-            test = True
-        else:
-            assert False, "Unhandled argument present"
-
-def getRunPath(FCID,RunsDrive):
-    '''Grabs the run folder with the highest run number for edge cases where
-       there the flowcell was rerun and there are multiple run folders.  This
-       assumes the duplicate run folders have the name except for the run number
-       within run folder name
-    '''
-    try:
-        runPath = max(glob.glob('{}/Runs/*{}*'.format(RunsDrive,FCID)),key=os.path.getctime)
-    except ValueError:
-        runPath = max(glob.glob('/nfs/seqscratch_temp1/Runs/*{}*'.format(FCID)),key=os.path.getctime)
-
-    return runPath
-
-def check_cwd(runPath):
-    print(runPath)
-    if 'seqscratch' not in runPath or 'Runs' not in runPath:
-        raise Exception('The CWD is not within a run folder of a seqscratch drive!')
-
-def RTA_check(runPath):
-    logger = logging.getLogger('RTA_check')
-    if os.path.isfile('%s/RTAComplete.txt' % runPath) == False:
-        logger.warn("RTA has not completed!")
-        raise Exception("RTA has not completed!")
-    else:
-        logger.info('RTA has already completed')
-        print("RTA has already completed")
-
-def completeCheck(runFolder):
-	if os.path.isfile("/nfs/seqscratch1/Runs/%s/StorageComplete.txt" % runFolder) == True:
-		raise Exception("Pipeline already completed!")
-def Machine_check(sequenceDB,FCID,machine):
-    query = "SELECT Machine,Complete FROM Flowcell where FCIllumID='%s'" % FCID
-    #print(query)
-    sequenceDB.execute(query)
-    sequenceDB_machine = sequenceDB.fetchall()
-    #print(sequenceDB_machine)
-    if len(sequenceDB_machine) > 1:
-        raise Exception("Too many flowcells found during Machine_check!")
-    if sequenceDB_machine == ():
-        raise Exception("Run folder's machine does not match SequenceDB machine listing!")
-    if str(sequenceDB_machine[0]['Complete']) != '1':
-        raise Exception("Flowcell has not been completed on SequenceDB!")
+def arg_parser(config):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--fcillumid", dest='fcillumid', required=True,
+                        help="Specify Illumina's Flowcell ID")
+    parser.add_argument("-v", "--verbose", default=False, action="store_true",
+                        help="Display verbose output")
+    parser.add_argument('-b','--bcl_drive', default=config.get('locs','bcl2fastq_scratch_drive'),
+                        dest='bcl_drive',help="Specify scratch dir for bcl2fastq")
+    parser.add_argument('-a','--archive_dir', default=config.get('locs','fastq_archive_drive'),
+                        dest='archive_dir',help="Specify scratch dir for bcl2fastq")
+    parser.add_argument("-r","--run", default=False, action="store_true",
+                        help="Run bcl2fastq pipeline")
+    parser.add_argument("--test", default=False, action="store_true",
+                        help="Query and updates to the database occur on the "
+                        "test server")
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s v3.0')
+    args=parser.parse_args()
+    return args
 
 
 def main():
-    global runPath
-    opts(sys.argv[1:])
+    config = get_config()
+    args = arg_parser(config)
+    run_info_dict = parse_run_parameters_xml(args.fcillumid)
+    if args.test:
+        database = 'testDB'
+    else:
+        database = 'sequenceDB'
+    # Ex A00123 + B = A00123B 
+    machine = run_info_dict['machine']
+    setup_logging(machine,args.fcillumid,config.get('locs','logs_dir'))
+    logger = logging.getLogger(__name__)
+    logger.info('Running GAF_Pipeline.py')
 
-    if runPath == '':
-        print('getting runFolder from CWD')
-        runFolder = os.getcwd()
-
-    #print(runFolder)
-    #check_cwd(runPath)
-    RTA_check(runPath)
-    runFolder = runPath.split('/')[4]
-    info =  runFolder.split('_')
-    FCID = info[3]
+    check_flowcell_complete(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
+    check_machine(machine,args.fcillumid,database)
     """Sequencing output is in the following format:
     [Date]_[IGM Machine Name]_[HiSeq Run Number]_[Flowcell ID]_[Project Name]
     However in cases of Illumina maintence they will re-image the machine and
     reset the output folder to Illumina default:
     [Date]_[Illumina Machine Name]_[HiSeq Run Number]_[Machine Side][Flowcell ID]
     """
-    if len(FCID) != 9:
-        raise Exception("FCID %s is formatted incorrectly!" % FCID)
 
-    run_date = info[0]
-    machine = info[1]
-
-    sequenceDB = getSequenceDB()
-
-    Machine_check(sequenceDB,FCID,machine)
-    global BCLDrive
-    if BCLDrive == '':
-        BCLDrive = '/nfs/seqscratch_ssd/BCL'
-        #BCLDrive = getBestBCLDrive()
-
-    setup_logging(machine,FCID,seqsata)
-    logger = logging.getLogger(__name__)
-
-    if run_pipeline == True:
-        completeCheck(runFolder)
+    if args.run == True:
         logger.info('GAF_Pipeline.py in automated mode')
+    submit(config,args,run_info_dict,database)
 
-    submit(runFolder,seqsata,run_date,machine,FCID,BCLDrive)
+    #submit(run_info_dict['runFolder'],args.archive_dir,run_info_dict['runDate'],
+    #       machine,args.fcillumid,config.get('locs','bcl2fastq_scratch_drive'))
 
-    logger.info('Running GAF_Pipeline.py')
-main()
+if __name__ == '__main__':
+    main()

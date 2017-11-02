@@ -9,7 +9,7 @@ from glob import glob
 from interop import py_interop_run_metrics, py_interop_run, py_interop_summary
 from utilities import *
 
-def run_bcl2fastq(args,run_info_dict,config,sss_loc,database):
+def run_bcl2fastq(args,run_info_dict,config,sss_loc,database,verbose):
     fcillumid = args.fcillumid
     logger = logging.getLogger(__name__)
     script_dir = config.get('locs','scr_dir')
@@ -42,12 +42,11 @@ def run_bcl2fastq(args,run_info_dict,config,sss_loc,database):
                         fcillumid,
                         bcl_dir.split('/')[2],
                         script_loc)
-    qsub_cmd = ['cd',out_dir,
-    if args.verbose == True:
+    if verbose == True:
         print(qsub_cmd)
     logger.info(qsub_cmd)
-    pid = os.system(qsub_cmd)
-    logger.info(pid)
+    #pid = os.system(qsub_cmd)
+    #logger.info(pid)
 
 def build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,database):
     logger = logging.getLogger(__name__)
@@ -106,7 +105,7 @@ def add_libraries_to_script(bcl_script):
                      "/nfs/goldstein/software/gcc-4.9.3/lib64:"
                      "$LD_LIBRARY_PATH\n")
 
-def update_sample_status(database,fcillumid):
+def update_sample_status(database,fcillumid,verbose):
     logger = logging.getLogger(__name__)
     userID = get_user_id(database)
     sample_status_update_query = ("INSERT INTO statusT "
@@ -121,7 +120,7 @@ def update_sample_status(database,fcillumid):
 
     if verbose == True:
         print(sample_status_update_query)
-    sequenceDB.execute(sample_status_update_query)
+    run_query(sample_status_update_query)
     logger.info(sample_status_update_query)
 
 def check_fcillumid(inputted_fcillumid,xml_fcillumid):
@@ -142,7 +141,7 @@ def parse_arguments():
                         help="Specify which tiles of the flowcell to convert")
     parser.add_argument('--use_bases_mask', action='store_true', default=False,
                         help="Specify any base positions to mask")
-    parser.add_argument('-s','--sss', dest='sss_loc',
+    parser.add_argument('--sss', dest='sss_loc',
                         help="Specify your own sequencing sample sheet")
     parser.add_argument('--noStatus', action='store_true', default=False,
                         help="Do not update status")
@@ -163,7 +162,7 @@ def main():
         database = 'testDB'
     else:
         database = 'sequenceDB'
-    setup_logging(run_info_dict['machine'],args.fcillumid,args.archive_dir,config.get('locs','bcl_dir'))
+    setup_logging(run_info_dict['machine'],args.fcillumid,config.get('locs','logs_dir'))
     logger = logging.getLogger(__name__)
     logger.info("Starting bcl2fastq job creation for Flowcell: {}".format(args.fcillumid))
     print("Starting bcl2fastq job creation for Flowcell: {}".format(args.fcillumid))
@@ -178,9 +177,9 @@ def main():
         sss_loc = args.sss_loc
         print("Using SSS: {}".format(sss_loc))
     #check_sss(sss_loc)
-    run_bcl2fastq(args,run_info_dict,config,sss_loc,database)
+    run_bcl2fastq(args,run_info_dict,config,sss_loc,database,args.verbose)
     if args.noStatus == False:
-        update_sample_status(database,args.fcillumid)
+        update_sample_status(database,args.fcillumid,args.verbose)
     logger.info("bcl2fastq successfully started")
     print("bcl2fastq successfully started")
 
