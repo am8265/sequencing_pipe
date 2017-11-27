@@ -9,6 +9,7 @@ import MySQLdb
 import os
 import sys
 import subprocess
+import traceback
 from create_align_config import create_align_config
 from ConfigParser import SafeConfigParser
 from datetime import datetime
@@ -219,14 +220,9 @@ def run_sample(sample,dontexecute,config_parser,debug):
             if dontexecute == False:
                run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug)
             update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid)
-        insert_query = ("INSERT INTO gatk_queue "
-                        "SELECT * FROM tmp_dragen WHERE pseudo_prepid={0}"
-                       ).format(pseudo_prepid)
         rm_query = "DELETE FROM {0} WHERE pseudo_prepid={1}".format("tmp_dragen",pseudo_prepid)
         if debug:
-            print insert_query
             print rm_query
-        run_query(insert_query)
         run_query(rm_query)
         update_dragen_metadata(sample,debug)
         qualified_bams,merge_bam_loc = qsub_merge(sample,config_parser,debug)
@@ -555,8 +551,10 @@ if __name__ == "__main__":
 
     try:
         main(run_type_flag, args.debug, args.dontexecute, args.seqscratch_drive)
-    except:
-        emailAddresses = 'jb3816@cumc.columbia.edu'
-        emailCmd = ('echo "Dragen Pipe failure" | mail -s "Dragen Pipe Failure {}"'
+    except Exception:
+        traceback.print_stack()
+        emailAddresses = ['jb3816@cumc.columbia.edu']
+        emailCmd = ('echo "Dragen Pipe failure" | mail -s "Dragen Pipe Failure" {}'
                    ).format(' '.join(emailAddresses))
+        print emailCmd
         os.system(emailCmd)
