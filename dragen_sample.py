@@ -96,28 +96,17 @@ def get_fastq_loc(curs, sample):
             #for externally submitted samples
             if seqsatalocs[0][1][0] == 'X':
                 print "Looking for external sample..."
-                if 'sudc' in sample['sample_name']: #specifically for sudc samples
-                    fastq_loc = glob(('/nfs/seqscratch09/tx_temp/tx_2767/{}/1'
-                                ).format(sample['sample_name']))
-                    for flowcell in fastq_loc:
-                        locs.append(os.path.realpath(flowcell))
-                elif 'eos' in sample['sample_name']: #specifically for eos samples
-                    fastq_loc = glob(('/nfs/fastq_temp5/AZ_eosinophils/PJ-01039/{}/*X[XY]'
-                                ).format(sample['sample_name']))
-                    for flowcell in fastq_loc:
-                        locs.append(os.path.realpath(flowcell))
-                elif 'SRR' in sample['sample_name']: #specifically for SRR samples
+                if 'SRR' in sample['sample_name']: #specifically for SRR samples
                     fastq_loc = glob(('/nfs/seqscratch10/SRA/{}/*X[XY]'
                                 ).format(sample['sample_name']))
                     for flowcell in fastq_loc:
                         locs.append(os.path.realpath(flowcell))
-                elif 'CGNDHDA' in sample['sample_name'] or 'FA000000' in sample['sample_name'] or 'NEU' in sample['sample_name']:
-                    fastq_loc = glob(('/nfs/seqscratch09/tx_temp/tx_2390/CGND_11418-fastq/Project_CGND_11418_B01_GRM_WGS.2016-03-30/{}/1'
-                                ).format(sample['sample_name']))
+                elif 'eos' in sample['sample_name']: #specifically for SRR samples
+                    fastq_loc = glob(('/nfs/fastq_temp5/AZ_eosinophils/PJ-01039/{}/*X[XY]').format(sample['sample_name']))
                     for flowcell in fastq_loc:
                         locs.append(os.path.realpath(flowcell))
-                elif 'pgm' in sample['sample_name'][0:3] or 'PGM' in sample['sample_name'][0:3]:
-                    fastq_loc = glob(('/nfs/fastq1*/PGM/{}/[0-9]'
+                elif 'CGNDHDA' in sample['sample_name'] or 'FA000000' in sample['sample_name'] or 'NEU' in sample['sample_name']:
+                    fastq_loc = glob(('/nfs/seqscratch09/tx_temp/tx_2390/CGND_11418-fastq/Project_CGND_11418_B01_GRM_WGS.2016-03-30/{}/1'
                                 ).format(sample['sample_name']))
                     for flowcell in fastq_loc:
                         locs.append(os.path.realpath(flowcell))
@@ -197,7 +186,7 @@ def get_fastq_loc(curs, sample):
                 corrected_sample_type.lower(),sample['sample_name'])):
                 fastq_loc = glob('/nfs/stornext/seqfinal/casava1.8/whole_{0}/{1}/*X[XY]'.format(corrected_sample_type.lower(),sample['sample_name']))
                 for flowcell in fastq_loc:
-                    locs.append(os.path.realpath(flowcell))
+                    locs.append(flowcell)
             elif glob('/nfs/seqsata*/seqfinal/whole_genome/{}/*X[XY]'.format(sample['sample_name'])) != []:
                 fastq_loc = glob('/nfs/seqsata*/seqfinal/whole_genome/{}/*X[XY]'.format(sample['sample_name']))
                 for flowcell in fastq_loc:
@@ -216,7 +205,6 @@ def check_fastq_locs(locs):
 
     valid_locs = []
     for loc in locs:
-        print loc
         read2 = glob("{loc}/*R2_[0-9]*fastq*".format(loc=loc))
         if read2 != []:
             valid_locs.append(loc)
