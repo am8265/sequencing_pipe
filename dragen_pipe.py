@@ -82,6 +82,7 @@ def check_bam_found_vs_bam_db(sample,qualified_bams_found):
     else:
         qualified_bams_in_db = run_query(GET_QUALIFIED_BAMS.format(**sample.metadata))
         if len(qualified_bams_in_db) != len(qualified_bams_found):
+            #print qualified_bams_found,qualified_bams_in_db
             raise ValueError, "Number of bams found != number of RGs in database!"
         for db_bam in qualified_bams_in_db:
             db_bam = ("{output_dir}/{sample_name}.{pseudo_prepid}.{fcillumid}.{lane_num}.bam"
@@ -103,7 +104,7 @@ def qsub_merge(sample,config_parser,debug):
         #Rename bam to final bam
         bam_index_loc = glob('{output_dir}/{sample_name}.{pseudo_prepid}.*.bai'.format(**sample.metadata))
         if len(bam_index_loc) != 1:
-            print bam_index_loc
+            #print bam_index_loc
             raise ValueError, "Incorrect number of bam indicies found: {}!".format(len(bam_index_loc))
         os.rename(bam_index_loc[0],"{output_dir}/{sample_name}.{pseudo_prepid}.bai".format(**sample.metadata))
         os.rename(qualified_bams_found[0],"{output_dir}/{sample_name}.{pseudo_prepid}.bam".format(**sample.metadata))
@@ -131,15 +132,22 @@ def qsub_merge(sample,config_parser,debug):
     return qualified_bams_found,merge_bam_loc
 
 def is_external_or_legacy_sample(sample):
-    """In cases of legecy samples (prepid < 10000) or external samples. There are no cases of legecy samples with
+    """In cases of legecy samples (prepid < 20000) or external samples. There are no cases of legecy samples with
     multiple preps"""
-
-    is_external_sample = int(run_query(IS_SAMPLE_EXTERNAL_FROM_PREPID.format(prepid=sample.metadata['prepid'][0]))[0][0])
-    if max(map(lambda x:int(x),sample.metadata['prepid'])) < 10000 or is_external_sample == True:
-        print "Sample has prepID < 10000 or is external sample!"
+    if max(map(lambda x:int(x),sample.metadata['prepid'])) < 20000:
+        print "Sample has a prepID < 20000"
         return True
+
     else:
-        return False
+        is_external_sample = int(run_query(IS_SAMPLE_EXTERNAL_FROM_PREPID.format(prepid=sample.metadata['prepid'][0]))[0][0])
+        if is_external_sample == 1:
+            print "Sample is an external sample!"
+            return True
+        elif is_external_sample == 0:
+            print "Sample is not an external sample"
+            return False
+        else: #Returns None
+            raise ValueError, "No value found.  Does prepID exist?"
 
 def qsub_mark_dup(sample,merge_bam_loc,qualified_bams,config_parser,debug):
     if len(qualified_bams) >1:
@@ -193,6 +201,7 @@ def write_sge_header(sample,step,script_loc):
     return script
 
 def run_query(query):
+    database='sequenceDB'
     db = MySQLdb.connect(db=database, read_default_group="clientsequencedb",
         read_default_file='~/.my.cnf')
     curs = db.cursor()
@@ -552,7 +561,8 @@ if __name__ == "__main__":
     try:
         main(run_type_flag, args.debug, args.dontexecute, args.seqscratch_drive)
     except Exception:
-        traceback.print_stack()
+        tb = traceback.format_exc()
+        print tb
         emailAddresses = ['jb3816@cumc.columbia.edu']
         emailCmd = ('echo "Dragen Pipe failure" | mail -s "Dragen Pipe Failure" {}'
                    ).format(' '.join(emailAddresses))
