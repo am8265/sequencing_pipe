@@ -52,7 +52,7 @@ def submit(config,args,run_info_dict,database):
         print(fastqcMySQLCmd)
         print("="*86)
         print
-        print(('Log file: {}' 
+        print(('Log file: {}'
             ).format(logging.getLoggerClass().root.handlers[0].baseFilename))
 
     else:
@@ -64,13 +64,13 @@ def submit(config,args,run_info_dict,database):
 
         #run post_bcl2fastq
         create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,address,postBCLCmd)
-        create_run_qsub_command(sample,'post_bcl','bcl',run_info_dict)
+        run_qsub_command(sample,'post_bcl','bcl',run_info_dict)
         create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address,storageCmd)
-        create_run_qsub_command(sample,'storage','post_bcl',run_info_dict)
+        run_qsub_command(sample,'storage','post_bcl',run_info_dict)
         #create_fastqc_script(config,archive_dir,runFolder,machine,fcillumid,address,fastqcCmd)
-        #create_run_qsub_command(sample,'fastqc','storage',run_info_dict)
+        #run_qsub_command(sample,'fastqc','storage',run_info_dict)
 
-def create_run_qsub_command(sample,step,fcillumid,run_info_dict):
+def run_qsub_command(sample,step,fcillumid,run_info_dict):
     logger = logging.getLogger(__name__)
     qsub_cmd = ('{qsub_program} -N {machine}_{fcillumid}_{bcl2fastq_scratch_drive}_{step} '
                 '/nfs/seqscratch1/Runs/{runFolder}/{machine}_{fcillumid}_{archive_dir}_{step}.sh'
@@ -84,7 +84,7 @@ def create_run_qsub_command(sample,step,fcillumid,run_info_dict):
     logger.info(qsub_cmd)
     os.system(qsub_cmd)
 
-def add_sge_header(config,file,fcillumid,step):
+def add_sge_header(config,file,fcillumid,step,hold):
     log_dir = config.get('locs','logs_dir')
     file.write('#! /bin/bash\n')
     file.write('#\n')
@@ -95,6 +95,8 @@ def add_sge_header(config,file,fcillumid,step):
     file.write('#$ -M jb3816@cumc.columbia.edu\n')
     file.write('#$ -m bea\n')
     file.write('#\n')
+    if hold == True:
+        file.write('#$ -hold_jid bcl_{}\n'.format(fcillumid))
     file.write('\n')
 
 def create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,address,postBCLCmd):
@@ -102,7 +104,7 @@ def create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,addres
     logger = logging.getLogger(__name__)
 
     post_bcl_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_%s_post_bcl.sh' % (runFolder,machine,fcillumid,archive_dir),'w')
-    add_sge_header(config,post_bcl_script,fcillumid,'post_bcl')
+    add_sge_header(config,post_bcl_script,fcillumid,'post_bcl',True)
     post_bcl_script.write("export LD_LIBRARY_PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/lib:$LD_LIBRARY_PATH ; export PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/bin:$PATH \n")
     post_bcl_script.write(postBCLCmd + '\n')
     post_bcl_script.write('if [ $? -eq 0 ] ; then echo "Post BCL completed successfully" ; else echo "Post BCL failed"\n')
@@ -110,11 +112,11 @@ def create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,addres
 
 def create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address,storageCmd):
     storage_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_%s_storage.sh' % (runFolder,machine,fcillumid,archive_dir),'w')
-    add_sge_header(config,storage_script,fcillumid,'storage')
+    add_sge_header(config,storage_script,fcillumid,'storage',True)
     storage_script.write(storageCmd + '\n')
 
 def create_fastqc_script(config,archive_dir,runFolder,machine,fcillumid,address,fastqcCmd):
-    add_sge_header(config,fastqc_script,fcillumid,'fastqc')
+    add_sge_header(config,fastqc_script,fcillumid,'fastqc',True)
     fastqc_script.write(fastqCmd + '\n')
     fastqc_script.close()
 
@@ -153,8 +155,8 @@ def main():
         database = 'testDB'
     else:
         database = 'sequenceDB'
-    # Ex A00123 + B = A00123B 
-    machine = run_info_dict['machine']
+
+    machine = run_info_dict['machine'] # Ex A00123 + B = A00123B 
     setup_logging(machine,args.fcillumid,config.get('locs','logs_dir'))
     logger = logging.getLogger(__name__)
     logger.info('Running GAF_Pipeline.py')
