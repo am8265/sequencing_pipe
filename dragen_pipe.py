@@ -13,7 +13,7 @@ import traceback
 from create_align_config import create_align_config
 from ConfigParser import SafeConfigParser
 from datetime import datetime
-from dragen_db_statements import *
+from db_statements import *
 from dragen_sample import dragen_sample
 from glob import glob
 
@@ -90,46 +90,13 @@ def check_bam_found_vs_bam_db(sample,qualified_bams_found):
             if glob(db_bam) == []:
                 raise ValueError, "Bam {} not found!".format(db_bam)
 
-def qsub_merge(sample,config_parser,debug):
-    merge_bam_loc = "{output_dir}/{sample_name}.{pseudo_prepid}.merge.bam ".format(**sample.metadata)
-    merge_cmd = ("{} -Xmx8g -jar {} MergeSamFiles TMP_DIR={} MAX_RECORDS_IN_RAM=5000000 VALIDATION_STRINGENCY=LENIENT "
-                ).format(config_parser.get('dragen_pipe','JAVA_1_8'),
-                         config_parser.get('dragen_pipe','PICARD_JAR'),
-                         sample.metadata['output_dir'])
+def get_component_bams(sample,debug):
     qualified_bams_found = glob('{output_dir}/*bam'.format(**sample.metadata))
     check_bam_found_vs_bam_db(sample,qualified_bams_found)
-
-
-    if len(qualified_bams_found) == 1:
-        #Rename bam to final bam
-        bam_index_loc = glob('{output_dir}/{sample_name}.{pseudo_prepid}.*.bai'.format(**sample.metadata))
-        if len(bam_index_loc) != 1:
-            #print bam_index_loc
-            raise ValueError, "Incorrect number of bam indicies found: {}!".format(len(bam_index_loc))
-        os.rename(bam_index_loc[0],"{output_dir}/{sample_name}.{pseudo_prepid}.bai".format(**sample.metadata))
-        os.rename(qualified_bams_found[0],"{output_dir}/{sample_name}.{pseudo_prepid}.bam".format(**sample.metadata))
-        chmod_cmd = ['chmod','-R','775',sample.metadata['output_dir']]
-        subprocess.check_call(chmod_cmd)
-        finish_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        update_pipeline_step_id(sample,'NULL',finish_time,'completed',debug,False)
-
-    elif len(qualified_bams_found) > 1:
-        for bam in qualified_bams_found:
-            merge_cmd += 'I={} '.format(bam)
-
-        merge_cmd += "O=" + merge_bam_loc
-        script_loc = "{script_dir}/{sample_name}.{pseudo_prepid}.merge.sh".format(**sample.metadata)
-        if len(qualified_bams_found) > 1:
-            merge_script = write_sge_header(sample,'merge',script_loc)
-            merge_script.write(merge_cmd + '\n')
-            merge_script.close()
-            qsub_cmd = ['/opt/sge6_2u5/bin/lx24-amd64/qsub',script_loc]
-            print qsub_cmd
-    else:
+    if len(qualified_bams_found) < 1:
         raise Exception, "No qualified bams were found!"
-        #subprocess.check_call(qsub_cmd)
-
-    return qualified_bams_found,merge_bam_loc
+    component_bams = ','.join(sorted(qualified_bams_found))
+    return component_bams
 
 def is_external_or_legacy_sample(sample):
     """In cases of legecy samples (prepid < 20000) or external samples. There are no cases of legecy samples with
@@ -149,40 +116,6 @@ def is_external_or_legacy_sample(sample):
         else: #Returns None
             raise ValueError, "No value found.  Does prepID exist?"
 
-def qsub_mark_dup(sample,merge_bam_loc,qualified_bams,config_parser,debug):
-    if len(qualified_bams) >1:
-        finish_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        pipeline_update_query = update_pipeline_step_id(sample,'NULL',finish_time,'completed',debug,True)
-        input_bam = merge_bam_loc
-        merge_job_name = '{sample_name}.{pseudo_prepid}.merge'.format(**sample.metadata)
-        output_bam = "{output_dir}/{sample_name}.{pseudo_prepid}.bam".format(**sample.metadata)
-        metrics_loc = "{output_dir}/{sample_name}.{pseudo_prepid}.metrics_duplication.txt".format(**sample.metadata)
-
-        mark_dup_cmd = ("{} -Xmx8g -jar {} MarkDuplicates TMP_DIR={} I={} O={} M={} MAX_RECORDS_IN_RAM=5000000 REMOVE_DUPLICATES=false VALIDATION_STRINGENCY=LENIENT "
-                       ).format(config_parser.get('dragen_pipe','JAVA_1_8'),
-                                config_parser.get('dragen_pipe','PICARD_JAR'),
-                                sample.metadata['output_dir'],input_bam,
-                                output_bam,metrics_loc)
-        samtools_index_cmd = ("{} index {}".format(config_parser.get('dragen_pipe','SAMTOOLS'),
-                                                   output_bam))
-        script_loc = "{script_dir}/{sample_name}.{pseudo_prepid}.markdup.sh".format(**sample.metadata)
-        mark_dup_script = write_sge_header(sample,'markdup',script_loc)
-        mark_dup_script.write("#$ -hold_jid {sample_name}.{pseudo_prepid}.{step}\n"
-                              .format(step='merge',**sample.metadata))
-        mark_dup_script.write(mark_dup_cmd + '\n')
-        mark_dup_script.write("if [ $? -eq 0 ] ; then\n")
-        mark_dup_script.write("    {}\n".format(samtools_index_cmd))
-        mark_dup_script.write('    sdb() {\n')
-        mark_dup_script.write('        mysql --defaults-group-suffix=sequencedb "$@"\n')
-        mark_dup_script.write('    }\n')
-        mark_dup_script.write('    sdb -e "{}"\n'.format(pipeline_update_query))
-        mark_dup_script.write('    chmod -R 775 {output_dir}/*\n'.format(**sample.metadata))
-        mark_dup_script.write("fi\n")
-        mark_dup_script.close()
-
-        qsub_cmd = ['/opt/sge6_2u5/bin/lx24-amd64/qsub',script_loc]
-        print qsub_cmd
-        #subprocess.check_call(qsub_cmd)
 
 def write_sge_header(sample,step,script_loc):
     script = open(script_loc,'w')
@@ -215,9 +148,8 @@ def run_sample(sample,dontexecute,config_parser,debug):
     output_dir = sample.metadata['output_dir']
     pseudo_prepid = sample.metadata['pseudo_prepid']
     submit_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    existing_bams = glob("{}/*.sam".format(output_dir))
+    existing_bams = glob("{}/*.bam".format(output_dir))
     if existing_bams == []:
-        update_pipeline_step_id(sample,submit_time,'NULL','started',debug,False)
         update_queue(pseudo_prepid,debug)
         for laneFCID in sample.metadata['lane'][0]: #loop over read groups
             rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
@@ -233,9 +165,9 @@ def run_sample(sample,dontexecute,config_parser,debug):
         if debug:
             print rm_query
         run_query(rm_query)
-        update_dragen_metadata(sample,debug)
-        qualified_bams,merge_bam_loc = qsub_merge(sample,config_parser,debug)
-        qsub_mark_dup(sample,merge_bam_loc,qualified_bams,config_parser,debug)
+
+        component_bams = get_component_bams(sample,debug)
+        update_dragen_metadata(sample,component_bams,debug)
 
     else:
         print ("Sample {sample_name} bam file already exists!"
@@ -270,26 +202,36 @@ def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
     dragen_stdout.close()
     dragen_stderr.close()
 
-def update_dragen_metadata(sample,debug):
+def update_dragen_metadata(sample,component_bams,debug):
     seqscratch_drive = sample.metadata['output_dir'].split('/')[2]
-
     get_dragen_metadata_query = ("SELECT * from dragen_sample_metadata "
                                  "WHERE pseudo_prepid = {pseudo_prepid} "
                                 ).format(**sample.metadata)
     dbInfo = run_query(get_dragen_metadata_query)
     if dbInfo:
-        """ add updated query here """
-        pass
+        print "Performing dragen_sample_metadata update"
+        query = ("UPDATE dragen_sample_metadata "
+                 "set sample_name='{sample_name}',pseudo_prepid={pseudo_prepid},"
+                 "sample_type='{sample_type}',capture_kit='{capture_kit}',"
+                 "priority={priority},seqscratch_drive='{seqscratch_drive}',"
+                 "is_merged=0,component_bams='{component_bams}' "
+                 "WHERE pseudo_prepid={pseudo_prepid}"
+                ).format(seqscratch_drive=seqscratch_drive,
+                         component_bams=component_bams,**sample.metadata)
     else:
-        insertQuery = ("INSERT INTO dragen_sample_metadata "
+        print "Performing dragen_sample_metadata insert"
+        query = ("INSERT INTO dragen_sample_metadata "
                        "(sample_name,pseudo_prepid,sample_type,"
-                       "capture_kit,priority,seqscratch_drive) "
+                       "capture_kit,priority,seqscratch_drive,"
+                       "is_merged,component_bams) "
                        "VALUES ('{sample_name}',{pseudo_prepid},"
-                       "'{sample_type}','{capture_kit}',{priority},'{seqscratch_drive}') "
-                      ).format(seqscratch_drive=seqscratch_drive,**sample.metadata)
-        if debug:
-            print insertQuery
-        run_query(insertQuery)
+                       "'{sample_type}','{capture_kit}',{priority},"
+                       "'{seqscratch_drive}',0,'{component_bams}'"
+                       ") "
+                      ).format(seqscratch_drive=seqscratch_drive,component_bams=component_bams,**sample.metadata)
+    if debug:
+        print query
+    run_query(query)
 
 def get_pipeline_version():
     version = subprocess.check_output(
@@ -300,67 +242,6 @@ def get_pipeline_version():
             raise ValueError("Could not get the version # of the pipeline; "
                              "Check cwd?")
 
-def perform_DPS_update(version,submit_time,finish_time,timesRan,
-                       status,pseudo_prepid,alignment_step_id,debug,return_query):
-    pipelineID_update = ("UPDATE dragen_pipeline_step SET "
-                         "version = '{}', ").format(version)
-    if submit_time != 'NULL':
-        pipelineID_update += "submit_time = '{}', ".format(submit_time)
-    if finish_time != 'NULL':
-        pipelineID_update += "finish_time = '{}', ".format(finish_time)
-    pipelineID_update += ("times_ran ={}, "
-                          "step_status = '{}' "
-                          "WHERE pseudo_prepid = {} "
-                          "and pipeline_step_id = {}"
-                         ).format(timesRan,status,pseudo_prepid,
-                                  alignment_step_id)
-    if debug:
-       print pipelineID_update
-    if return_query:
-        return pipelineID_update
-    else:
-        run_query(pipelineID_update)
-
-def perform_DPS_insert(version,submit_time,finish_time,timesRan,
-                       status,pseudo_prepid,alignment_step_id,debug,return_query):
-    pipelineID_insert = ("INSERT INTO dragen_pipeline_step "
-                         "(version,pseudo_prepid,pipeline_step_id,"
-                         "submit_time,finish_time,times_ran,step_status) "
-                         "VALUES ('{}',{},{},'{}','{}',1,'{}')"
-                        ).format(version,pseudo_prepid,
-                                 alignment_step_id,submit_time,
-                                 finish_time,status)
-    if debug:
-        print pipelineID_insert
-    if return_query:
-        return pipelineID_insert
-    else:
-        run_query(pipelineID_insert)
-
-def update_pipeline_step_id(sample,submit_time,finish_time,status,debug,return_query):
-    version = get_pipeline_version()
-    alignment_step_query = ("SELECT id from dragen_pipeline_step_desc "
-                            "WHERE step_name='DragenAlignment'")
-    alignment_step_id = run_query(alignment_step_query)[0][0]
-    pseudo_prepid = sample.metadata['pseudo_prepid']
-    timesRanQuery = ("SELECT times_ran FROM dragen_pipeline_step "
-                     "WHERE pseudo_prepid = {} and pipeline_step_id = {}"
-                    ).format(pseudo_prepid,alignment_step_id)
-    timesRan = run_query(timesRanQuery)
-    if timesRan and status == 'started':
-        timesRan = int(timesRan[0][0]) +1
-        query = perform_DPS_update(version,submit_time,finish_time,timesRan,
-                           status,pseudo_prepid,alignment_step_id,debug,return_query)
-
-    elif timesRan and status == 'completed':
-        timesRan = int(timesRan[0][0])
-        query = perform_DPS_update(version,submit_time,finish_time,timesRan,
-                           status,pseudo_prepid,alignment_step_id,debug,return_query)
-
-    else:
-        query = perform_DPS_insert(version,submit_time,finish_time,timesRan,
-                           status,pseudo_prepid,alignment_step_id,debug,return_query)
-    return query
 def update_queue(pseudo_prepid,debug):
     insert_query = ("INSERT INTO tmp_dragen "
                     "SELECT * FROM dragen_queue WHERE pseudo_prepid={0}"
@@ -383,6 +264,11 @@ def set_seqtime(rg_fcillumid,sample):
         seqtime = '1970-1-1'
     sample.set('seqtime',seqtime)
 
+def check_dir_contents(sample,debug):
+    bam_bai_files = glob('{output_dir}/*.ba[im]'.format(**sample.metadata))
+    if len(bam_bai_files) > 1:
+        raise ValueError, "Previous bam/bai files were found!"
+
 def setup_dir(sample,debug):
     mkdir_cmd = ['mkdir','-p',sample.metadata['script_dir']]
     subprocess.call(mkdir_cmd)
@@ -390,7 +276,7 @@ def setup_dir(sample,debug):
     subprocess.call(mkdir_cmd)
     mkdir_cmd = ['mkdir','-p',sample.metadata['fastq_dir']]
     subprocess.call(mkdir_cmd)
-
+    #check_dir_contents(sample,debug)
     """Removes any fastq.gz files in the fastq folder. Symlink-only fastqs
         should be in this folder.  This is just in case the sample was run
         through once"""
@@ -401,7 +287,6 @@ def setup_dir(sample,debug):
             os.remove(file)
         except OSError:
             pass
-
 
     first_read1 = get_reads(sample,1,debug)
     first_read2 = get_reads(sample,2,debug)
