@@ -31,6 +31,13 @@ def submit(config,args,run_info_dict,database):
     fastqcCmd =      ("{} {}/fastqc.py -f {}").format(python36_program,scriptLoc,fcillumid)
     fastqcMySQLCmd = ("{} {}/fastqc_mysql.py -f {}").format(python36_program,scriptLoc,fcillumid)
 
+    if args.test == True:
+        BCLCmd += ' --test'
+        BCLMySQLCmd += ' --test'
+        postBCLCmd += ' --test'
+        storageCmd += ' --test'
+        fastqcCmd += ' --test'
+        fastqcMySQLCmd += ' --test'
 
     if args.run == False:
         #prints out all the commands to run manually
@@ -60,8 +67,8 @@ def submit(config,args,run_info_dict,database):
         create_run_qsub_command(sample,'post_bcl','bcl',run_info_dict)
         create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address,storageCmd)
         create_run_qsub_command(sample,'storage','post_bcl',run_info_dict)
-        create_fastqc_script(config,archive_dir,runFolder,machine,fcillumid,address,fastqcCmd)
-        create_run_qsub_command(sample,'fastqc','storage',run_info_dict)
+        #create_fastqc_script(config,archive_dir,runFolder,machine,fcillumid,address,fastqcCmd)
+        #create_run_qsub_command(sample,'fastqc','storage',run_info_dict)
 
 def create_run_qsub_command(sample,step,fcillumid,run_info_dict):
     logger = logging.getLogger(__name__)

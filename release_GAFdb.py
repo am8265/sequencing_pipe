@@ -18,7 +18,7 @@ from checkRelease import checkUpdateDB
 #Checks sample list
 def Samples():
     path = sys.argv[1]
-    print os.path.isfile(path)
+    #print os.path.isfile(path)
     if os.path.isfile(path) == False:
         raise Exception, "sample list file does not exist"
     return path
@@ -38,7 +38,7 @@ def check_Lane(sequenceDB,prepID,CHGVID):
             "FROM Lane "
             "WHERE prepID={} and FailR1 is NULL and FailR2 is NULL and LnYield is NULL"
             ).format(prepID)
-    #print query
+    print query
     sequenceDB.execute(query)
     sequencing_lanes = sequenceDB.fetchall()
     #print sequencing_lanes
@@ -113,7 +113,7 @@ def getFastqLoc(sequenceDB,SampleID,prepID,seqtype):
                 ).format(seqtype=seqtype.upper(),
                         prepID=prepID,
                         SampleID=SampleID)
-    print query
+    #print query
     sequenceDB.execute(query)
     FastqLoc = sequenceDB.fetchone()[0]
     #print FastqLoc
@@ -470,7 +470,7 @@ def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
     #complete = ('Sequencing Complete',)
     if complete is None:
         raise Exception, "Flowcell has not been completed SequenceDB for %s.  Old sample?" % SampleID
-    sequenceDB.execute("SELECT SUM(LnYield) from Lane where prepID=%s and failr1 is NULL and failr2 is NULL", prepID)
+    sequenceDB.execute("SELECT SUM(LnYield) from Lane where prepID=%s and failr1 is NULL ", prepID)
     info = sequenceDB.fetchone()
 
     sequenceDB.execute("SELECT status from statusT WHERE prepID=%s ORDER BY status_time DESC LIMIT 1", (prepID))
@@ -490,7 +490,7 @@ def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
             failYield = SampleID
             #raise Exception, "%s has yield of %s!" % (SampleID,info[0])
 
-    elif int(info[0]) < 7500 and SeqType.lower() == 'exome':
+    elif int(info[0]) < 1000 and SeqType.lower() == 'exome':
         fail_switch = raw_input("%s has yield < 7500 (%s).  Is this ok to release (Y)es or (N)o? " % (SampleID,int(info[0])))
         if fail_switch.lower() != 'y' and status[0] != 'External Data Submitted':
             failYield = SampleID
@@ -507,7 +507,6 @@ def check_sequenceDB(sequenceDB,SampleID,prepID,SeqType):
 
             #raise Exception, "%s has yield of %s!" % (SampleID,info[0])
 
-    #print SampleID,prepID
     #print status[0]
     return status[0],complete[0],failYield,poolID,info[0]
 
@@ -751,7 +750,7 @@ def getIDs(SampleID,SeqType,sequenceDB,capturekit):
     DBID = sequenceDB.fetchall()
     if len(DBID) != 1:
         print SampleID,SeqType,DBID
-
+        print sql
         raise Exception, "Incorrect number of DBID's found for Sample %s" % SampleID
 
     if capturekit == '':

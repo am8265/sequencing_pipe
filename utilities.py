@@ -26,6 +26,9 @@ def parse_run_parameters_xml(fcillumid):
         tree = ElementTree.parse(xml)
         if xml_type == 'NovaSeq':
             run_info_dict['RtaVersion'] = tree.findall('RtaVersion')[0].text
+            run_info_dict['Side'] = tree.findall('Side')[0].text
+            if run_info_dict['Side'] == 'None':
+                run_info_dict['Side'] = tree.findall('PreRunFolder')[0].text[-1] 
             run_info_dict['experimentName'] = tree.findall('ExperimentName')[0].text
             run_info_dict['runFolder'] = tree.findall('RunId')[0].text
             run_info_dict['runDate'] = run_info_dict['runFolder'].split('_')[0]
@@ -33,8 +36,7 @@ def parse_run_parameters_xml(fcillumid):
             run_info_dict['ControlSoftwareVer'] = tree.findall('ApplicationVersion')[0].text
             for FCInfo in tree.findall('RfidsInfo'):
                 run_info_dict['FCIllumID'] = FCInfo.find('FlowCellSerialBarcode').text
-                run_info_dict['machineSide'] = FCInfo.find('FlowCellPartNumber').text
-            run_info_dict['machine'] = run_info_dict['machineName'] + run_info_dict['machineSide'][0]
+            run_info_dict['machine'] = run_info_dict['machineName'] + run_info_dict['Side'][0]
         elif xml_type == 'HiSeq':
             run_info_dict['RtaVersion'] = tree.findall('Setup')[0].find('RTAVersion').text
             run_info_dict['experimentName'] = tree.findall('Setup')[0].find('ExperimentName').text
@@ -43,7 +45,7 @@ def parse_run_parameters_xml(fcillumid):
             run_info_dict['machineName'] = tree.findall('Setup')[0].find('ComputerName').text.split('-')[1]
             run_info_dict['ControlSoftwareVer'] = tree.findall('Setup')[0].find('ApplicationVersion').text
             run_info_dict['FCIllumID'] = tree.findall('Setup')[0].find('Barcode').text
-            run_info_dict['machineSide'] = tree.findall('Setup')[0].find('FCPosition').text
+            run_info_dict['Side'] = tree.findall('Setup')[0].find('FCPosition').text
 
         else:
             raise ValueError("Undefined xml_type:{}!".format(xml_type))
@@ -66,6 +68,14 @@ def get_connection(database):
         return connection
     except pymysql.err.OperationalError:
             sys.exit("Wrong username/database or password found, please try again")
+def get_userid_from_uni(database):
+    p = os.popen(' echo $USER ')
+    userName = p.readline().strip()
+    p.close()
+    if userName == 'solexa': #GAF user name back at duke
+        userName = 'jb3816'
+    userid = run_query(GET_USERID_FROM_UNI.format(uni=uni))['USERID']
+    return userid
 
 def check_number_query_results(results,expected):
     if len(results) == 0:
@@ -215,12 +225,15 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
             #print sql
             sss_line = run_query(sql,database)
             check_number_query_results(sss_line,1)
-            outfile.write("{Lane},{SampleID},{SampleID},,,,{Index},{Project},{str_desc}\n".format(str_desc=sss_line[0]['Description'].decode('UTF-8'),**sss_line[0]))
+            str_desc = sss_line[0]['Description'].decode('UTF-8') #why did I use decode?
+            #str_desc = sss_line[0]['Description']
+            outfile.write("{Lane},{SampleID},{SampleID},,,,{Index},{Project},{str_desc}\n".format(str_desc=str_desc,**sss_line[0]))
     outfile.close()
     #copies sequencing sample sheet to genotyping location
     cp_cmd= ('cp {} /nfs/igmdata01/Sequencing_SampleSheets/'
              ).format(sss_loc)
     os.system(cp_cmd)
+    print("Finish creating SSS: {}".format(sss_loc))
     return sss_loc
 
 def setup_logging(machine,fcillumid,logs_dir):
@@ -270,7 +283,8 @@ def get_user_id(database):
     p = os.popen('echo $USER')
     userName = p.readline().strip()
     p.close()
-    get_userID_query = "SELECT userID FROM users WHERE netid='{}'".format(userName)
+    get_userID_query = GET_USERID_FROM_UNI.format(uni=userName)
     userID = run_query(get_userID_query,database)
     check_number_query_results(userID,1)
-
+    userID = userID[0]['USERID']
+    return userID

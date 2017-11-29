@@ -29,24 +29,18 @@ def run_bcl2fastq(args,run_info_dict,config,sss_loc,database,verbose):
 
     #Submit bcl job to the cluster
     with open(script_loc,'w') as bcl_script:
-        add_sge_header_to_script(bcl_script)
+        add_sge_header_to_script(bcl_script,fcillumid)
         add_libraries_to_script(bcl_script)
         bcl_script.write(bcl2fastq_cmd + '\n')
 
     qsub_loc = config.get('programs','qsub_program')
-    qsub_cmd = ("cd {} ; "
-                "{} -cwd -v PATH -N {}_{}_{}_bcl {}"
-               ).format(out_dir,
-                        qsub_loc,
-                        run_info_dict['machine'],
-                        fcillumid,
-                        bcl_dir.split('/')[2],
-                        script_loc)
+    qsub_cmd = ("cd {} ; {} -v PATH  {}"
+               ).format(out_dir,qsub_loc,script_loc)
     if verbose == True:
         print(qsub_cmd)
     logger.info(qsub_cmd)
-    #pid = os.system(qsub_cmd)
-    #logger.info(pid)
+    pid = os.system(qsub_cmd)
+    logger.info(pid)
 
 def build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,database):
     logger = logging.getLogger(__name__)
@@ -60,7 +54,7 @@ def build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,dat
     """ Tile specify what tiles on the flowcell can be converted to fastq
         This adds tiles parameter to BCL script if specified.  Multiple
         bcl2fastq runs might be required"""
-    if args.tiles != False:
+    if args.tiles:
         bcl2fastq_cmd += '--tiles={} '.format(args.tiles)
         update_flowcell_tile_query = ("UPDATE Flowcell "
                                       "SET TileCommand=CONCAT_WS(';',TileCommand,'{0}') "
@@ -74,7 +68,7 @@ def build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,dat
         bcl2fastq_cmd += '--use-bases-mask {} '.format(args.use_bases_mask)
     return bcl2fastq_cmd
 
-def add_sge_header_to_script(bcl_script):
+def add_sge_header_to_script(bcl_script,fcillumid):
     bcl_script.write("#! /bin/bash\n")
     bcl_script.write("#\n")
     bcl_script.write("#$ -S /bin/bash -cwd\n")
@@ -84,6 +78,7 @@ def add_sge_header_to_script(bcl_script):
     bcl_script.write("#$ -V\n")
     bcl_script.write("#$ -M jb3816@cumc.columbia.edu\n")
     bcl_script.write("#$ -m bea\n")
+    bcl_script.write("#$ -N bcl_{}\n".format(fcillumid))
 
 def add_libraries_to_script(bcl_script):
     bcl_script.write("export PATH=/nfs/goldstein/software/bcl2fastq2-v2.20-x86_64/bin:"
@@ -120,7 +115,7 @@ def update_sample_status(database,fcillumid,verbose):
 
     if verbose == True:
         print(sample_status_update_query)
-    run_query(sample_status_update_query)
+    run_query(sample_status_update_query,database)
     logger.info(sample_status_update_query)
 
 def check_fcillumid(inputted_fcillumid,xml_fcillumid):
@@ -137,7 +132,7 @@ def parse_arguments():
                         help="Specify scratch dir for bcl2fastq")
     parser.add_argument('-a','--archive_dir', default='igmdata01', dest='archive_dir',
                         help="Specify scratch dir for bcl2fastq")
-    parser.add_argument('--tiles', action='store_true', default=False,
+    parser.add_argument('--tiles', dest='tiles',
                         help="Specify which tiles of the flowcell to convert")
     parser.add_argument('--use_bases_mask', action='store_true', default=False,
                         help="Specify any base positions to mask")

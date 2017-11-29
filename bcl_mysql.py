@@ -32,9 +32,9 @@ def get_read1_date(run_folder):
     Read1Date = tmp[5] + ' ' + tmp[6].split('.')[0]
     return Read1Date
 
-def update_fc(database,fcillumid,run_info_dict,fastq_archive_loc,verbose):
+def update_fc(database,fcillumid,run_info_dict,config,run_folder,verbose):
     logger = logging.getLogger(__name__)
-    run_folder =run_info_dict['runFolder']
+    fastq_archive_loc = config.get('locs','fastq_archive_drive')
     rta_ver = run_info_dict['RtaVersion']
     hsc_ver = run_info_dict['ControlSoftwareVer']
     DateBcl = get_cur_datetime()
@@ -117,17 +117,21 @@ def update_lane_fraction(database,fcillumid,run_folder,verbose):
     #print(info)
 
     sampleSheet = glob('{}/*{}*.csv'.format(run_folder,fcillumid))[0]
-    sampleDict = {}
+    sss_samples_info_dict = {}
+    #print(sampleSheet)
     with open(sampleSheet) as csvfile:
-        skipAheadCSV = csvfile.readlines()[17:]
-        reader = csv.DictReader(skipAheadCSV)
+        skipped_ahead_sample_sheet = csvfile.readlines()[17:]
+        reader = csv.DictReader(skipped_ahead_sample_sheet)
         for row in reader:
-            #print(row)
-            key = '{}_{}'.format(row['Sample_ID'],row['Lane'])
-            sampleDict[key] = row
+            key_from_sss = '{}_{}'.format(row['Sample_ID'],row['Lane'])
+            sss_samples_info_dict[key_from_sss] = row
+    if sss_samples_info_dict == {}:
+        raise ValueError("No samples were found in the sample sheet!")
     for samp in info:
-        key = '{}_{}'.format(samp['CHGVID'],samp['lanenum'])
-        LnFraction = sampleDict[key]['Description'].split('_')[0]
+        key_from_db = '{}_{}'.format(samp['CHGVID'],samp['lanenum'])
+        LnFraction = sss_samples_info_dict[key_from_db]['Description'].split('_')[0]
+        #LnFraction = sss_samples_info_dict[key_from_db]['Description'].split("'")[1].split('_')[0]
+
         sql = ("UPDATE Lane l "
             "SET LnFraction={0} "
             "WHERE FCID={1} and LaneNum={2} and DBID={3}"
@@ -244,11 +248,13 @@ def main():
     print('BCL MySQL updates started')
     logger.info('BCL MySQL updates started')
     try:
+        bcl_dir = config.get('locs','bcl_dir')
+        run_folder = bcl_dir + run_info_dict['runFolder']
         update_fc(database,args.fcillumid,run_info_dict,
-                  config.get('locs','fastq_archive_drive'),args.verbose)
-        run_summary = getMetricsSummary(run_info_dict['runFolder'])
+                  config,run_folder,args.verbose)
+        run_summary = getMetricsSummary(run_folder)
         update_lane(database,args.fcillumid,run_info_dict['machine'],
-                    run_info_dict['runFolder'],run_summary,args.verbose)
+                    run_folder,run_summary,args.verbose)
 
         #mysql updates happen now on BCL
         logger.info('BCL MySQL updates completed')
