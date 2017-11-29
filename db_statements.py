@@ -1,3 +1,24 @@
+GET_QUALIFIED_BAMS = """
+    SELECT fcillumid,laneNum FROM pseudo_prepid pp
+    JOIN prepT p on p.PREPID=pp.PREPID
+    JOIN Lane l on p.PREPID=l.PREPID
+    JOIN Flowcell f on l.fcid=f.fcid
+    WHERE PSEUDO_PREPID = {pseudo_prepid} AND
+    FCILLUMID NOT LIKE 'X%' AND
+    RELEASED = 1
+    """
+
+IS_SAMPLE_EXTERNAL_FROM_PREPID = """
+    SELECT CASE
+        WHEN FCILLUMID LIKE 'X%'
+            THEN 1
+            ElSE 0
+        END AS IS_EXTERNAL
+    FROM Lane l
+    JOIN Flowcell f ON f.fcid=l.fcid
+    WHERE prepid = {prepid}
+    """
+
 GET_MACHINE_FROM_FCILLUMID_QUERY = """
     SELECT MACHINE
     FROM Flowcell
