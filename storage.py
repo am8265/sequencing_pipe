@@ -195,6 +195,7 @@ def getSeqtype(fcillumid,sampleName,database):
 def createStorageCompleteFlag(verbose,config,run_info_dict):
     raw_sequencing_folder_loc = '{}/{}'.format(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
     flagloc = '{}/StorageComplete'.format(raw_sequencing_folder_loc)
+
     touchCmd = ['touch',flagloc]
     if verbose:
         print(' '.join(touchCmd))
