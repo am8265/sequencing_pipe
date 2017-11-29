@@ -1,87 +1,62 @@
-#!/usr/bin/python
-# bcl_mysql.py
-# Joshua Bridgers
-# 04/26/2012
-# jb371@dm.duke.edu
-#
-# Submits finished sequenced run for BCL to fastq conversion
-
+import argparse
 import csv
 import getopt
-import glob
 import logging
 import math
 import subprocess
 import sys
 import traceback
-from CHGV_mysql_3_6 import getTestSequenceDB, getSequenceDB, setup_logging
 from datetime import datetime
+from glob import glob
 from interop import py_interop_run_metrics, py_interop_run, py_interop_summary
+from utilities import *
 
-#gets current time and date
-
-def cur_datetime():
+def get_cur_datetime():
     tDateBCL = datetime.now()
     tDateBCL = str(tDateBCL).split('.')
     DateBCL = tDateBCL[0]
     return DateBCL
 
-def getRTAdate(pwd):
-    cmd = ['ls','-l','--full-time','{}/RTAComplete.txt'.format(pwd)]
+def get_rta_date(run_folder):
+    cmd = ['ls','-l','--full-time','{}/RTAComplete.txt'.format(run_folder)]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     DateRTA = proc.stdout.read().decode().split(' ')
     date = DateRTA[5]
     time = DateRTA[6].split('.')[0]
     return '%s %s' % (date,time)
 
-def getRead1Date(pwd):
-    cmd = ['ls','{}/RunInfo.xml'.format(pwd),'-l','--time-style=full-iso']
+def get_read1_date(run_folder):
+    cmd = ['ls','{}/RunInfo.xml'.format(run_folder),'-l','--time-style=full-iso']
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     tmp = proc.stdout.read().decode().split()
     Read1Date = tmp[5] + ' ' + tmp[6].split('.')[0]
     return Read1Date
 
-def ver_num(pwd,Machine):
-    if Machine[0] == 'A':
-        runParametersFile = 'RunParameters.xml'
-    else:
-        runParametersFile = 'runParameters.xml'
-    RTAcmd = ['grep','-i','-m1','rta','{}/{}'.format(pwd,runParametersFile)]
-    proc = subprocess.Popen(RTAcmd, stdout=subprocess.PIPE)
-    tmp = proc.stdout.read().decode().split()
-    RTAVer = tmp[0].split('>')[1].split('<')[0]
-    HCScmd = ['grep','ApplicationVersion','{}/{}'.format(pwd,runParametersFile),'-m1']
-    proc2 = subprocess.Popen(HCScmd, stdout=subprocess.PIPE)
-    tmp2 = proc2.stdout.read().decode().split()
-    HCSVer = tmp2[0].split('>')[1].split('<')[0]
-    return RTAVer,HCSVer
-
-
-def updateFC(sequenceDB,FCID,Machine,pwd,seqLoc):
-    logger = logging.getLogger('updateFC')
-    DateBcl = cur_datetime()
-    DateRTA = getRTAdate(pwd)
-    DateRead1 = getRead1Date(pwd)
-    RTAVer,HCSver = ver_num(pwd,Machine)
-    hasIndexRead = 1
-
-    #print(DateRTA)
+def update_fc(database,fcillumid,run_info_dict,config,run_folder,verbose):
+    logger = logging.getLogger(__name__)
+    fastq_archive_loc = config.get('locs','fastq_archive_drive')
+    rta_ver = run_info_dict['RtaVersion']
+    hsc_ver = run_info_dict['ControlSoftwareVer']
+    DateBcl = get_cur_datetime()
+    DateRTA = get_rta_date(run_folder)
+    DateRead1 = get_read1_date(run_folder)
 
     sql = ("UPDATE Flowcell "
         "SET RTAVer='{}', HCSVer='{}', DateRead1='{}', DateRTA='{}', "
         "DateBcl='{}', SeqsataLoc='{}' "
         "WHERE FCillumID='{}'"
-        ).format(RTAVer,HCSver,DateRead1,DateRTA,DateBcl,seqLoc,FCID)
+        ).format(rta_ver,hsc_ver,DateRead1,DateRTA,
+                 DateBcl,fastq_archive_loc,fcillumid)
     if verbose == True:
         print(sql)
 
-    sequenceDB.execute(sql)
+    run_query(sql,database)
     logger.info(sql)
 
 
-#Updates ClusterDensity for Lane Entries
-def updateLane(sequenceDB,FCID,Machine,pwd,run_summary):
-    logger = logging.getLogger('updateLane')
+def update_lane(database,fcillumid,Machine,run_folder,run_summary,verbose):
+    """Updates ClusterDensity for Lane Entries"""
+    logger = logging.getLogger(__name__)
     logger.debug('Running updateLane')
 
     sss_lanes = run_summary.lane_count()
@@ -101,26 +76,26 @@ def updateLane(sequenceDB,FCID,Machine,pwd,run_summary):
             "SET ClustDen='{0}',ClustDenStDev='{1}',"
             "ClusterPF='{2}',ClusterPFStDev=round('{3}',3) "
             "WHERE LaneNum={4} AND f.FCillumID='{5}'"
-            ).format(ClustDen,ClustDenStDev,ClustPF,ClustPFStDev,str(LaneNum),FCID)
+            ).format(ClustDen,ClustDenStDev,ClustPF,ClustPFStDev,str(LaneNum),fcillumid)
 
         if verbose == True:
             print(sql)
-        sequenceDB.execute(sql)
+        run_query(sql,database)
         logger.info(sql)
 
-    totalNumLanes = totalLanesCheck(sss_lanes,FCID)
-    qmets(sequenceDB,pwd,totalNumLanes,Machine,FCID,run_summary)
-    updateLnFraction(sequenceDB,FCID,pwd)
+    totalNumLanes = totalLanesCheck(sss_lanes,fcillumid)
+    qmets(database,run_folder,totalNumLanes,Machine,fcillumid,run_summary,verbose)
+    update_lane_fraction(database,fcillumid,run_folder,verbose)
 
-def totalLanesCheck(sss_lanes,FCID):
+def totalLanesCheck(sss_lanes,fcillumid):
     """Check if # of lanes in generated sequencing sample sheet matches actual
     number"""
-    if FCID[-3] == 'N': #Normal Flowcells have 8 lanes
+    if fcillumid[-3] == 'N': #Normal Flowcells have 8 lanes
         actualNumLanes = [8]
-    elif FCID[0] == 'H': #Rapid Runs, NovaSeq S1-4 can have 2 or 4 lanes
+    elif fcillumid[0] == 'H': #Rapid Runs, NovaSeq S1-4 can have 2 or 4 lanes
         actualNumLanes = [2,4]
     else:
-        raise Exception('Unhandled FCID for flowcell %s' % FCID)
+        raise Exception('Unhandled fcillumid for flowcell %s' % fcillumid)
     for lanes in actualNumLanes:
         match = 0
         if sss_lanes in actualNumLanes:
@@ -129,31 +104,34 @@ def totalLanesCheck(sss_lanes,FCID):
     if match == 0 :
         raise Exception( 'Number of lanes in SSS is incorrect!')
 
-def updateLnFraction(sequenceDB,FCID,pwd):
-    logger = logging.getLogger('updateLnFraction')
-    logger.debug('Running updateLnFraction')
+def update_lane_fraction(database,fcillumid,run_folder,verbose):
+    logger = logging.getLogger(__name__)
+    logger.debug('Running update_lane_fraction')
     sql = ("SELECT l.DBID,CHGVID,l.FCID,l.lanenum,FCillumID "
         "FROM Lane l "
         "JOIN Flowcell f on l.FCID=f.FCID "
         "JOIN prepT p on p.prepID=l.prepID "
         "WHERE FCillumID='{0}'"
-        ).format(FCID)
-    sequenceDB.execute(sql)
-    info = sequenceDB.fetchall()
+        ).format(fcillumid)
+    info = run_query(sql,database)
     #print(info)
 
-    sampleSheet = glob.glob('{}/*{}*.csv'.format(pwd,FCID))[0]
-    sampleDict = {}
+    sampleSheet = glob('{}/*{}*.csv'.format(run_folder,fcillumid))[0]
+    sss_samples_info_dict = {}
+    #print(sampleSheet)
     with open(sampleSheet) as csvfile:
-        skipAheadCSV = csvfile.readlines()[17:]
-        reader = csv.DictReader(skipAheadCSV)
+        skipped_ahead_sample_sheet = csvfile.readlines()[17:]
+        reader = csv.DictReader(skipped_ahead_sample_sheet)
         for row in reader:
-            #print(row)
-            key = '{}_{}'.format(row['Sample_ID'],row['Lane'])
-            sampleDict[key] = row
+            key_from_sss = '{}_{}'.format(row['Sample_ID'],row['Lane'])
+            sss_samples_info_dict[key_from_sss] = row
+    if sss_samples_info_dict == {}:
+        raise ValueError("No samples were found in the sample sheet!")
     for samp in info:
-        key = '{}_{}'.format(samp['CHGVID'],samp['lanenum'])
-        LnFraction = sampleDict[key]['Description'].split('_')[0]
+        key_from_db = '{}_{}'.format(samp['CHGVID'],samp['lanenum'])
+        LnFraction = sss_samples_info_dict[key_from_db]['Description'].split('_')[0]
+        #LnFraction = sss_samples_info_dict[key_from_db]['Description'].split("'")[1].split('_')[0]
+
         sql = ("UPDATE Lane l "
             "SET LnFraction={0} "
             "WHERE FCID={1} and LaneNum={2} and DBID={3}"
@@ -162,21 +140,16 @@ def updateLnFraction(sequenceDB,FCID,pwd):
         logger.info(sql)
         if verbose == True:
             print(sql)
-        sequenceDB.execute(sql)
+        run_query(sql,database)
 
-def qmets(sequenceDB,run_folder,total_lanes,machine,FCID,run_summary):
-    logger = logging.getLogger('qmets')
+def qmets(database,run_folder,total_lanes,machine,fcillumid,run_summary,verbose):
+    logger = logging.getLogger(__name__)
     logger.info('Running loadQualityMetrics.pl')
 
-    #checkes number of index reads on flowcell 
-    indexCheckSQL = ("SELECT LenI1,LenI2 "
-                    "from Flowcell "
-                    "WHERE FCILLUMID='{}'"
-                    ).format(FCID)
-    sequenceDB.execute(indexCheckSQL)
-    indexLengths = sequenceDB.fetchone()
-    indexOneLength = indexLengths['LenI1']
-    indexTwoLength = indexLengths['LenI2']
+    #checkes number of index reads on flowcell
+    indexLengths = run_query(GET_FLOWCELL_RECIPE.format(fcillumid=fcillumid),database)
+    indexOneLength = indexLengths[0]['LenI1']
+    indexTwoLength = indexLengths[0]['LenI2']
 
     for LaneNum in list(range(0,total_lanes)):
         readNumberOffset = 0
@@ -218,11 +191,11 @@ def qmets(sequenceDB,run_folder,total_lanes,machine,FCID,run_summary):
             "SET perQ30R1={},perQ30R2={},perQ30I1={},"
             "errorR1={},errorR2={},percentAlignR1={},percentAlignR2={} "
             "WHERE LaneNum={} AND f.FCillumID='{}'"
-            ).format(perQ30R1,perQ30R2,perQ30I1,errorR1,errorR2,percentAlignR1,percentAlignR2,LaneNum,FCID)
+            ).format(perQ30R1,perQ30R2,perQ30I1,errorR1,errorR2,percentAlignR1,percentAlignR2,LaneNum,fcillumid)
 
         if verbose == True:
             print(sql)
-        sequenceDB.execute(sql)
+        run_query(sql,database)
         logger.info(sql)
 
 def getMetricsSummary(run_folder):
@@ -242,63 +215,52 @@ def usage():
 	print('-v, --verbose\t\tPrints out MYSQL injection commands')
 	sys.exit(2)
 
-
-def opts(argv):
-    global verbose
-    verbose = False
-    global runPath
-    runPath = ''
-    global archiveLoc
-    archiveLoc = ''
-
-    try:
-        opts,args = getopt.getopt(argv, "hi:s:v:", ['seqsata=','help','verbose','input='])
-    except getopt.GetoptError(err):
-        print(str(err))
-        usage()
-    for o,a in opts:
-        if o in ('-v','--verbose'):
-            verbose = True
-        elif o in ('-h','--help'):
-            usage()
-        elif o in ('-i','--input'):
-            runPath = a
-        elif o in ('-s','--seqsata'):
-            archiveLoc = a
-        else:
-            assert False, "Unhandled argument present"
+def parse_arguments():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("-f", "--fcillumid", dest='fcillumid', required=True,
+                        help="Specify Illumina's Flowcell ID")
+    parser.add_argument("-v", "--verbose", default=False, action="store_true",
+                        help="Display verbose output")
+    parser.add_argument('-b','--bcl_drive', default='seqscratch_ssd', dest='bcl_drive',
+                        help="Specify scratch dir for bcl2fastq")
+    parser.add_argument('-a','--archive_dir', default='igmdata01', dest='archive_dir',
+                        help="Specify scratch dir for bcl2fastq")
+    parser.add_argument("--test", default=False, action="store_true",
+                        help="Query and updates to the database occur on the "
+                        "test server")
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s v2.0')
+    args=parser.parse_args()
+    return args
 
 def main():
-    #accessing mysql gaf database
-    sequenceDB = getSequenceDB()
-    opts(sys.argv[1:])
+    config = get_config()
+    args = parse_arguments()
+    run_info_dict = parse_run_parameters_xml(args.fcillumid)
 
-    pwd = '/nfs/seqscratch1/Runs/' + runPath
-    info = pwd.split('/')[4].split('_')
-    #print(info,pwd,runPath)
-    FCID = info[3]
-    Machine = info[1]
-    if archiveLoc == '':
-        raise Exception("Archive Location is missing!")
-    setup_logging(Machine,FCID,archiveLoc)
+    if args.test:
+        database = 'testDB'
+    else:
+        database = 'sequenceDB'
+    # Ex A00123 + B = A00123B 
+    setup_logging(run_info_dict['machine'],args.fcillumid,config.get('locs','logs_dir'))
+    logger = logging.getLogger(__name__)
     print('BCL MySQL updates started')
-    logger = logging.getLogger('main')
     logger.info('BCL MySQL updates started')
-    logger.debug('Initializing Parameters: pwd:%s, FCID:%s, Machine:%s, Archive drive:%s', (pwd,FCID,Machine,archiveLoc))
     try:
-        updateFC(sequenceDB,FCID,Machine,pwd,archiveLoc)
-        run_summary = getMetricsSummary(pwd)
-        updateLane(sequenceDB,FCID,Machine,pwd,run_summary)
+        bcl_dir = config.get('locs','bcl_dir')
+        run_folder = bcl_dir + run_info_dict['runFolder']
+        update_fc(database,args.fcillumid,run_info_dict,
+                  config,run_folder,args.verbose)
+        run_summary = getMetricsSummary(run_folder)
+        update_lane(database,args.fcillumid,run_info_dict['machine'],
+                    run_folder,run_summary,args.verbose)
 
         #mysql updates happen now on BCL
         logger.info('BCL MySQL updates completed')
         print('BCL MySQL updates completed')
-        sequenceDB.execute('COMMIT')
-        sequenceDB.close()
     except:
         traceback.print_exc()
-        sequenceDB.execute('ROLLBACK')
-        sequenceDB.close()
         logger.info('BCL MySQL updates failure')
         print('BCL MySQL update failure')
 

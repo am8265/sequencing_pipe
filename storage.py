@@ -1,10 +1,6 @@
 #!/usr/bin/python
 # storage.py
-# Joshua Bridgers
-# 03/22/2017
-# jb3816@cumc.columbia.edu
-#
-# Moves fastq.gz files to their archival location 
+"""Moves fastq.gz files to their archival location"""
 
 import argparse
 import collections
@@ -16,57 +12,52 @@ import subprocess
 import sys
 import traceback
 import zipfile
-
 from datetime import datetime
-from CHGV_mysql_3_6 import getSequenceDB
-from CHGV_mysql_3_6 import getTestSequenceDB
-from CHGV_mysql_3_6 import setup_logging
-from CHGV_mysql_3_6 import getUserID
 from glob import glob
+from utilities import *
 
-def main(noStatus,test,verbose,bclDrive,seqsataLoc,inputFolder):
-    #accessing mysql gaf database
-    if test:
-        sequenceDB = getTestSequenceDB()
+def main():
+    config = get_config()
+    args = parse_arguments()
+    run_info_dict = parse_run_parameters_xml(args.fcillumid)
+
+    if args.test:
+        database = 'testDB'
     else:
-        sequenceDB = getSequenceDB()
+        database = 'sequenceDB'
+    setup_logging(run_info_dict['machine'],args.fcillumid,config.get('locs','logs_dir'))
+    logger = logging.getLogger(__name__)
+    logger.info('Starting storage script')
+    fcillumid=run_info_dict['FCIllumID']
+    machine=run_info_dict['machine']
+    unaligned_dir = '{}/{}_{}_{}_Unaligned'.format(config.get('locs','bcl2fastq_scratch_dir'),
+                                             run_info_dict['runDate'],
+                                             machine,fcillumid)
 
-    date,machine,runNumber,FCIllumID,*rest = inputFolder.split('_')
-    logger = logging.getLogger('main')
-    setup_logging(machine,FCIllumID,seqsataLoc)
-    logger = logging.getLogger('main')
     logger.info('Starting Storage script')
-
-    archiveLoc = '/nfs/' + seqsataLoc
     # Josh Bridgers, Sophia Frantz, Brett Copeland
     emailAddress = ['jb3816@cumc.columbia.edu','sif2110@cumc.columbia.edu','bc2675@cumc.columbia.edu']
     emailAddressFail = ['jb3816@cumc.columbia.edu']
 
-    logger.info('inputFolder:{}, archiveLoc:{}'.format(inputFolder,archiveLoc))
-
-    #completeCheck(bclDrive,inputFolder)
+    #completeCheck(bcl_drive,inputFolder)
     try:
-        storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputFolder,noStatus)
-        logger.info('Closing sequenceDB cursor')
-        email(emailAddress,'SUCCESS',FCIllumID)
+        storage(machine,fcillumid,args,config,run_info_dict,database)
+        email(emailAddress,'SUCCESS',fcillumid)
         logger.info('Done')
-        if verbose:
+        if args.verbose:
             print('Done')
 
-    except:
+    except Exception:
         logger.exception('Got exception')
         traceback.print_exc()
-        sequenceDB.execute('ROLLBACK;')
-        sequenceDB.close()
-        email(emailAddressFail,'FAILURE',FCIllumID)
+        email(emailAddressFail,'FAILURE',fcillumid)
         logger.info('Storage Failure')
         print('Storage Failure')
         sys.exit(255)
 
-    sequenceDB.close()
 
 def email(emailAddress,storageStatus,FCID):
-    logger = logging.getLogger('email')
+    logger = logging.getLogger(__name__)
     logger.info('Starting email')
     emailCmd = ('echo "BCL move {} for {}"  | mail -s "IGM:BCL move {}" {}'
         ).format(storageStatus,FCID,storageStatus,' '.join(emailAddress))
@@ -74,55 +65,30 @@ def email(emailAddress,storageStatus,FCID):
     logger.info(emailCmd)
     os.system(emailCmd)
 
-def storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputFolder,noStatus):
-    logger = logging.getLogger('storage')
-    UnalignedLoc = '{}/{}_{}_{}_Unaligned'.format(bclDrive,date,machine,FCIllumID)
-    folderList = glob('{}/*/*fastq.gz'.format(UnalignedLoc))
-    origNumFastq = len(folderList)
-    origTotalFastqSize = 0
+def archiveFastqs(archive_tuples_list,origTotalFastqSize,verbose):
+    logger = logging.getLogger(__name__)
 
-    if len(folderList) == 0:
-        raise Exception('No fastqs were found!')
-    #Interate over Project*/Sample*
-    for fastq in folderList:
-        fastqSize = os.path.getsize(fastq)
-        logger.info('{} original filesize: {}'.format(fastq,fastqSize))
-        origTotalFastqSize += fastqSize
-        sampleName = fastq.split('/')[6].split('_')[0]
-        seqtype = getSeqtype(sequenceDB,FCIllumID,sampleName)
-        GAFbin = getGAFbin(sequenceDB,sampleName)
-        sampleArchiveLoc = '{}/{}/{}/{}'.format(archiveLoc,seqtype,sampleName,FCIllumID)
-
-        logger.debug('Starting transfer of {}'.format(sampleName))
-        logger.debug('mkdir -p {}'.format(sampleArchiveLoc))
-        mkdir_p(sampleArchiveLoc)
-
-        if bclDrive.split('/')[2] == sampleArchiveLoc.split('/')[2]:
-            fastqMoveCmd = ['mv',fastq,sampleArchiveLoc]
-        else:
-            fastqMoveCmd = ['rsync','--inplace','-aq',fastq,sampleArchiveLoc]
+    for orig_dest_pair in archive_tuples_list:
+        fastqMoveCmd = ['rsync','--inplace','-aq',orig_dest_pair[0],orig_dest_pair[1]]
         if verbose:
             print(' '.join(fastqMoveCmd))
         logger.info(fastqMoveCmd)
         subprocess.call(fastqMoveCmd)
 
-        reportLaneBarcodeLoc = ('{}/Reports/html/{}/{}/{}/all/laneBarcode.html'
-                                ).format(UnalignedLoc,FCIllumID,GAFbin,sampleName)
-        reportCpCmd = ['cp',reportLaneBarcodeLoc,sampleArchiveLoc]
-
-        if verbose:
-            print(' '.join(reportCpCmd))
-        logger.info(reportCpCmd)
-        subprocess.call(reportCpCmd)
-
-    mvFolderList = glob('{}/*/*/{}/*fastq.gz'.format(archiveLoc,FCIllumID))
-    mvNumFastq = len(mvFolderList)
+def get_mv_fastq_size_sum(drive,fcillumid):
+    logger = logging.getLogger(__name__)
+    mvFastqList = glob('/nfs/{}/*/*/{}/*fastq.gz'.format(drive,fcillumid))
+    mvNumFastq = len(mvFastqList)
     mvTotalFastqSize = 0
-    for mvFastq in mvFolderList:
+    for mvFastq in mvFastqList:
         mvFastqSize = os.path.getsize(mvFastq)
-        logger.info('{} moved filesize: {}'.format(mvFolderList,mvFastqSize))
+        logger.info('{} moved filesize: {}'.format(mvFastqList,mvFastqSize))
         mvTotalFastqSize += mvFastqSize
+    return mvTotalFastqSize,mvNumFastq
 
+def check_orig_dest_transfer(dest_drive,origNumFastq,origTotalFastqSize,mvNumFastq,mvTotalFastqSize):
+    logger = logging.getLogger(__name__)
+    logger.info('{} check'.format(dest_drive))
     logger.info('='*80)
     logger.info('SUM of original fastq.gz file sizes = {}'.format(origTotalFastqSize))
     logger.info('Number of original fastq.gz files = {}'.format(origNumFastq))
@@ -135,71 +101,118 @@ def storage(sequenceDB,machine,FCIllumID,date,verbose,bclDrive,archiveLoc,inputF
     print(origTotalFastqSize,mvTotalFastqSize)
 
     if origTotalFastqSize != mvTotalFastqSize:
-        raise Exception('Total sum of files sizes after move do not match!!!')
+        raise Exception('Total sum of files sizes after {} move do not match!!!'.format(dest_drive))
     if origNumFastq != mvNumFastq:
-        raise Exception('Total number of files after move do not match!!!')
-    else:
-        seqscratchBase = '/nfs/seqscratch1/Runs'
-        sequenceDB = getSequenceDB()
-        processSAV(verbose,FCIllumID,date,machine,archiveLoc,seqscratchBase)
-        processBcl2fastqLog(verbose,FCIllumID,date,machine,archiveLoc,UnalignedLoc)
-        updateStatus(verbose,sequenceDB,FCIllumID,noStatus)
-        updateFlowcell(verbose,sequenceDB,FCIllumID,archiveLoc)
-        createStorageCompleteFlag(verbose,seqscratchBase,FCIllumID,date,machine)
-        removeFastqs(verbose,folderList)
-        logger.info('Starting commit')
-        sequenceDB.execute('COMMIT;')
+        raise Exception('Total number of files after {} move do not match!!!'.format(dest_drive))
 
-def removeFastqs(verbose,folderList):
-    logger = logging.getLogger('removeFastqs')
-    for fastq in folderList:
-        rmCmd = ['rm',fastq]
+def updateLaneStatus(verbose,fcillumid,noStatus,database):
+    logger = logging.getLogger(__name__)
+    if noStatus == False:
+
+        update_lane_step_status_query = ("UPDATE Lane l "
+                                         "JOIN Flowcell f ON l.fcid=f.fcid "
+                                         "SET step_status='in storage' "
+                                         "WHERE FCILLUMID = '{}'"
+                                        ).format(fcillumid)
         if verbose:
-            print(' '.join(rmCmd))
-        logger.info(rmCmd)
-        subprocess.call(rmCmd)
+            print(update_lane_step_status_query)
+        logger.info(update_lane_step_status_query)
+        run_query(update_lane_step_status_query,database)
 
-def getGAFbin(sequenceDB,sampleName):
-    GAFbinQuery = ("SELECT GAFbin FROM SampleT WHERE CHGVID = '{}'").format(sampleName)
-    sequenceDB.execute(GAFbinQuery)
-    """ It appears that the bcl2fastq software removes whitespace from the
-    inputted GAFbin which is used as the project folder name hence the
-    replace """
-    return sequenceDB.fetchone()['GAFbin'].replace(' ','')
+def storage(machine,fcillumid,args,config,run_info_dict,database):
+    logger = logging.getLogger(__name__)
+    bcl_drive = args.bcl_drive
+    archive_drive = args.archive_dir
+    noStatus = args.noStatus
+    verbose = args.verbose
+    UnalignedLoc = '/nfs/{}/BCL/{}_{}_{}_Unaligned'.format(bcl_drive,run_info_dict['runDate'],
+                                                  machine,fcillumid)
+    print(UnalignedLoc)
+    fastq_list = glob('{}/*/*fastq.gz'.format(UnalignedLoc))
+    origNumFastq = len(fastq_list)
+    origTotalFastqSize = 0
+    archive_tuples_list = []
+    if len(fastq_list) == 0:
+        raise Exception('No fastqs were found!')
+    #Interate over Project*/Sample*
+    for fastq in fastq_list:
+        fastqSize = os.path.getsize(fastq)
+        logger.info('{} original filesize: {}'.format(fastq,fastqSize))
+        origTotalFastqSize += fastqSize
+        sampleName = fastq.split('/')[6].split('_')[0]
+        seqtype = getSeqtype(fcillumid,sampleName,database)
+        dest_drive = config.get('locs','bcl2fastq_scratch_drive')
+        gaf_bin = run_query(GET_GAFBIN_FROM_SAMPLE_NAME.format(CHGVID=sampleName),database)
+        sampleArchiveLoc = '/nfs/{}/{}/{}/{}'.format(archive_drive,seqtype,sampleName,fcillumid)
+        scratchArchiveLoc = '/nfs/{}/{}/{}/{}'.format(dest_drive,seqtype,
+                                                      sampleName,fcillumid)
+        archive_tuples_list.append((scratchArchiveLoc,sampleArchiveLoc))
+        logger.debug('Starting transfer of {}'.format(sampleName))
+        logger.debug('mkdir -p {}'.format(scratchArchiveLoc))
+        mkdir_p(scratchArchiveLoc,verbose)
+        fastqMoveCmd = ['mv',fastq,scratchArchiveLoc]
+        if verbose:
+            print(' '.join(fastqMoveCmd))
+        logger.info(fastqMoveCmd)
+        subprocess.call(fastqMoveCmd)
 
-def getSeqtype(sequenceDB,FCIllumID,sampleName):
-    logger = logging.getLogger('getSeqtype')
-    seqtypeQuery = ("SELECT DISTINCT(st.seqtype) "
+        reportLaneBarcodeLoc = ('{}/Reports/html/{}/{}/{}/all/laneBarcode.html'
+                                ).format(UnalignedLoc,fcillumid,gaf_bin[0]['GAFBIN'],sampleName)
+        reportCpCmd = ['cp',reportLaneBarcodeLoc,scratchArchiveLoc]
+
+        if verbose:
+            print(' '.join(reportCpCmd))
+        logger.info(reportCpCmd)
+        subprocess.call(reportCpCmd)
+
+    mvTotalFastqSize,mvNumFastq = get_mv_fastq_size_sum(dest_drive,fcillumid)
+    check_orig_dest_transfer(dest_drive,origNumFastq,origTotalFastqSize,mvNumFastq,mvTotalFastqSize)
+
+    seqscratchBase = '/nfs/seqscratch1/Runs'
+    processSAV(verbose,fcillumid,machine,run_info_dict,config,archive_drive,seqscratchBase)
+    processBcl2fastqLog(verbose,fcillumid,machine,archive_drive,UnalignedLoc)
+    createStorageCompleteFlag(verbose,config,run_info_dict)
+    #archiveFastqs(archive_tuples_list,origTotalFastqSize,verbose)
+    updateLaneStatus(verbose,fcillumid,noStatus,database)
+    updateStatus(verbose,fcillumid,noStatus,database)
+    updateFlowcell(verbose,fcillumid,archive_drive,database)
+
+def getSeqtype(fcillumid,sampleName,database):
+    logger = logging.getLogger(__name__)
+    seqtypeQuery = ("SELECT DISTINCT(st.seqtype) AS seqtype "
             "FROM Lane l "
             "JOIN Flowcell f ON l.fcid=f.fcid "
             "JOIN SeqType st ON l.prepid=st.prepid "
             "JOIN prepT p ON l.prepid=p.prepid "
             "WHERE FCIllumID='{}' AND CHGVID='{}'"
-            ).format(FCIllumID,sampleName)
+            ).format(fcillumid,sampleName)
     logger.info(seqtypeQuery)
     #print(seqtypeQuery)
-    sequenceDB.execute(seqtypeQuery)
-    seqtype = sequenceDB.fetchone()['seqtype'].upper().replace(' ','_')
+    seqtype = run_query(seqtypeQuery,database)
+    seqtype = seqtype[0]['seqtype'].upper().replace(' ','_')
     return seqtype
 
-def createStorageCompleteFlag(verbose,seqscratchBase,FCIllumID,date,machine):
-    flagloc = glob('{}/{}_{}_*_{}/'.format(seqscratchBase,date,machine,FCIllumID))[0]
-    flagloc += 'StorageComplete'
+def createStorageCompleteFlag(verbose,config,run_info_dict):
+    raw_sequencing_folder_loc = '{}/{}'.format(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
+    flagloc = '{}/StorageComplete'.format(raw_sequencing_folder_loc)
+
     touchCmd = ['touch',flagloc]
     if verbose:
         print(' '.join(touchCmd))
-    subprocess.call(touchCmd)
+    #subprocess.call(touchCmd)
 
-def processSAV(verbose,FCIllumID,date,machine,archiveLoc,seqscratchBase):
-    logger = logging.getLogger('processSAV')
+def processSAV(verbose,fcillumid,machine,run_info_dict,config,archive_drive,seqscratchBase):
+    logger = logging.getLogger(sys.modules[__name__])
     if machine[0] == 'A':
         runParametersFile = 'RunParameters.xml'
     else:
         runParametersFile = 'runParameters.xml'
-    RunInfoLoc = glob('{}/Runs/{}_{}_*_{}*/RunInfo.xml'.format('/nfs/seqscratch1',date,machine,FCIllumID))[0]
-    runParaLoc= glob('{}/Runs/{}_{}_*_{}*/{}'.format('/nfs/seqscratch1',date,machine,FCIllumID,runParametersFile))[0]
-    InteropsLoc = glob('{}/Runs/{}_{}_*_{}*/InterOp'.format('/nfs/seqscratch1',date,machine,FCIllumID))[0]
-    SAVLoc = '{}/summary/SAV/{}_{}_{}_SAV.tar.gz'.format(archiveLoc,FCIllumID,date,machine)
+    raw_sequencing_folder_loc = '{}/{}'.format(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
+    print(raw_sequencing_folder_loc)
+    RunInfoLoc = glob('{}/RunInfo.xml'.format(raw_sequencing_folder_loc))[0]
+    runParaLoc= glob('{}/{}'.format(raw_sequencing_folder_loc,runParametersFile))[0]
+    InteropsLoc = glob('{}/InterOp'.format(raw_sequencing_folder_loc))[0]
+    SAVLoc = '/nfs/{}/summary/SAV/{}_{}_SAV.tar.gz'.format(archive_drive,fcillumid,machine)
     tarCmd = ['tar','czf',SAVLoc,RunInfoLoc,runParaLoc,InteropsLoc]
 
     if verbose:
@@ -208,10 +221,10 @@ def processSAV(verbose,FCIllumID,date,machine,archiveLoc,seqscratchBase):
     returnCode = subprocess.call(tarCmd)
     logger.info(returnCode)
 
-def processBcl2fastqLog(verbose,FCIllumID,date,machine,archiveLoc,UnalignedLoc):
-    logger = logging.getLogger('processBcl2fastqLog')
+def processBcl2fastqLog(verbose,fcillumid,machine,archive_drive,UnalignedLoc):
+    logger = logging.getLogger(__name__)
     bcl2fastqLogLoc = '{}/nohup.sge'.format(UnalignedLoc)
-    zipLoc = '{}/summary/bcl_nohup/{}_{}_{}_bcl2fastqLog.zip'.format(archiveLoc,FCIllumID,date,machine)
+    zipLoc = '/nfs/{}/summary/bcl_nohup/{}_{}_bcl2fastqLog.zip'.format(archive_drive,fcillumid,machine)
     zipCmd = ['zip',zipLoc,bcl2fastqLogLoc]
 
     if verbose:
@@ -220,10 +233,10 @@ def processBcl2fastqLog(verbose,FCIllumID,date,machine,archiveLoc,UnalignedLoc):
     returnCode = subprocess.call(zipCmd)
     logger.info(returnCode)
 
-def updateStatus(verbose,sequenceDB,FCID,noStatus):
+def updateStatus(verbose,FCID,noStatus,database):
     """sequenceDB Sample Update"""
-    logger = logging.getLogger('updateStatus')
-    userID = getUserID(sequenceDB)
+    logger = logging.getLogger(__name__)
+    userID = get_user_id(database)
     #Status update for entire flowcell
     if noStatus == False:
         query = ("INSERT INTO statusT "
@@ -237,30 +250,24 @@ def updateStatus(verbose,sequenceDB,FCID,noStatus):
         if verbose == True:
             print(query)
         logger.info(query)
-        sequenceDB.execute(query)
+        run_query(query,database)
 
-def updateFlowcell(verbose,sequenceDB,FCID,archiveLoc):
-    logger = logging.getLogger('updateFlowcell')
+def updateFlowcell(verbose,fcillumid,archive_drive,database):
+    logger = logging.getLogger(__name__)
+    print(archive_drive)
     query = ("UPDATE Flowcell "
              "SET DateStor=CURRENT_TIMESTAMP(), "
              "SeqsataLoc='{}' "
-             "WHERE FCIllumid='{}'").format(archiveLoc.split('/')[2],FCID)
+             "WHERE FCIllumid='{}'").format(archive_drive,fcillumid)
     if verbose:
         print(query)
     logger.info(query)
-    exception_count=0
-    try:
-        sequenceDB.execute(query)
-    except():
-        if exception_count <=3:
-            sequenceDB.execute(query)
-            exception_count += 1
-        else:
-            raise Exception('Could not complete Flowcell MySQL update')
+    run_query(query,database)
 
-def mkdir_p(path):
+def mkdir_p(path,verbose):
     try:
-        print(path)
+        if verbose:
+            print("Creating dir:{}".format(path))
         os.makedirs(path)
         #os.chmod(path,0775)
 
@@ -270,32 +277,28 @@ def mkdir_p(path):
         else:
             raise
 
-def completeCheck(bclDrive,inputFolder):
+def completeCheck(bcl_drive):
     pass
 
-if __name__ == "__main__":
-    desc = ("Program that takes the fastqs from a completed bcl2fastq run and"
-            "processes and moves them to the appropriate archival location")
-    parser = argparse.ArgumentParser(
-        description=desc, epilog=None,
-        formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=40))
-    parser.add_argument('-i',
-        dest='inputFolder', help='input folder',
-        required=True)
-    parser.add_argument('-s',
-        dest='seqsataLoc', help='Archival Location',
-        required=True)
-    parser.add_argument('-b',
-        dest='bclDrive', help='BCL root dir',
-        required=True)
-    parser.add_argument('--test', action='store_true',
-        help='update test SequenceDB instead')
+def parse_arguments():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("-f", "--fcillumid", dest='fcillumid', required=True,
+                        help="Specify Illumina's Flowcell ID")
+    parser.add_argument("-v", "--verbose", default=False, action="store_true",
+                        help="Display verbose output")
+    parser.add_argument('-b','--bcl_drive', default='seqscratch_ssd', dest='bcl_drive',
+                        help="Specify scratch dir for bcl2fastq")
+    parser.add_argument('-a','--archive_dir', default='igmdata01', dest='archive_dir',
+                        help="Specify scratch dir for bcl2fastq")
+    parser.add_argument("--test", default=False, action="store_true",
+                        help="Query and updates to the database occur on the "
+                        "test server")
     parser.add_argument('--noStatus', action='store_true',
-        help='do not update sample statuses')
+                        help='do not update sample statuses')
     parser.add_argument('--version', action='version',
-        version='%(prog)s v1.3')
-    parser.add_argument('--verbose', action='store_true',
-        help='print verbose output')
+                        version='%(prog)s v3.0')
     args=parser.parse_args()
+    return args
 
-    main(args.noStatus,args.test,args.verbose,args.bclDrive,args.seqsataLoc,args.inputFolder)
+if __name__ == "__main__":
+    main()

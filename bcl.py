@@ -1,249 +1,182 @@
 # bcl.py
-# Joshua Bridgers
-# 04/26/2012
-# jb371@dm.duke.edu
-#
 # Submits finished sequenced run for BCL to fastq conversion
 
-import csv
-import glob
+import argparse
 import logging
 import os
-import re
-import getopt
-import sys
-from CHGV_mysql import setup_logging
-from CHGV_mysql import getSequenceDB
-from CHGV_mysql import getTestSequenceDB
-from CHGV_mysql import getUserID
-from CHGV_mysql import MachineCheck
-from create_sss import create_sss_bcl_2
-from sss_check import sss_qc
+from datetime import datetime
+from glob import glob
+from interop import py_interop_run_metrics, py_interop_run, py_interop_summary
+from utilities import *
 
-def bcl(info,Machine,runPath,BCLDrive,seqsata,machine,sequenceDB):
-    logger = logging.getLogger('bcl')
-    in_dir = runPath
-    script_dir = '/home/jb3816/github/sequencing_pipe'
-    pwd = os.getcwd()
+def run_bcl2fastq(args,run_info_dict,config,sss_loc,database,verbose):
+    fcillumid = args.fcillumid
+    logger = logging.getLogger(__name__)
+    script_dir = config.get('locs','scr_dir')
+    bcl2fastq_loc = config.get('programs','bcl2fastq_program')
+    bcl_dir = '{}/{}'.format(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
+    out_dir = '{}/{}_{}_{}_Unaligned'.format(config.get('locs','bcl2fastq_scratch_dir'),
+                                             run_info_dict['runDate'],
+                                             run_info_dict['machine'],
+                                             run_info_dict['FCIllumID'])
+    script_loc = '{}/{}_{}_BCL.sh'.format(out_dir,run_info_dict['FCIllumID'],run_info_dict['machine'])
 
-    #Name of folder contains flow cell info, machine info etc.  Parsing
-    FCID = info[3]
-    HiSeq = info[1]
-    Date = info[0][3:7]
-    Date_Long = info[0]
-
-    out_dir = '{}/{}_{}_{}_Unaligned'.format(BCLDrive,Date_Long,HiSeq,FCID)
-    scriptLoc = out_dir + '/' + HiSeq + '_' + Date_Long + '_BCL.sh'
-    dir_check(BCLDrive + out_dir)
-    base_script = '/nfs/goldstein/software/bcl2fastq2_v2.19.0/bin/bcl2fastq '
-
-    """ NovaSeq machines could have two naming schemes: N[machine number], or
-    the Illumina default name which typically starts with 'A'.  Ex. A00116 """
-    if Machine[0] == 'A' or Machine[0] == 'N' :
-        base_script += '--runfolder-dir %s --output-dir %s ' % (in_dir,out_dir)
-    else: #HiSeq
-        base_script += '--runfolder-dir %s --output-dir %s --barcode-mismatches 1 ' % (in_dir,out_dir)
-
-    # Use if bcl or stats are missing.  They should never be missing unless 
-    # there was a data transfer problem or corruption.
-    #base_script += '--ignore-missing-bcl --ignore-missing-stats '
-
-    #Depreciated.  Do not use.  If you need to re-run bcl due to failure, delete the folder and re-run
-    #if forceBCL == True:
-    #    base_script += ' --force'
-
-    if sampleSheet:
-        base_script += '--sample-sheet '+sampleSheet +' '
-    else:
-        base_script += '--sample-sheet %s/*%s*.csv ' % (runPath,FCID)
-
-    # Tile specify what tiles on the flowcell can be converted to fastq
-    # This adds tiles parameter to BCL script if specified
-    if tiles != False:
-
-        sql = ("UPDATE Flowcell "
-            "SET TileCommand=CONCAT_WS(';',TileCommand,'{0}') "
-            "WHERE FCillumID='{1}'"
-            ).format(tiles,FCID)
-
-        if verbose == True:
-            print sql
-        sequenceDB.execute(sql)
-
-        base_script = base_script + '--tiles='+tiles+' '
-        os.system('echo %s > tiles.txt' % tiles)
-
-    # Used to mask any bases on the read
-    if base_mask != False:
-        base_script = base_script + '--use-bases-mask '+base_mask+' '
-    print base_script
-
-    logger.info(base_script)
+    check_exist_bcl_dir(out_dir)
+    bcl2fastq_cmd = build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,database)
+    print(bcl2fastq_cmd)
+    logger.info(bcl2fastq_cmd)
     os.mkdir(out_dir)
 
     #Submit bcl job to the cluster
-    os.system('cp {}/SGE_header {}'.format(script_dir,scriptLoc))
-    bcl_script = open(scriptLoc,'a')
-    bcl_script.write(base_script + '\n')
-    bcl_script.close()
-    qsubLoc = '/opt/sge6_2u5/bin/lx24-amd64/qsub'
-    cmd = 'cd {0} ; {1} -cwd -v PATH -N {2}_{3}_{4}_bcl {5}'.format(out_dir,qsubLoc,machine,FCID,BCLDrive.split('/')[2],scriptLoc)
+    with open(script_loc,'w') as bcl_script:
+        add_sge_header_to_script(bcl_script,fcillumid)
+        add_libraries_to_script(bcl_script)
+        bcl_script.write(bcl2fastq_cmd + '\n')
+
+    qsub_loc = config.get('programs','qsub_program')
+    qsub_cmd = ("cd {} ; {} -v PATH  {}"
+               ).format(out_dir,qsub_loc,script_loc)
     if verbose == True:
-        print cmd
+        print(qsub_cmd)
+    logger.info(qsub_cmd)
+    pid = os.system(qsub_cmd)
+    logger.info(pid)
 
-    logger.info(cmd)
-    status = os.system(cmd)
-    logger.info(status)
+def build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,database):
+    logger = logging.getLogger(__name__)
+    bcl2fastq_cmd = ("{} --runfolder-dir {} --output-dir {} --barcode-mismatches 1 "
+                    ).format(bcl2fastq_loc,bcl_dir,out_dir)
+    """ Use if bcl or stats are missing.  They should never be missing unless
+        there was a data transfer problem or corruption."""
+    #bcl2fastq_cmd += '--ignore-missing-bcl --ignore-missing-stats '
 
-#checks if a bcl directory already exists
-def dir_check(BCLDrive):
-    logger = logging.getLogger('dir_check')
-    dir_path = glob.glob(BCLDrive)
-    if dir_path != []:
-        logger.warn('BCL directory already exists! %s' % dir_path)
-        raise Exception, 'BCL directory already exists! %s' % dir_path
+    bcl2fastq_cmd += '--sample-sheet '+ sss_loc +' '
+    """ Tile specify what tiles on the flowcell can be converted to fastq
+        This adds tiles parameter to BCL script if specified.  Multiple
+        bcl2fastq runs might be required"""
+    if args.tiles:
+        bcl2fastq_cmd += '--tiles={} '.format(args.tiles)
+        update_flowcell_tile_query = ("UPDATE Flowcell "
+                                      "SET TileCommand=CONCAT_WS(';',TileCommand,'{0}') "
+                                      "WHERE FCillumID='{1}'"
+                                     ).format(args.tiles,fcillumid)
+        logger.info(update_flowcell_tile_query)
+        run_query(update_flowcell_tile_query,database)
 
-def checkSataLoc(sata_loc):
-	logger = logging.getLogger('checkSataLoc')
-	if os.path.isdir(sata_loc) == False:
-		logger.warn('Path for seqsata drive, %s is incorrect!' % sata_loc)
-		raise Exception, 'Path for seqsata drive, %s is incorrect!' % sata_loc
+    # Used to mask any bases on the read
+    if args.use_bases_mask != False:
+        bcl2fastq_cmd += '--use-bases-mask {} '.format(args.use_bases_mask)
+    return bcl2fastq_cmd
 
+def add_sge_header_to_script(bcl_script,fcillumid):
+    bcl_script.write("#! /bin/bash\n")
+    bcl_script.write("#\n")
+    bcl_script.write("#$ -S /bin/bash -cwd\n")
+    bcl_script.write("#$ -j y\n")
+    bcl_script.write("#$ -o nohup.sge\n")
+    bcl_script.write("#$ -e error.sge\n")
+    bcl_script.write("#$ -V\n")
+    bcl_script.write("#$ -M jb3816@cumc.columbia.edu\n")
+    bcl_script.write("#$ -m bea\n")
+    bcl_script.write("#$ -N bcl_{}\n".format(fcillumid))
 
-def usage():
-    print '-b, --output\t\tPath to output folder'
-    print '-h, --help\t\tShows this help message and exit'
-    print '-n, --noSSS\t\tForbids creation of a sample sheet'
-    print '-s, --sampleSheet\tAllows user-specified sample sheet'
-    print '-t, --testdb\tAll database updates occur on the test database'
-    print '-v, --verbose\t\tVerbose output'
-    print '--noStatus\t\tDoes not update the status of the samples on the flowcell'
-    print '--tiles\t\t\tSpecifies what tiles you want BCL performed on.  Ex: s_[12]_1[123]0[1-7]'
-    print '--use-bases-mask\tSpecifies what bases you want to mask.  Ex: y100n,I6n,y50n'
-    sys.exit(2)
+def add_libraries_to_script(bcl_script):
+    bcl_script.write("export PATH=/nfs/goldstein/software/bcl2fastq2-v2.20-x86_64/bin:"
+                     "/nfs/goldstein/software/bcl2fastq2-v2.20-x86_64/lib:"
+                     "/nfs/goldstein/software/libxml2-2.9.4-x86_64/bin:"
+                     "/nfs/goldstein/software/libxml2-2.9.4-x86_64/lib:"
+                     "/nfs/goldstein/software/binutils-2.26.1/bin:"
+                     "/nfs/goldstein/software/binutils-2.26.1/lib:"
+                     "/nfs/goldstein/software/boost_1_54_0/include:"
+                     "/nfs/goldstein/software/boost_1_54_0/lib:"
+                     "/nfs/goldstein/software/gcc-4.9.3/bin:"
+                     "/nfs/goldstein/software/gcc-4.9.3/lib64:"
+                     "$PATH\n")
+    bcl_script.write("export LD_LIBRARY_PATH="
+                     "/nfs/goldstein/software/bcl2fastq2-v2.20-x86_64/lib:"
+                     "/nfs/goldstein/software/libxml2-2.9.4-x86_64/lib:"
+                     "/nfs/goldstein/software/binutils-2.26.1/lib:"
+                     "/nfs/goldstein/software/boost_1_54_0/lib:"
+                     "/nfs/goldstein/software/gcc-4.9.3/lib64:"
+                     "$LD_LIBRARY_PATH\n")
 
-def check_sss(FCID):
-    if sampleSheet:
-        sample_sheets = [sampleSheet]
-    else:
-	sample_sheets = glob.glob('/nfs/genotyping/Sequencing_SampleSheets/*%s*.csv' % FCID)
-	if len(sample_sheets) > 1:
-		raise Exception, 'Multiple Sample Sheets exist with the same FCID'
-	else:
-		sss_qc(FCID)
-
-def updateSamples(sequenceDB,FCID):
-    logger = logging.getLogger('updateSamples')
-    userID = getUserID(sequenceDB)
-    sql = ("INSERT INTO statusT "
-        "(CHGVID,status_time,status,DBID,prepID,userID) "
-        "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'BCL',pt.DBID,pt.prepID,{0} "
-        "FROM Flowcell f "
-        "JOIN Lane l ON l.FCID=f.FCID "
-        "JOIN prepT pt ON pt.prepID=l.prepID "
-        "WHERE FCillumid='{1}'"
-        ).format(userID,FCID)
-
+def update_sample_status(database,fcillumid,verbose):
+    logger = logging.getLogger(__name__)
+    userID = get_user_id(database)
+    sample_status_update_query = ("INSERT INTO statusT "
+                                  "(CHGVID,status_time,status,DBID,prepID,userID) "
+                                  "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),"
+                                  "'BCL',pt.DBID,pt.prepID,{0} "
+                                  "FROM Flowcell f "
+                                  "JOIN Lane l ON l.FCID=f.FCID "
+                                  "JOIN prepT pt ON pt.prepID=l.prepID "
+                                  "WHERE FCillumid='{1}'"
+                                 ).format(userID,fcillumid)
 
     if verbose == True:
-        print sql
-    sequenceDB.execute(sql)
-    logger.info(sql)
+        print(sample_status_update_query)
+    run_query(sample_status_update_query,database)
+    logger.info(sample_status_update_query)
 
-def opts(argv):
-    global tiles
-    tiles = False
-    global base_mask
-    base_mask = False
-    global sata_loc
-    sata_loc = ''
-    global verbose
-    verbose = False
-    global sampleSheet
-    sampleSheet = ''
-    global noSSS
-    noSSS = False
-    global forceBCL
-    forceBCL = False
-    global noStatus
-    noStatus = False
-    global runPath
-    global BCLDrive
-    global testdb
-    testdb = False
-    try:
-        opts,args = getopt.getopt(argv, "fhi:nb:vs:",
-            ['input=','help','force','bcl=','tiles=','use-bases-mask=','verbose','sampleSheet=','noSSS','noStatus','testdb'])
-    except getopt.GetoptError, err:
-        print err
-        usage()
-    for o,a in opts:
-        if o in ('-f','--force'):
-            forceBCL = True
-        elif o in ('-h','--help'):
-            usage()
-        elif o in ('-i','--input'):
-            runPath = '/nfs/seqscratch1/Runs/' + a
-        elif o in ('-n','--noSSS'):
-            noSSS = True
-        elif o in ('--noStatus'):
-            noStatus = True
-        elif o in ('-b','--bcl'):
-            BCLDrive = a
-        elif o in ('-s','--sampleSheet'):
-            sampleSheet = a
-        elif o in ('--tiles'):
-            tiles = a
-        elif o in ('--testdb'):
-            testdb = True
-        elif o in ('--use-bases-mask'):
-            base_mask = a
-        elif o in ('-v','--verbose'):
-            verbose = True
-        else:
-            assert False, "Unhandled argument present"
+def check_fcillumid(inputted_fcillumid,xml_fcillumid):
+    if inputted_fcillumid != xml_fcillumid:
+        raise ValueError("FCIllumIDs don't match! {} != {}".format(inputted_fcillumid,xml_fcillumid))
 
-def RTA_check(runPath):
-    logger = logging.getLogger('RTA_check')
-    if os.path.isfile('%s/RTAComplete.txt' % runPath) == False:
-        logger.warn("RTA has not completed!")
-        raise Exception, "RTA has not completed!"
-    else:
-        logger.info('RTA has already completed')
-        print "RTA has already completed"
+def parse_arguments():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("-f", "--fcillumid", dest='fcillumid', required=True,
+                        help="Specify Illumina's Flowcell ID")
+    parser.add_argument("-v", "--verbose", default=False, action="store_true",
+                        help="Display verbose output")
+    parser.add_argument('-b','--bcl_drive', default='seqscratch_ssd', dest='bcl_drive',
+                        help="Specify scratch dir for bcl2fastq")
+    parser.add_argument('-a','--archive_dir', default='igmdata01', dest='archive_dir',
+                        help="Specify scratch dir for bcl2fastq")
+    parser.add_argument('--tiles', dest='tiles',
+                        help="Specify which tiles of the flowcell to convert")
+    parser.add_argument('--use_bases_mask', action='store_true', default=False,
+                        help="Specify any base positions to mask")
+    parser.add_argument('--sss', dest='sss_loc',
+                        help="Specify your own sequencing sample sheet")
+    parser.add_argument('--noStatus', action='store_true', default=False,
+                        help="Do not update status")
+    parser.add_argument("--test", default=False, action="store_true",
+                        help="Query and updates to the database occur on the "
+                        "test server")
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s v3.0')
+    args=parser.parse_args()
+    return args
 
 def main():
-    opts(sys.argv[1:])
-    if testdb:
-        sequenceDB = getTestSequenceDB()
+    config = get_config()
+    args = parse_arguments()
+    run_info_dict = parse_run_parameters_xml(args.fcillumid)
+
+    if args.test:
+        database = 'testDB'
     else:
-        sequenceDB = getSequenceDB()
-    info = runPath.split('/')[4].split('_')
-    Date = info[0]
-    FCID = info[3]
-    Machine = MachineCheck(sequenceDB,info[1],FCID)
+        database = 'sequenceDB'
+    setup_logging(run_info_dict['machine'],args.fcillumid,config.get('locs','logs_dir'))
+    logger = logging.getLogger(__name__)
+    logger.info("Starting bcl2fastq job creation for Flowcell: {}".format(args.fcillumid))
+    print("Starting bcl2fastq job creation for Flowcell: {}".format(args.fcillumid))
 
-    seqsata_drive = 'igmdata01'
+    check_fcillumid(args.fcillumid,run_info_dict['FCIllumID'])
+    check_machine(run_info_dict['machine'],args.fcillumid,database)
+    check_flowcell_complete(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
 
-    setup_logging(Machine,FCID,seqsata_drive)
-    logger = logging.getLogger('main')
-    logger.debug('Initializing Parameters: runPath:%s, FCID:%s, Machine:%s, seqsata_drive:%s, tiles:%s, base_mask:%s',
-            (runPath,FCID,Machine,seqsata_drive,tiles,base_mask))
-    print "Starting BCL job creation..."
-    logger.info("Starting BCL job creation...")
-
-    RTA_check(runPath)
-    if noSSS == False:
-        create_sss_bcl_2(runPath,FCID,Machine,Date,sequenceDB)
-    #check_sss(FCID)
-    bcl(info,Machine,runPath,BCLDrive,seqsata_drive,Machine,sequenceDB)
-    if noStatus == False:
-        updateSamples(sequenceDB,FCID)
-
-    logger.info("BCL successfully started")
-    print "BCL successfully started"
-    sequenceDB.execute('COMMIT;')
-    sequenceDB.close()
+    if args.sss_loc is None:
+        sss_loc = create_sss_from_database(args.fcillumid,run_info_dict['machine'],run_info_dict,config,database)
+    else:
+        sss_loc = args.sss_loc
+        print("Using SSS: {}".format(sss_loc))
+    #check_sss(sss_loc)
+    run_bcl2fastq(args,run_info_dict,config,sss_loc,database,args.verbose)
+    if args.noStatus == False:
+        update_sample_status(database,args.fcillumid,args.verbose)
+    logger.info("bcl2fastq successfully started")
+    print("bcl2fastq successfully started")
 
 if __name__ == '__main__':
 	main()
