@@ -105,6 +105,12 @@ def get_fastq_loc(curs, sample):
                     fastq_loc = glob(('/nfs/seqscratch09/tx_temp/tx_2390/CGND_11418-fastq/Project_CGND_11418_B01_GRM_WGS.2016-03-30/{}/1').format(sample_name))
                     if fastq_loc == []:
                         fastq_loc = glob(('/nfs/seqscratch09/tx_temp/tx_2390/CGND_11645-fastq/Project_CGND_11645_B01_GRM_WGS.2016-08-17/{}/*[XY]').format(sample_name))
+                    if fastq_loc ==[]:
+                        fastq_loc = glob(('/nfs/seqscratch12/tx_temp/tx_2390/CGND_11911-fastq/Project_CGND_11911_B01_GRM_WGS.2016-09-29/{}/*[XY]').format(sample_name))
+                    if fastq_loc ==[]:
+                        fastq_loc = glob(('/nfs/seqscratch09/tx_temp/tx_2390/CGND_11772-fastq/Project_CGND_11772_B01_GRM_WGS.2016-06-09/{}/*[XY]').format(sample_name))
+                    if fastq_loc ==[]:
+                        fastq_loc = glob(('/nfs/seqscratch09/tx_temp/tx_2390/CGND_11772-fastq/Project_CGND_11772_B02_GRM_WGS.fastq_bam.2017-04-29{}/*[XY]').format(sample_name))
                     for flowcell in fastq_loc:
                         locs.append(os.path.realpath(flowcell))
                 elif glob(('/nfs/igmdata0[0-9]/{}/{}/[0-9]'
