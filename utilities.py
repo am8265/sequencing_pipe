@@ -258,7 +258,7 @@ def run_query(query,database):
 
 def get_config():
     config = configparser.ConfigParser()
-    config.read('/nfs/goldstein/software/sequencing_pipe/dev/config.ini')
+    config.read('config.ini')
     return config
 
 def check_exist_bcl_dir(BCLDrive):
