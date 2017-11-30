@@ -18,8 +18,8 @@ def submit(config,args,run_info_dict,database):
     logger = logging.getLogger(__name__)
     address = '{}@cumc.columbia.edu'.format(get_user_id(database))
     python36_program = config.get('programs','python36_program')
-    scriptLoc = '/nfs/goldstein/software/sequencing_pipe/dev/'
-    #scriptLoc = '/nfs/goldstein/software/sequencing_pipe/production/'
+    #scriptLoc = '/nfs/goldstein/software/sequencing_pipe/dev/'
+    scriptLoc = '/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe'
     runFolder = run_info_dict['runFolder']
     machine = run_info_dict['machine']
     fcillumid=args.fcillumid
