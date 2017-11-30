@@ -95,7 +95,11 @@ def get_component_bams(sample,debug):
     check_bam_found_vs_bam_db(sample,qualified_bams_found)
     if len(qualified_bams_found) < 1:
         raise Exception, "No qualified bams were found!"
-    component_bams = ','.join(sorted(qualified_bams_found))
+    tmp_bam_list = []
+    for bam in qualified_bams_found:
+        bam_name = bam.split('/')[-1]
+        tmp_bam_list.append(bam_name)
+    component_bams = ','.join(sorted(tmp_bam_list))
     return component_bams
 
 def is_external_or_legacy_sample(sample):
@@ -145,11 +149,12 @@ def run_query(query):
     return results
 
 def run_sample(sample,dontexecute,config_parser,debug):
+    existing_bams_check = True
     output_dir = sample.metadata['output_dir']
     pseudo_prepid = sample.metadata['pseudo_prepid']
     submit_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     existing_bams = glob("{}/*.bam".format(output_dir))
-    if existing_bams == []:
+    if existing_bams == [] or existing_bams_check == False:
         update_queue(pseudo_prepid,debug)
         for laneFCID in sample.metadata['lane'][0]: #loop over read groups
             rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
@@ -176,7 +181,7 @@ def run_sample(sample,dontexecute,config_parser,debug):
 
 def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
     output_dir = sample.metadata['output_dir']
-    dragen_cmd = ['dragen', '-f', '-v', '-c', sample.metadata['conf_file'], '--watchdog-active-timeout', '30000']
+    dragen_cmd = ['dragen', '-f', '-v', '-c', sample.metadata['conf_file'], '--watchdog-active-timeout', '600']
     if debug:
         print ' '.join(dragen_cmd)
     stderr_file_loc = ('{}/{}.{}.{}.{}.dragen.err'
@@ -264,10 +269,6 @@ def set_seqtime(rg_fcillumid,sample):
         seqtime = '1970-1-1'
     sample.set('seqtime',seqtime)
 
-def check_dir_contents(sample,debug):
-    bam_bai_files = glob('{output_dir}/*.ba[im]'.format(**sample.metadata))
-    if len(bam_bai_files) > 1:
-        raise ValueError, "Previous bam/bai files were found!"
 
 def setup_dir(sample,debug):
     mkdir_cmd = ['mkdir','-p',sample.metadata['script_dir']]
@@ -276,7 +277,6 @@ def setup_dir(sample,debug):
     subprocess.call(mkdir_cmd)
     mkdir_cmd = ['mkdir','-p',sample.metadata['fastq_dir']]
     subprocess.call(mkdir_cmd)
-    #check_dir_contents(sample,debug)
     """Removes any fastq.gz files in the fastq folder. Symlink-only fastqs
         should be in this folder.  This is just in case the sample was run
         through once"""
