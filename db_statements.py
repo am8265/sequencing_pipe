@@ -25,6 +25,39 @@ GET_MACHINE_FROM_FCILLUMID_QUERY = """
     WHERE FCILLUMID = "{fcillumid}"
     """
 
+GET_PREPID_FROM_PSEUDO_PREPID = """
+    SELECT PREPID
+    FROM prepT
+    WHERE PSEUDO_PREPID = {pseudo_prepid}
+    AND FAILEDPREP 0
+    """
+INSERT_PID_INTO_PPID = """
+    INSERT INTO pseudo_prepid
+    ({ppid},{pid})
+    VALUES (pseudo_prepid,prepid)
+    """
+UPDATE_PSEUDO_PREPID_IN_PREPT = """
+    UPDATE prepT
+    SET P_PREPID={ppid}
+    WHERE prepID = {pid}
+    """
+
+GET_PID_PPID_FROM_TRIPLET= """
+    SELECT PSEUDO_PREPID,PREPID
+    FROM prepT p
+    JOIN pseudo_prepid pp on p.prepid=pp.prepid
+    WHERE CHGVID='{chgvid}'
+    AND SEQTYPE='{seqtype}'
+    AND EXOMEKIT='{exomekit}'
+    """
+GET_YIELD_FROM_PPID = """
+    SELECT SUM(LNYIELD) AS LANE_YIELD_SUM
+    FROM prepT p
+    JOIN pseudo_prepid pp ON p.prepid=pp.prepid
+    JOIN Lane l ON p.prepid=l.prepid
+    WHERE pp.pseudo_prepid={ppid}
+    """
+
 GET_MACHINE_FAILED_STATUS_FROM_FCILLUMID_QUERY = """
     SELECT FAIL
     FROM Flowcell
