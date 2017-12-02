@@ -28,26 +28,26 @@ GET_MACHINE_FROM_FCILLUMID_QUERY = """
 GET_PREPID_FROM_PSEUDO_PREPID = """
     SELECT PREPID
     FROM prepT
-    WHERE PSEUDO_PREPID = {pseudo_prepid}
-    AND FAILEDPREP 0
+    WHERE P_PREPID = {}
+    AND FAILEDPREP = 0
     """
 INSERT_PID_INTO_PPID = """
     INSERT INTO pseudo_prepid
-    ({ppid},{pid})
+    ("{ppid}","{pid}")
     VALUES (pseudo_prepid,prepid)
     """
 UPDATE_PSEUDO_PREPID_IN_PREPT = """
     UPDATE prepT
-    SET P_PREPID={ppid}
-    WHERE prepID = {pid}
+    SET P_PREPID = "{ppid}"
+    WHERE prepID = "{pid}"
     """
 
 GET_PID_PPID_FROM_TRIPLET= """
-    SELECT PSEUDO_PREPID,PREPID
+    SELECT P_PREPID,p.PREPID
     FROM prepT p
     JOIN pseudo_prepid pp on p.prepid=pp.prepid
     WHERE CHGVID='{chgvid}'
-    AND SEQTYPE='{seqtype}'
+    AND SAMPLE_TYPE='{seqtype}'
     AND EXOMEKIT='{exomekit}'
     """
 GET_YIELD_FROM_PPID = """
