@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 from glob import glob
-
+from utilities import get_connection
 class FastqError(Exception):
     """Fastq not found"""
     pass
@@ -27,7 +27,7 @@ def run_query(query,database):
     finally:
         connection.close()
 
-def get_prepid(database, sample,database):
+def get_prepid(database,sample):
     """Retrieve qualifying prepids"""
     query = ("SELECT prepid FROM pseudo_prepid WHERE pseudo_prepid={0}"
             ).format(sample["pseudo_prepid"])
@@ -90,7 +90,7 @@ def get_fastq_loc(database, sample):
             "AND l.prepID={0} AND f.fail=0 "
             "GROUP BY f.fcid"
             ).format(prepid)
-        seqsatalocs = run_query(query)
+        seqsatalocs = run_query(query,database)
         """For cases where there is not flowell information the sequeuncing
         will have to found be manually.  There will be two types of samples
         that under this catergory: Old Casava 1.8 sample (pre-seqDB) and
@@ -245,7 +245,7 @@ def check_fastq_locs(locs):
         if read2 != []:
             valid_locs.append(loc)
         else:
-            print('Did not find fastq mate pair for: {}!'.format(loc)))
+            print('Did not find fastq mate pair for: {}!'.format(loc))
     return valid_locs
 
 def get_output_dir(database,sample):
@@ -258,11 +258,11 @@ def get_output_dir(database,sample):
              "FROM dragen_sample_metadata "
              "WHERE pseudo_prepid = {} "
             ).format(sample['pseudo_prepid'])
-    seqscratch_drive = run_query(query,database)[0]['seqscratch_drive']
-    if seqscratch_drive is None:
+    seqscratch_drive = run_query(query,database)
+    if seqscratch_drive == ():
         seqscratch_drive = 'seqscratch_ssd'
     else:
-        seqscratch_drive = seqscratch_drive[0]
+        seqscratch_drive = seqscratch_drive[0]['seqscratch_drive']
     output_dir = ('/nfs/{3}/ALIGNMENT/BUILD37/DRAGEN/{0}/{1}.{2}/'
         ).format(sample['sample_type'].upper(),
                  sample['sample_name'],
@@ -291,7 +291,7 @@ def get_lanes(database,sample):
             ).format(prepid)
         lane = run_query(query,database)
         if lane and isInternalSample(lane) == True:
-            lanes.append((lane['lanenum'],lane['FCIllumID'],lane['prepID']))
+            lanes.append((lane[0]['lanenum'],lane[0]['FCIllumID'],lane[0]['prepID']))
         else: #In case of no database entry or external sample
             for flowcell in sample['fastq_loc']:
                 fastqs = glob(flowcell + '/*fastq.gz')
@@ -331,11 +331,11 @@ class dragen_sample:
             self.metadata['capture_kit'] = ''
             #Genome samples are set using the most current capture kit for any case which requires a target region.
             self.metadata['bed_file_loc'] = '/nfs/goldsteindata/refDB/captured_regions/Build37/65MB_build37/SeqCap_EZ_Exome_v3_capture.bed'
-        self.metadata['prepid'] = get_prepid(self.database,self.metadata)
-        self.metadata['priority'] = get_priority(self.database,self.metadata)
-        self.metadata['fastq_loc'] = get_fastq_loc(self.database,self.metadata)
-        self.metadata['lane'] = get_lanes(self.database,self.metadata)
-        self.metadata['output_dir'] = get_output_dir(self.database,self.metadata)
+        self.metadata['prepid'] = get_prepid(database,self.metadata)
+        self.metadata['priority'] = get_priority(database,self.metadata)
+        self.metadata['fastq_loc'] = get_fastq_loc(database,self.metadata)
+        self.metadata['lane'] = get_lanes(database,self.metadata)
+        self.metadata['output_dir'] = get_output_dir(database,self.metadata)
         self.metadata['script_dir'] = self.metadata['output_dir']+'scripts'
         self.metadata['fastq_dir'] = self.metadata['output_dir']+'fastq'
         self.metadata['log_dir'] = self.metadata['output_dir']+'logs'
