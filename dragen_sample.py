@@ -162,7 +162,7 @@ def get_fastq_loc(database, sample):
                     for flowcell in fastq_loc:
                         locs.append(os.path.realpath(flowcell))
                 else:
-                    raise FastqError('Fastq files not found')
+                    raise FastqError('{} Fastq files not found'.format(sample_name))
             else:
                 print("Internally sequenced sample in sequenceDB")
                 for flowcell in seqsatalocs:
@@ -179,7 +179,7 @@ def get_fastq_loc(database, sample):
                         fastq_loc = ('/nfs/{0}/seqfinal/whole_genome/{1}/{2}'
                                 ).format(flowcell['seqsataloc'],sample_name,flowcell['FCIllumID'])
                     else:
-                        raise FastqError('Fastq files not found')
+                        raise FastqError('{} Fastq files not found'.format(sample_name))
                     read = glob(os.path.realpath(fastq_loc))
                     if read != []:
                         locs.append(os.path.realpath(fastq_loc))
@@ -202,7 +202,11 @@ def get_fastq_loc(database, sample):
 
         else:
             print("Internally sequenced sample  but not in SequenceDB")
-            if glob('/nfs/igmdata01/{}/{}/*X[XY]'.format(corrected_sample_type,sample_name)):
+            if glob('/nfs/fastq_temp2/{}/{}/*[0-9XY]'.format(corrected_sample_type,sample_name)):
+                fastq_loc = glob('/nfs/fastq_temp2/{}/{}/*[0-9XY]'.format(corrected_sample_type,sample_name))
+                for flowcell in fastq_loc:
+                    locs.append(os.path.realpath(flowcell))
+            elif glob('/nfs/igmdata01/{}/{}/*X[XY]'.format(corrected_sample_type,sample_name)):
                 fastq_loc = glob('/nfs/fastq16/{}/{}/*X[XY]'.format(corrected_sample_type,sample_name))
                 for flowcell in fastq_loc:
                     locs.append(os.path.realpath(flowcell))
@@ -228,7 +232,7 @@ def get_fastq_loc(database, sample):
                 for flowcell in fastq_loc:
                     locs.append(os.path.realpath(flowcell))
             else:
-                raise FastqError('Fastq files not found')
+                raise FastqError('{} Fastq files not found'.format(sample_name))
 
     """For samples in the database we can exclude any samples that only have
     R1 data however for sampels that predate the database we have to manually
@@ -248,27 +252,6 @@ def check_fastq_locs(locs):
             print('Did not find fastq mate pair for: {}!'.format(loc))
     return valid_locs
 
-def get_output_dir(database,sample):
-    """Generate ouput directory for Dragen results.  Dependent on seqtype"""
-
-    # Custom capture samples need to be partitioned by capture_kit or 
-    # pseudo_prepid since they are often sequenced with multiple capture kits.
-    # Example: EpiMIR and SchizoEpi samples
-    query = ("SELECT seqscratch_drive "
-             "FROM dragen_sample_metadata "
-             "WHERE pseudo_prepid = {} "
-            ).format(sample['pseudo_prepid'])
-    seqscratch_drive = run_query(query,database)
-    if seqscratch_drive == ():
-        seqscratch_drive = 'seqscratch_ssd'
-    else:
-        seqscratch_drive = seqscratch_drive[0]['seqscratch_drive']
-    output_dir = ('/nfs/{3}/ALIGNMENT/BUILD37/DRAGEN/{0}/{1}.{2}/'
-        ).format(sample['sample_type'].upper(),
-                 sample['sample_name'],
-                 sample['pseudo_prepid'],
-                 seqscratch_drive)
-    return output_dir
 
 def get_lanes(database,sample):
     """retrieve all qualifying lanes,flowcells for the prepids associated
@@ -335,12 +318,6 @@ class dragen_sample:
         self.metadata['priority'] = get_priority(database,self.metadata)
         self.metadata['fastq_loc'] = get_fastq_loc(database,self.metadata)
         self.metadata['lane'] = get_lanes(database,self.metadata)
-        self.metadata['output_dir'] = get_output_dir(database,self.metadata)
-        self.metadata['script_dir'] = self.metadata['output_dir']+'scripts'
-        self.metadata['fastq_dir'] = self.metadata['output_dir']+'fastq'
-        self.metadata['log_dir'] = self.metadata['output_dir']+'logs'
-        self.metadata['dragen_stdout'] = "{log_dir}/{sample_name}.{pseudo_prepid}.dragen.out".format(**self.metadata)
-        self.metadata['dragen_stderr'] = "{log_dir}/{sample_name}.{pseudo_prepid}.dragen.err".format(**self.metadata)
 
     def get_attribute(self, attribute):
         """return the value requested if present, otherwise raise a TypeError"""
