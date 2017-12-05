@@ -230,9 +230,6 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
             outfile.write("{Lane},{SampleID},{SampleID},,,,{Index},{Project},{str_desc}\n".format(str_desc=str_desc,**sss_line[0]))
     outfile.close()
     #copies sequencing sample sheet to genotyping location
-    cp_cmd= ('cp {} /nfs/igmdata01/Sequencing_SampleSheets/'
-             ).format(sss_loc)
-    os.system(cp_cmd)
     print("Finish creating SSS: {}".format(sss_loc))
     return sss_loc
 
