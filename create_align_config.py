@@ -56,7 +56,6 @@ RGCN = IGM  			# Sequencing Center
 #================================================================================
 
 enable-map-align-output = true
-enable-bam-compression = true
 enable-bam-indexing = true
 enable-sort = true
 enable-duplicate-marking = true
