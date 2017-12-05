@@ -19,28 +19,31 @@ def main():
     rejected_samples = []
     if args.fcillumid:
         auto_release_flag = False
-        get_sample_info_from_flowcell = ("SELECT DISTINCT CHVID,p.PREPID,SEQTYPE,p.EXOMEKIT"
-                                         "FROM Lane l "
-                                         "JOIN Flowcell f ON f.fcid=l.fcid "
-                                         "JOIN SeqType st on st.prepid=l.prepid "
-                                         "JOIN prepT p ON p.prepid=l.prepid "
-                                         "WHERE FCILLUMID='{}'"
-                                        ).format(args.fcillumid)
-
+        get_sample_info_from_flowcell = """SELECT DISTINCT CHVID,p.PREPID,SEQTYPE,
+                                         p.EXOMEKIT,s.PRIORITY
+                                         FROM Lane l
+                                         JOIN SampleT ON p.dbid=s.dbid
+                                         JOIN Flowcell f ON f.fcid=l.fcid
+                                         JOIN SeqType st on st.prepid=l.prepid
+                                         JOIN prepT p ON p.prepid=l.prepid
+                                         WHERE FCILLUMID='{}'
+                                         """.format(args.fcillumid)
+        print(get_sample_info_from_flowcell)
         print("Starting sample release for Flowcell: {}".format(args.fcillumid))
         for sample_info in run_query(get_sample_info_from_flowcell):
             seqtype = sample_info['SeqType']
             sample_name = sample_info['CHVID']
+            priority=sample_info['PRIORITY']
             if seqtype.lower() == 'exome' or seqtype.lower() == 'custom_capture':
                 rejected_samples = run_sample(sample_name,seqtype,
-                                              sample_info['EXOMEKIT'],
+                                              sample_info['EXOMEKIT'],priority,
                                               auto_release_flag,rejected_samples,
                                               database)
         email(fcillumid,rejected_samples,config)
 
     else:
         run_sample(args.sample_name,args.sample_type,args.capture_kit,
-                   auto_release_flag,rejected_samples,database)
+                   args.priority,auto_release_flag,rejected_samples,database)
 
 def email(fcillumid,rejected_samples,config):
     email_program=config.get('emails','email_program')
@@ -80,30 +83,33 @@ def email(fcillumid,rejected_samples,config):
     #os.remove('release_email.txt')
 
 
-def update_dragen_queue(sample_name,sample_type,capture_kit,ppid,database):
+def update_queues(sample_name,sample_type,capture_kit,ppid,priority,database):
     table = 'tmp_dragen'
-    queue_query = """SELECT * 
+    queue_query = """SELECT *
                      FROM {table}
                      WHERE PSEUDO_PREPID = {ppid}
-                  """.format(table=table,ppid=ppid)
-    in_tmp_dragen = run_query(queue_query,database)
+                  """
+    tmp_dragen_query = queue_query.format(table=table,ppid=ppid)
+    in_tmp_dragen = run_query(tmp_dragen_query,database)
     if in_tmp_dragen:
         print("Moving sample to dragen_queue")
-        insert_query = "INSERT INTO dragen_queue " + queue_query
+        insert_query = "INSERT INTO dragen_queue " + tmp_dragen_query
         run_query(insert_query,database)
         ppid = int(ppid)
         rm_query = """DELETE FROM {table}
                       WHERE PSEUDO_PREPID = {ppid}
                    """.format(table=table,ppid=ppid)
         table = 'dragen_queue'
-        in_dragen_queue = run_query(queue_query.format(table=table,ppid=ppid),database)
+        dragen_queue_query = queue_query.format(table=table,ppid=ppid)
+        in_dragen_queue = run_query(dragen_queue_query,database)
         if in_dragen_queue:
             print("Removing samples from tmp_dragen")
             run_query(rm_query,database)
 
     else:
         table = 'dragen_queue'
-        in_dragen_queue = run_query(queue_query.format(table=table,ppid=ppid),database)
+        dragen_queue_query = queue_query.format(table=table,ppid=ppid)
+        in_dragen_queue = run_query(dragen_queue_query,database)
         if not in_dragen_queue:
             print("Inserting sample into dragen_queue")
             insert_query = """INSERT INTO dragen_queue
@@ -117,33 +123,41 @@ def update_dragen_queue(sample_name,sample_type,capture_kit,ppid,database):
                                       ppid=ppid,
                                       priority=40)
             run_query(insert_query,database)
+    if priority is not None:
+        print("Updating sample {} priority to {}".format(sample_name,priority))
+        update_dragen_queue = """UPDATE dragen_queue
+                                 SET PRIORITY={priority}
+                                 WHERE PSEUDO_PREPID = {ppid}
+                              """.format(priority=priority,ppid=ppid)
+        run_query(update_dragen_queue,database)
 
-def run_sample(sample_name,sample_type,capture_kit,auto_release_flag,rejected_samples,database):
+def run_sample(sample_name,sample_type,capture_kit,priority,
+               auto_release_flag,rejected_samples,database):
     ppid,pids = update_ppid(sample_name,sample_type,capture_kit,database)
-    print("Starting sample release for sample: {}, {}, {}".format(sample_name,
-                                                                  sample_type,
-                                                                  capture_kit))
-    sample = dragen_sample(sample_name,sample_type,ppid,
-                           capture_kit,database)
     sample_status_query = """ SELECT MAX(PIPELINE_STEP_ID) as PIPELINE_STEP_ID
                               FROM dragen_pipeline_step
-                              WHERE STEP_STATUS='complete' AND
+                              WHERE STEP_STATUS='completed' AND
                               PSEUDO_PREPID={ppid}
                           """.format(ppid=ppid)
     sample_status = run_query(sample_status_query,database)[0]['PIPELINE_STEP_ID']
     if sample_status:
-        raise ValueError("Sample has already been run.  Cleanup required first")
+        raise ValueError("Sample {} has already been run.  Cleanup required first".format(sample_name))
     else:
+        print("Starting sample release for sample: {}, {}, {}".format(sample_name,
+                                                                      sample_type,
+                                                                      capture_kit))
+        sample = dragen_sample(sample_name,sample_type,ppid,
+                               capture_kit,database)
         #every external sample should only have one pids
         is_external = run_query(IS_SAMPLE_EXTERNAL_FROM_PREPID.format(prepid=pids[0]),database)
-        if is_external == True and pids[0] < 20000:
+        if is_external == True or int(pids[0]) < 20000:
             print("Sample is external or legacy")
             pass
         else:
             rejected_samples = check_yield(ppid,sample_type,
                                            auto_release_flag,
                                            rejected_samples,database)
-        update_dragen_queue(sample_name,sample_type,capture_kit,ppid,database)
+        update_queues(sample_name,sample_type,capture_kit,ppid,priority,database)
         ##update statusT
         ##update prepT.status
         return rejected_samples
@@ -171,28 +185,55 @@ def insert_pid_into_ppid(sample_name,sample_type,capture_kit,database):
                         FROM prepT p
                         WHERE CHGVID='{chgvid}'
                         AND SAMPLE_TYPE='{seqtype}'
-                        AND EXOMEKIT='{exomekit}'
-                     """
-    pids = run_query(GET_PIDS_QUERY.format(chgvid=sample_name,seqtype=sample_type,exomekit=capture_kit),database)
+                     """.format(chgvid=sample_name,seqtype=sample_type)
+    if sample_type.lower() != 'genome':
+        GET_PIDS_QUERY += ("AND EXOMEKIT='{exomekit}'"
+                          ).format(exomekit=capture_kit)
+
+    pids = run_query(GET_PIDS_QUERY,database)
     pid_counter = 0
     if pids:
         print(pids)
     else:
         raise ValueError('No sample found!')
     for pid in pids:
-        query = INSERT_PID_INTO_PPID.format(pid[0]['PREPID'])
+
+        INSERT_NEW_PID_INTO_PPID = """
+            INSERT INTO pseudo_prepid
+            (pseudo_prepid,prepid)
+            VALUES (NULL,"{pid}")
+            """
+        query = INSERT_NEW_PID_INTO_PPID.format(pid=pid['PREPID'])
         run_query(query,database)
         if pid_counter == 0:
             pseudo_prepid_query = "SELECT LAST_INSERT_ID()"
             ppid = run_query(pseudo_prepid_query,database)
+            pid_counter += 1
+        else:
+            INSERT_PID_INTO_PPID = """
+                INSERT INTO pseudo_prepid
+                ("{ppid"},"{pid}")
+                VALUES (pseudo_prepid,prepid)
+                """
+            INSERT_PID_INTO_PPID.format(pid=pid['PREPID'],
+                                        ppid=ppid[0]['PSEUDO_PREPID'])
+            run_query(query,database)
     return ppid
 
 def update_ppid(sample_name,sample_type,capture_kit,database):
-    pid_and_ppid = run_query(GET_PID_PPID_FROM_TRIPLET.format(chgvid=sample_name,
-                                                              seqtype=sample_type,
-                                                              exomekit=capture_kit
-                                                              ),database)
-    print(pid_and_ppid)
+    GET_PID_PPID_FROM_TRIPLET= """
+        SELECT P_PREPID,p.PREPID
+        FROM prepT p
+        JOIN pseudo_prepid pp on p.prepid=pp.prepid
+        WHERE CHGVID='{chgvid}'
+        AND SAMPLE_TYPE='{seqtype}'
+        """.format(chgvid=sample_name,
+                   seqtype=sample_type)
+
+    if sample_type != 'genome':
+        GET_PID_PPID_FROM_TRIPLET += ("AND EXOMEKIT='{exomekit}'"
+                                     ).format(exomekit=capture_kit)
+    pid_and_ppid = run_query(GET_PID_PPID_FROM_TRIPLET,database)
 
     if pid_and_ppid == ():
         ppid = insert_pid_into_ppid(sample_name,sample_type,capture_kit,database)
@@ -207,7 +248,6 @@ def update_ppid(sample_name,sample_type,capture_kit,database):
         prepid_from_ppid = run_query(query,database)
         prepid_from_ppid = [x['PREPID'] for x in prepid_from_ppid]
 
-        print(prepid_from_ppid,prepid_from_triplet)
         while len(prepid_from_triplet) > 0:
             pid = prepid_from_triplet.pop()
             try:
@@ -221,6 +261,9 @@ def update_ppid(sample_name,sample_type,capture_kit,database):
             #remove_pid_from_ppid(prepid,database)
 
         return list(set(ppid_from_triplet))[0],final_pids
+
+
+        """  ---->  check difference from DSM <------"""
 
 def remove_pid_from_ppid(pid,ppid,database):
     check_fail_query = """SELECT FAILPREP
@@ -243,17 +286,17 @@ def add_pid_to_ppid(pid,ppid,database):
 def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("-f", "--fcillumid", dest='fcillumid',
+    group.add_argument("-f", "--fcillumid",
                         help="Specify Illumina's Flowcell ID")
-    group.add_argument('-s', '--sample_name',dest='sample_name',
+    group.add_argument('-s', '--sample_name',
                         help="Specify sample name")
     parser.add_argument("-v", "--verbose", default=False, action="store_true",
                         help="Display verbose output")
-    parser.add_argument('-t','--sample_type', dest='sample_type',
+    parser.add_argument('-t','--sample_type',
                         help="Specify sample type (exome,genome,etc)")
-    parser.add_argument('-k','--capture_kit', dest='capture_kit',
+    parser.add_argument('-k','--capture_kit',
                         help="Specify capture kit ")
-    parser.add_argument("-p", "--priority", default=99)
+    parser.add_argument("-p", "--priority", type=int)
     parser.add_argument("--test", default=False, action="store_true",
                         help="Query and updates to the database occur on the "
                         "test server")
@@ -262,7 +305,8 @@ def parse_arguments():
     args=parser.parse_args()
     if args.sample_name and (bool(args.sample_type) == False or  bool(args.capture_kit) == False) :
         parser.error('--sample_name and --sample_type and --capture_kit must be given together')
+    if args.fcillumid and (bool(args.priority)) == True:
+        parser.error('--priority is not compatible with --flowcell')
     return args
-
 if __name__ == '__main__':
     main()

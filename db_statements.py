@@ -31,25 +31,12 @@ GET_PREPID_FROM_PSEUDO_PREPID = """
     WHERE P_PREPID = {}
     AND FAILEDPREP = 0
     """
-INSERT_PID_INTO_PPID = """
-    INSERT INTO pseudo_prepid
-    ("{ppid}","{pid}")
-    VALUES (pseudo_prepid,prepid)
-    """
 UPDATE_PSEUDO_PREPID_IN_PREPT = """
     UPDATE prepT
     SET P_PREPID = "{ppid}"
     WHERE prepID = "{pid}"
     """
 
-GET_PID_PPID_FROM_TRIPLET= """
-    SELECT P_PREPID,p.PREPID
-    FROM prepT p
-    JOIN pseudo_prepid pp on p.prepid=pp.prepid
-    WHERE CHGVID='{chgvid}'
-    AND SAMPLE_TYPE='{seqtype}'
-    AND EXOMEKIT='{exomekit}'
-    """
 GET_YIELD_FROM_PPID = """
     SELECT SUM(LNYIELD) AS LANE_YIELD_SUM
     FROM prepT p
