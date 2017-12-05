@@ -25,6 +25,26 @@ GET_MACHINE_FROM_FCILLUMID_QUERY = """
     WHERE FCILLUMID = "{fcillumid}"
     """
 
+GET_PREPID_FROM_PSEUDO_PREPID = """
+    SELECT PREPID
+    FROM prepT
+    WHERE P_PREPID = {}
+    AND FAILEDPREP = 0
+    """
+UPDATE_PSEUDO_PREPID_IN_PREPT = """
+    UPDATE prepT
+    SET P_PREPID = "{ppid}"
+    WHERE prepID = "{pid}"
+    """
+
+GET_YIELD_FROM_PPID = """
+    SELECT SUM(LNYIELD) AS LANE_YIELD_SUM
+    FROM prepT p
+    JOIN pseudo_prepid pp ON p.prepid=pp.prepid
+    JOIN Lane l ON p.prepid=l.prepid
+    WHERE pp.pseudo_prepid={ppid}
+    """
+
 GET_MACHINE_FAILED_STATUS_FROM_FCILLUMID_QUERY = """
     SELECT FAIL
     FROM Flowcell

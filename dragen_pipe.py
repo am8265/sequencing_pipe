@@ -5,58 +5,44 @@ based on their priority level in the Dragen pipeline queue
 """
 
 import argparse
-import MySQLdb
 import os
 import sys
 import subprocess
 import traceback
 from create_align_config import create_align_config
-from ConfigParser import SafeConfigParser
 from datetime import datetime
 from db_statements import *
 from dragen_sample import dragen_sample
 from glob import glob
+from utilities import * 
 
-
-def main(run_type_flag, debug, dontexecute, seqscratch_drive):
-    CNF = "/nfs/goldstein/software/dragen_pipe/resources/dragen.cnf" # defaults file for pipeline
-    config_parser = SafeConfigParser()
-    config_parser.read(CNF)
+def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
+    config = get_config()
     if isinstance(run_type_flag,str) == True: #pseudo_prepid present
         pseudo_prepid = run_type_flag
-        sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,debug)
-        sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,get_curs())
-        setup_dir(sample,debug)
-        run_sample(sample,dontexecute,config_parser,debug)
+        sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,database,debug)
+        print(capture_kit)
+        sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
+        setup_dir(seqscratch_drive,sample,debug)
+        run_sample(sample,dontexecute,config,database,debug)
 
     elif run_type_flag == True: #Automated run
         pseudo_prepid = 0
-        sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,debug)
+        sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,database,debug)
         while sample_name is not None:
-            sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,get_curs())
-            sample.metadata['output_dir'] = ('/nfs/{}/ALIGNMENT/BUILD37/DRAGEN/{}/{}.{}/'
-                                            ).format(seqscratch_drive,sample_type.upper(),
-                                                     sample_name,pseudo_prepid)
-            setup_dir(sample,debug)
-            run_sample(sample,dontexecute,config_parser,debug)
+            sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
+            setup_dir(seqscratch_drive,sample,debug)
+            run_sample(sample,dontexecute,config,database,debug)
             """ These two functions will need to be moved to the dragen_release
                 script when available.  For now will run on every bam in scratch
                 folder """
 
             try:
-                sample_name, sample_type, pseudo_prepid, capture_kit  = get_next_sample(0,debug)
+                sample_name, sample_type, pseudo_prepid, capture_kit  = get_next_sample(0,database,debug)
             except:
-                print "No more samples in the queue"
+                print("No more samples in the queue")
                 sys.exit()
-
-def get_curs():
-    db = MySQLdb.connect(db=database, read_default_group="clientsequencedb",
-        read_default_file='~/.my.cnf')
-
-    curs = db.cursor()
-    return curs
-
-def update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid):
+def update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database):
     #read_group_insert = ("UPDATE Lane l "
     #                     "JOIN Flowcell f on l.FCID=f.FCID "
     #                     "SET tep_status='completed' "
@@ -72,29 +58,29 @@ def update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid):
                          "LANENUM={} and "
                          "PREPID={} "
                         ).format(rg_fcillumid,rg_lane_num,rg_prepid)
-    #print read_group_insert
-    run_query(read_group_insert)
+    #print(read_group_insert)
+    run_query(read_group_insert,database)
 
 def check_bam_found_vs_bam_db(sample,qualified_bams_found):
     if is_external_or_legacy_sample(sample) == True:
         #skips db vs found bam sanity check
         pass
     else:
-        qualified_bams_in_db = run_query(GET_QUALIFIED_BAMS.format(**sample.metadata))
+        qualified_bams_in_db = run_query(GET_QUALIFIED_BAMS.format(**sample.metadata),database)
         if len(qualified_bams_in_db) != len(qualified_bams_found):
-            #print qualified_bams_found,qualified_bams_in_db
-            raise ValueError, "Number of bams found != number of RGs in database!"
+            #print(qualified_bams_found,qualified_bams_in_db)
+            raise ValueError("Number of bams found != number of RGs in database!")
         for db_bam in qualified_bams_in_db:
             db_bam = ("{output_dir}/{sample_name}.{pseudo_prepid}.{fcillumid}.{lane_num}.bam"
                      ).format(fcillumid=db_bam[0],lane_num=db_bam[1],**sample.metadata)
             if glob(db_bam) == []:
-                raise ValueError, "Bam {} not found!".format(db_bam)
+                raise ValueError("Bam {} not found!".format(db_bam))
 
 def get_component_bams(sample,debug):
     qualified_bams_found = glob('{output_dir}/*bam'.format(**sample.metadata))
     check_bam_found_vs_bam_db(sample,qualified_bams_found)
     if len(qualified_bams_found) < 1:
-        raise Exception, "No qualified bams were found!"
+        raise Exception("No qualified bams were found!")
     tmp_bam_list = []
     for bam in qualified_bams_found:
         bam_name = bam.split('/')[-1]
@@ -106,19 +92,20 @@ def is_external_or_legacy_sample(sample):
     """In cases of legecy samples (prepid < 20000) or external samples. There are no cases of legecy samples with
     multiple preps"""
     if max(map(lambda x:int(x),sample.metadata['prepid'])) < 20000:
-        print "Sample has a prepID < 20000"
+        print("Sample has a prepID < 20000")
         return True
 
     else:
-        is_external_sample = int(run_query(IS_SAMPLE_EXTERNAL_FROM_PREPID.format(prepid=sample.metadata['prepid'][0]))[0][0])
+        query = IS_SAMPLE_EXTERNAL_FROM_PREPID.format(prepid=sample.metadata['prepid'][0])
+        is_external_sample = int(run_query(query,database)[0][0])
         if is_external_sample == 1:
-            print "Sample is an external sample!"
+            print("Sample is an external sample!")
             return True
         elif is_external_sample == 0:
-            print "Sample is not an external sample"
+            print("Sample is not an external sample")
             return False
         else: #Returns None
-            raise ValueError, "No value found.  Does prepID exist?"
+            raise ValueError("No value found.  Does prepID exist?")
 
 
 def write_sge_header(sample,step,script_loc):
@@ -137,45 +124,35 @@ def write_sge_header(sample,step,script_loc):
     script.write("#$ -m ea\n")
     return script
 
-def run_query(query):
-    database='sequenceDB'
-    db = MySQLdb.connect(db=database, read_default_group="clientsequencedb",
-        read_default_file='~/.my.cnf')
-    curs = db.cursor()
-    curs.execute(query)
-    results = curs.fetchall()
-    db.commit()
-    db.close()
-    return results
 
-def run_sample(sample,dontexecute,config_parser,debug):
+def run_sample(sample,dontexecute,config,database,debug):
     existing_bams_check = True
     output_dir = sample.metadata['output_dir']
     pseudo_prepid = sample.metadata['pseudo_prepid']
     submit_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     existing_bams = glob("{}/*.bam".format(output_dir))
     if existing_bams == [] or existing_bams_check == False:
-        update_queue(pseudo_prepid,debug)
+        update_queue(pseudo_prepid,database,debug)
         for laneFCID in sample.metadata['lane'][0]: #loop over read groups
             rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
             if debug:
-                print "RG info: lane {}, fcillumd {}, prepid {}".format(rg_lane_num,rg_fcillumid,rg_prepid)
+                print("RG info: lane {}, fcillumd {}, prepid {}".format(rg_lane_num,rg_fcillumid,rg_prepid))
             setup_first_read_RG(sample,rg_lane_num,rg_fcillumid,rg_prepid,debug)
-            set_seqtime(rg_fcillumid,sample)
+            set_seqtime(rg_fcillumid,sample,database)
             create_align_config(sample,rg_lane_num,rg_fcillumid,rg_prepid)
             if dontexecute == False:
                run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug)
-            update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid)
+            update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database)
         rm_query = "DELETE FROM {0} WHERE pseudo_prepid={1}".format("tmp_dragen",pseudo_prepid)
         if debug:
-            print rm_query
-        run_query(rm_query)
+            print(rm_query)
+        run_query(rm_query,database)
 
         component_bams = get_component_bams(sample,debug)
-        update_dragen_metadata(sample,component_bams,debug)
+        update_dragen_metadata(sample,component_bams,database,debug)
 
     else:
-        print ("Sample {sample_name} bam file already exists!"
+        print(("Sample {sample_name} bam file already exists!")
               ).format(sample_name=sample.metadata['sample_name'])
         sys.exit(1)
 
@@ -183,7 +160,7 @@ def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
     output_dir = sample.metadata['output_dir']
     dragen_cmd = ['dragen', '-f', '-v', '-c', sample.metadata['conf_file'], '--watchdog-active-timeout', '600']
     if debug:
-        print ' '.join(dragen_cmd)
+        print(' '.join(dragen_cmd))
     stderr_file_loc = ('{}/{}.{}.{}.{}.dragen.err'
                       ).format(sample.metadata['log_dir'],sample.metadata['sample_name'],
                                sample.metadata['pseudo_prepid'],rg_fcillumid,rg_lane_num)
@@ -192,29 +169,31 @@ def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
                       ).format(sample.metadata['log_dir'],sample.metadata['sample_name'],
                                sample.metadata['pseudo_prepid'],rg_fcillumid,rg_lane_num)
 
-    dragen_stderr = open(stdout_file_loc,'a')
+    dragen_stderr = open(stderr_file_loc,'a')
     with open(stdout_file_loc,'a') as dragen_stdout:
         process = subprocess.Popen(dragen_cmd,stdout=subprocess.PIPE,stderr=dragen_stderr)
-        for line in iter(process.stdout.readline, ''):
-            if debug:
-                sys.stdout.write(line)
-            dragen_stdout.write(line)
-        process.communicate()
-        error_code = process.wait()
-        subprocess.call(['chmod','-R','775','{}'.format(output_dir)])
-    if error_code != 0:
-        raise Exception, "Dragen alignment did not complete successfully!"
+        while True:
+            output =  process.stdout.readline().decode()
+            if output == '' and process.poll() is not None:
+                break
+            if output:
+                print(output)
+                dragen_stdout.write(output)
+        rc = process.poll()
     dragen_stdout.close()
     dragen_stderr.close()
+    if rc != 0:
+        raise Exception("Dragen alignment did not complete successfully!")
+    subprocess.call(['chmod','-R','775','{}'.format(output_dir)])
 
-def update_dragen_metadata(sample,component_bams,debug):
+def update_dragen_metadata(sample,component_bams,database,debug):
     seqscratch_drive = sample.metadata['output_dir'].split('/')[2]
     get_dragen_metadata_query = ("SELECT * from dragen_sample_metadata "
                                  "WHERE pseudo_prepid = {pseudo_prepid} "
                                 ).format(**sample.metadata)
-    dbInfo = run_query(get_dragen_metadata_query)
+    dbInfo = run_query(get_dragen_metadata_query,database)
     if dbInfo:
-        print "Performing dragen_sample_metadata update"
+        print("Performing dragen_sample_metadata update")
         query = ("UPDATE dragen_sample_metadata "
                  "set sample_name='{sample_name}',pseudo_prepid={pseudo_prepid},"
                  "sample_type='{sample_type}',capture_kit='{capture_kit}',"
@@ -224,7 +203,7 @@ def update_dragen_metadata(sample,component_bams,debug):
                 ).format(seqscratch_drive=seqscratch_drive,
                          component_bams=component_bams,**sample.metadata)
     else:
-        print "Performing dragen_sample_metadata insert"
+        print("Performing dragen_sample_metadata insert")
         query = ("INSERT INTO dragen_sample_metadata "
                        "(sample_name,pseudo_prepid,sample_type,"
                        "capture_kit,priority,seqscratch_drive,"
@@ -235,8 +214,8 @@ def update_dragen_metadata(sample,component_bams,debug):
                        ") "
                       ).format(seqscratch_drive=seqscratch_drive,component_bams=component_bams,**sample.metadata)
     if debug:
-        print query
-    run_query(query)
+        print(query)
+    run_query(query,database)
 
 def get_pipeline_version():
     version = subprocess.check_output(
@@ -247,22 +226,21 @@ def get_pipeline_version():
             raise ValueError("Could not get the version # of the pipeline; "
                              "Check cwd?")
 
-def update_queue(pseudo_prepid,debug):
+def update_queue(pseudo_prepid,database,debug):
     insert_query = ("INSERT INTO tmp_dragen "
                     "SELECT * FROM dragen_queue WHERE pseudo_prepid={0}"
                    ).format(pseudo_prepid)
     rm_query = ("DELETE FROM {0} WHERE pseudo_prepid={1}").format("dragen_queue",pseudo_prepid)
-    run_query(insert_query)
-    run_query(rm_query)
+    run_query(insert_query,database)
+    run_query(rm_query,database)
     if debug:
-        print insert_query
-        print rm_query
+        print(insert_query)
+        print(rm_query)
 
-def set_seqtime(rg_fcillumid,sample):
-    query = ("SELECT FROM_UNIXTIME(Seqtime) "
+def set_seqtime(rg_fcillumid,sample,database):
+    query = ("SELECT FROM_UNIXTIME(Seqtime) AS SEQTIME "
             "FROM Flowcell WHERE FCIllumID='{}'").format(rg_fcillumid)
-    seqtime = run_query(query)
-
+    seqtime = run_query(query,database)
     if seqtime:
         seqtime = seqtime[0][0].date().isoformat() #ISO8601 format for RGDT field
     else: #In case there is not flowcell information (Ex. old and external samples)
@@ -270,9 +248,24 @@ def set_seqtime(rg_fcillumid,sample):
     sample.set('seqtime',seqtime)
 
 
-def setup_dir(sample,debug):
+def setup_dir(seqscratch_drive,sample,debug):
+    output_dir = ('/nfs/{}/ALIGNMENT/BUILD37/DRAGEN/{sample_type}/{sample_name}.{pseudo_prepid}/'
+                                    ).format(seqscratch_drive,
+                                             sample_type=sample.metadata['sample_type'].upper(),
+                                             sample_name=sample.metadata['sample_name'],
+                                             pseudo_prepid=sample.metadata['pseudo_prepid'])
+    sample.metadata['output_dir'] = output_dir
+    sample.metadata['script_dir'] = sample.metadata['output_dir']+'scripts'
+    sample.metadata['fastq_dir'] = sample.metadata['output_dir']+'fastq'
+    sample.metadata['log_dir'] = sample.metadata['output_dir']+'logs'
+    dragen_stdout = "{log_dir}/{sample_name}.{pseudo_prepid}.dragen.out".format(**sample.metadata)
+    sample.metadata['dragen_stdout'] = dragen_stdout
+    dragen_stderr = "{log_dir}/{sample_name}.{pseudo_prepid}.dragen.err".format(**sample.metadata)
+    sample.metadata['dragen_stderr'] = dragen_stderr
+
     mkdir_cmd = ['mkdir','-p',sample.metadata['script_dir']]
     subprocess.call(mkdir_cmd)
+    print(mkdir_cmd)
     mkdir_cmd = ['mkdir','-p',sample.metadata['log_dir']]
     subprocess.call(mkdir_cmd)
     mkdir_cmd = ['mkdir','-p',sample.metadata['fastq_dir']]
@@ -326,7 +319,7 @@ def get_first_read(sample,rg_lane_num,rg_fcillumid,debug):
         if rg_fcillumid in fastqLoc.split('/')[-1]:
             RGfastqStr ='{0}/*L00{1}_R1_*.fastq.gz'.format(fastqLoc,rg_lane_num)
             if debug:
-                print RGfastqStr
+                print(RGfastqStr)
             RGfastqs = glob(RGfastqStr)
 
     #The fastqs might still be on the quantum tapes
@@ -342,75 +335,75 @@ def check_Fastq_Total_Size(sample,debug):
     for fastq in glob(fastq_dir + '/*gz'):
         fastq_filesize = os.stat(os.path.realpath(fastq)).st_size
         fastq_filesize_sum += fastq_filesize
-    print "Sum of Fastq size: {}".format(fastq_filesize_sum)
+    print("Sum of Fastq size: {}".format(fastq_filesize_sum))
     if sample_type == 'genome':
         if fastq_filesize_sum < 42949672960: # < 40GB
-            print fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024
+            print(fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024)
             userInput = raw_input('Sum of fastq files sizes are too small.  Is this ok? (y)es or (n)o ').lower()
             if userInput == 'n':
-                raise Exception, "Sum of fastq files sizes is too small for a {} sample!".format(sample_type)
+                raise Exception("Sum of fastq files sizes is too small for a {} sample!".format(sample_type))
     elif sample_type == 'exome':
         if fastq_filesize_sum > 32212254720: # > 30GB
-            print fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024
+            print(fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024)
             userInput = raw_input('Sum of fastq files sizes are too big.  Is this ok? (y)es or (n)o ').lower()
             if userInput == 'n':
-                 raise Exception, "Sum of fastq files is too big for a {} sample!".format(sample_type)
+                 raise Exception("Sum of fastq files is too big for a {} sample!".format(sample_type))
         elif fastq_filesize_sum < 1073741824: # < 1GB
             userInput = raw_input('Sum of fastq files sizes are too small.  Is this ok? (y)es or (n)o ').lower()
             if userInput == 'n':
-                 raise Exception, "Sum of fastq files is too small for a {} sample!".format(sample_type)
+                 raise Exception("Sum of fastq files is too small for a {} sample!".format(sample_type))
     elif sample_type == 'rnaseq':
         if fastq_filesize_sum > 32212254720: # > 30GB
-            print fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024
+            print(fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024)
             userInput = raw_input('Sum of fastq files sizes are too big.  Is this ok? (y)es or (n)o ').lower()
             if userInput == 'n':
-                 raise Exception, "Sum of fastq files sizes is too big for a {} sample!".format(sample_type)
+                 raise Exception("Sum of fastq files sizes is too big for a {} sample!".format(sample_type))
         elif fastq_filesize_sum < 1073741824: # < 1GB
             userInput = raw_input('Sum of fastq files sizes are too small.  Is this ok? (y)es or (n)o ').lower()
             if userInput == 'n':
-                 raise Exception, "Sum of fastq files is too small for a {} sample!".format(sample_type)
+                 raise Exception("Sum of fastq files is too small for a {} sample!".format(sample_type))
     elif sample_type == 'custom_capture':
         if fastq_filesize_sum > 10737418240: # > 10GB
-            print fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024
+            print(fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024)
             userInput = raw_input('Sum of fastq files sizes are too big.  Is this ok? (y)es or (n)o ').lower()
             if userInput == 'n':
-                 raise Exception, "Sum of fastq files sizes is too big for a {} sample!".format(sample_type)
+                 raise Exception("Sum of fastq files sizes is too big for a {} sample!".format(sample_type))
     else:
-        raise Exception, 'Unhandled sample_type found: {}!'.format(sample_type)
+        raise Exception('Unhandled sample_type found: {}!'.format(sample_type))
     if debug:
-        print 'Fastq size',fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024
+        print('Fastq size',fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024)
 
 def get_reads(sample,read_number,debug):
     if debug:
-        print sample.metadata['fastq_loc']
+        print(sample.metadata['fastq_loc'])
     fastq_loc = sample.metadata['fastq_loc'][0]
     if debug:
-        print '{0}/*L00*_R{1}_001.fastq.gz'.format(fastq_loc,read_number)
+        print('{0}/*L00*_R{1}_001.fastq.gz'.format(fastq_loc,read_number))
     read = glob('{0}/*L00*_R{1}_001.fastq.gz'.format(fastq_loc,read_number))
     #The fastqs might still be on the quantum tapes
     if read == []:
-        raise Exception, "Fastq file not found!"
+        raise Exception("Fastq file not found!")
     else:
         return sorted(read)[0]
 
-def get_next_sample(pseudo_prepid,debug):
+def get_next_sample(pseudo_prepid,database,debug):
     if pseudo_prepid == 0:
         query = ("SELECT sample_name,sample_type,pseudo_prepid,capture_kit "
             "FROM dragen_queue "
             "WHERE PRIORITY < 99 "
             "ORDER BY PRIORITY ASC LIMIT 1 ")
-        sample_info = run_query(query)
+        sample_info = run_query(query,database)
     else:
         query = ("SELECT sample_name,sample_type,pseudo_prepid,capture_kit "
             "FROM dragen_queue "
             "WHERE pseudo_prepid={}"
             ).format(pseudo_prepid)
-        sample_info = run_query(query)
+        sample_info = run_query(query,database)
     if debug:
-        print query
-        print 'Dragen_queue info: {0}'.format(sample_info)
-    print sample_info
-    return sample_info[0]
+        print(query)
+        print('Dragen_queue info: {0}'.format(sample_info))
+    print(sample_info)
+    return sample_info[0]['sample_name'],sample_info[0]['sample_type'],sample_info[0]['pseudo_prepid'],sample_info[0]['capture_kit']
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -421,8 +414,8 @@ if __name__ == "__main__":
                         help="Run pipeline in automated mode")
     parser.add_argument("-d", "--debug", default=False, action="store_true",
                         help="Verbose output for debugging")
-    parser.add_argument("--seqscratch_drive", default='seqscratch_ssd', action="store_true",
-                        help="Set output destination")
+    parser.add_argument("--seqscratch_drive", default='seqscratch_ssd',
+                        action='store', help="Set output destination")
     parser.add_argument("--dontexecute", default=False, action="store_true",
                         help="Perform setup but do not start a Dragen run")
     parser.add_argument("--test", default=False, action="store_true",
@@ -437,19 +430,17 @@ if __name__ == "__main__":
     else:
         run_type_flag = args.auto
     if args.test:
-        args.database="testDB"
+        database="testDB"
     else:
-        args.database="sequenceDB"
-    global database
-    database = args.database
+        database="sequenceDB"
 
     try:
-        main(run_type_flag, args.debug, args.dontexecute, args.seqscratch_drive)
+        main(run_type_flag, args.debug, args.dontexecute, database, args.seqscratch_drive)
     except Exception:
         tb = traceback.format_exc()
-        print tb
+        print(tb)
         emailAddresses = ['jb3816@cumc.columbia.edu']
         emailCmd = ('echo "Dragen Pipe failure" | mail -s "Dragen Pipe Failure" {}'
                    ).format(' '.join(emailAddresses))
-        print emailCmd
+        print(emailCmd)
         os.system(emailCmd)

@@ -168,6 +168,10 @@ def main():
 
     if args.sss_loc is None:
         sss_loc = create_sss_from_database(args.fcillumid,run_info_dict['machine'],run_info_dict,config,database)
+        cp_cmd= ('cp {} /nfs/igmdata01/Sequencing_SampleSheets/'
+             ).format(sss_loc)
+        os.system(cp_cmd)
+
     else:
         sss_loc = args.sss_loc
         print("Using SSS: {}".format(sss_loc))

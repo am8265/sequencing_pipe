@@ -4,25 +4,39 @@ Define a class describing samples going through the dragen pipeline
 """
 
 import argparse
-import MySQLdb
+import pymysql
 import os
 import pdb
 import subprocess
 import sys
 import time
 from glob import glob
+from utilities import get_connection
+class FastqError(Exception):
+    """Fastq not found"""
+    pass
 
-def get_prepid(curs, sample):
+def run_query(query,database):
+    connection = get_connection(database)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query)
+            results = cursor.fetchall()
+            connection.commit()
+            return results
+    finally:
+        connection.close()
+
+def get_prepid(database,sample):
     """Retrieve qualifying prepids"""
     query = ("SELECT prepid FROM pseudo_prepid WHERE pseudo_prepid={0}"
             ).format(sample["pseudo_prepid"])
-    #print query
-    curs.execute(query)
-    prepids = curs.fetchall()
-    prepids = [x[0] for x in prepids]
+    #print(query)
+    prepids = run_query(query,database)
+    prepids = [x['prepid'] for x in prepids]
     return prepids
 
-def get_priority(curs,sample):
+def get_priority(database,sample):
     query = ("SELECT priority "
             "FROM SampleT s "
             "JOIN prepT p ON s.CHGVID=p.CHGVID "
@@ -35,12 +49,11 @@ def get_priority(curs,sample):
             ).format(sample_name=sample['sample_name'],
                     sample_type=sample['sample_type'],
                     capture_kit=sample['capture_kit'])
-    #print query
-    curs.execute(query)
-    priority = curs.fetchone()
-    return priority[0]
+    #print(query)
+    priority = run_query(query,database)[0]['priority']
+    return priority
 
-def get_pseudo_prepid(curs,sample):
+def get_pseudo_prepid(database,sample):
     query = ("SELECT DISTINCT pseudo_prepid "
             "FROM pseudo_prepid pp "
             "JOIN prepT p ON pp.prepid=p.prepid "
@@ -52,20 +65,18 @@ def get_pseudo_prepid(curs,sample):
             ).format(sample_name=sample['sample_name'],
                     sample_type=sample['sample_type'],
                     capture_kit=sample['capture_kit'])
-    curs.execute(query)
-    pseudo_prepid = curs.fetchone()
-    return pseudo_prepid[0]
+    pseudo_prepid = run_query(query)[0]['pseudo_prepid']
+    return pseudo_prepid
 
-def get_bed_file_loc(curs,capture_kit):
+def get_bed_file_loc(database,capture_kit):
     """Retrieve the bed file location for a given capture_kit name"""
     query = (("SELECT region_file_lsrc FROM captureKit WHERE name='{0}' "
         "and chr = 'all'"
         ).format(capture_kit))
-    curs.execute(query)
-    bed_file_loc = curs.fetchone()
-    return bed_file_loc[0]
+    bed_file_loc = run_query(query,database)[0]['region_file_lsrc']
+    return bed_file_loc
 
-def get_fastq_loc(curs, sample):
+def get_fastq_loc(database, sample):
     locs = []
     #correcting the downstream consequences of "custom capture" as the sample_type
     corrected_sample_type = sample['sample_type'].upper().replace(" ","_")
@@ -79,8 +90,7 @@ def get_fastq_loc(curs, sample):
             "AND l.prepID={0} AND f.fail=0 "
             "GROUP BY f.fcid"
             ).format(prepid)
-        curs.execute(query)
-        seqsatalocs = curs.fetchall()
+        seqsatalocs = run_query(query,database)
         """For cases where there is not flowell information the sequeuncing
         will have to found be manually.  There will be two types of samples
         that under this catergory: Old Casava 1.8 sample (pre-seqDB) and
@@ -93,9 +103,9 @@ def get_fastq_loc(curs, sample):
 
             Secondly when external samples are archived sometimes the FCIllumID
             is preserved otherwise its enumerated."""
-            #print sample
-            if seqsatalocs[0][1][0] == 'X':
-                print "Externally submitted samples"
+            #print(sample)
+            if seqsatalocs[0]['FCIllumID'][0] == 'X':
+                print("Externally submitted samples")
                 if 'SRR' in sample_name: #specifically for SRR samples
                     loc = ('/nfs/seqscratch10/SRA/{}/*X[XY]').format(sample_name)
                     fastq_loc = glob(loc)
@@ -134,33 +144,33 @@ def get_fastq_loc(curs, sample):
                     for flowcell in fastq_loc:
                         locs.append(os.path.realpath(flowcell))
                 else:
-                    raise Exception, 'fastq files not found!'
+                    raise FastqError('{} Fastq files not found'.format(sample_name))
             else:
-                print "Internally sequenced sample in sequenceDB"
+                print("Internally sequenced sample in sequenceDB")
                 for flowcell in seqsatalocs:
-                    print flowcell
-                    if 'igmdata' in flowcell[0] or 'fastq' in flowcell[0]: #igmdata## or fastq_temp##
+                    print(flowcell)
+                    if 'igmdata' in flowcell['seqsataloc'] or 'fastq' in flowcell['seqsataloc']: #igmdata## or fastq_temp##
                         fastq_loc = ('/nfs/{0}/{1}/{2}/{3}'
                                 ).format('seqscratch_ssd',corrected_sample_type,
-                                        sample_name,flowcell[1])
+                                        sample_name,flowcell['FCIllumID'])
                         if glob(fastq_loc) == []:
                             fastq_loc = ('/nfs/{0}/{1}/{2}/{3}'
-                                    ).format(flowcell[0],corrected_sample_type,
-                                            sample_name,flowcell[1])
-                    elif 'seqsata' in flowcell[0]: #seqsata## drives
+                                    ).format(flowcell['seqsataloc'],corrected_sample_type,
+                                            sample_name,flowcell['FCIllumID'])
+                    elif 'seqsata' in flowcell['seqsataloc']: #seqsata## drives
                         fastq_loc = ('/nfs/{0}/seqfinal/whole_genome/{1}/{2}'
-                                ).format(flowcell[0],sample_name,flowcell[1])
+                                ).format(flowcell['seqsataloc'],sample_name,flowcell['FCIllumID'])
                     else:
-                        raise Exception, "fastqloc does not within seqsata or fastq drive!"
+                        raise FastqError('{} Fastq files not found'.format(sample_name))
                     read = glob(os.path.realpath(fastq_loc))
                     if read != []:
                         locs.append(os.path.realpath(fastq_loc))
                     elif glob(('/nfs/igmdata01/{}/{}/{}'
-                              ).format(corrected_sample_type,sample_name,flowcell[1])) != []:
+                              ).format(corrected_sample_type,sample_name,flowcell['FCIllumID'])) != []:
                         """ this is a hack for samples suppose to be on a
                             RO avere volume downloaded from AWS to igmdata01
                             instead"""
-                        fastq_loc = '/nfs/igmdata01/{}/{}/{}'.format(corrected_sample_type,sample_name,flowcell[1])
+                        fastq_loc = '/nfs/igmdata01/{}/{}/{}'.format(corrected_sample_type,sample_name,flowcell['FCIllumID'])
                         locs.append(os.path.realpath(fastq_loc))
 
                     else:
@@ -169,13 +179,21 @@ def get_fastq_loc(curs, sample):
                         fastq_loc = glob('/nfs/stornext/seqfinal/casava1.8/whole_{0}/{1}/*X[XY]'.format(
                             corrected_sample_type.lower(),sample_name))
                         if fastq_loc:
-                            for flowcell in fastq_loc:
-                                locs.append(os.path.realpath(flowcell))
+                            for path in fastq_loc:
+                                locs.append(os.path.realpath(path))
 
         else:
-            print "Internally sequenced sample  but not in SequenceDB"
+            print("Internally sequenced sample but not in SequenceDB")
             if glob('/nfs/fastq_temp2/{}/{}/*[0-9XY]'.format(corrected_sample_type,sample_name)):
                 fastq_loc = glob('/nfs/fastq_temp2/{}/{}/*[0-9XY]'.format(corrected_sample_type,sample_name))
+                for flowcell in fastq_loc:
+                    locs.append(os.path.realpath(flowcell))
+            elif glob('/nfs/igmdata01/{}/{}/*X[XY]'.format(corrected_sample_type,sample_name)):
+                fastq_loc = glob('/nfs/fastq16/{}/{}/*X[XY]'.format(corrected_sample_type,sample_name))
+                for flowcell in fastq_loc:
+                    locs.append(os.path.realpath(flowcell))
+            elif glob('/nfs/igmdata01/{}/{}/[0-9]'.format(corrected_sample_type,sample_name)) != []:
+                fastq_loc = glob('/nfs/fastq16/{}/{}/[0-9]'.format(corrected_sample_type,sample_name))
                 for flowcell in fastq_loc:
                     locs.append(os.path.realpath(flowcell))
             elif glob('/nfs/igmdata01/{}/{}/*[0-9XY]'.format(corrected_sample_type,sample_name)) != []:
@@ -196,7 +214,7 @@ def get_fastq_loc(curs, sample):
                 for flowcell in fastq_loc:
                     locs.append(os.path.realpath(flowcell))
             else:
-                raise Exception, "Sample {0} Fastq files not found!".format(sample_name)
+                raise FastqError('{} Fastq files not found'.format(sample_name))
 
     """For samples in the database we can exclude any samples that only have
     R1 data however for sampels that predate the database we have to manually
@@ -213,33 +231,11 @@ def check_fastq_locs(locs):
         if read2 != []:
             valid_locs.append(loc)
         else:
-            print 'Did not find fastq mate pair for: {}!'.format(loc)
+            print('Did not find fastq mate pair for: {}!'.format(loc))
     return valid_locs
 
-def get_output_dir(curs,sample):
-    """Generate ouput directory for Dragen results.  Dependent on seqtype"""
 
-    # Custom capture samples need to be partitioned by capture_kit or 
-    # pseudo_prepid since they are often sequenced with multiple capture kits.
-    # Example: EpiMIR and SchizoEpi samples
-    query = ("SELECT seqscratch_drive "
-             "FROM dragen_sample_metadata "
-             "WHERE pseudo_prepid = {} "
-            ).format(sample['pseudo_prepid'])
-    curs.execute(query)
-    seqscratch_drive = curs.fetchone()
-    if seqscratch_drive is None:
-        seqscratch_drive = 'seqscratch_ssd'
-    else:
-        seqscratch_drive = seqscratch_drive[0]
-    output_dir = ('/nfs/{3}/ALIGNMENT/BUILD37/DRAGEN/{0}/{1}.{2}/'
-        ).format(sample['sample_type'].upper(),
-                 sample['sample_name'],
-                 sample['pseudo_prepid'],
-                 seqscratch_drive)
-    return output_dir
-
-def get_lanes(curs,sample):
+def get_lanes(database,sample):
     """retrieve all qualifying lanes,flowcells for the prepids associated
     with the sample while creating PE and SE conf files for the sample"""
     lanes = []
@@ -258,10 +254,9 @@ def get_lanes(curs,sample):
             "WHERE (FailR1 IS NULL and FailR2 IS NULL) "
             "AND l.prepID={0} AND p.failedPrep=0 "
             ).format(prepid)
-        curs.execute(query)
-        lane = curs.fetchall()
+        lane = run_query(query,database)
         if lane and isInternalSample(lane) == True:
-            lanes.append(lane)
+            lanes.append((lane[0]['lanenum'],lane[0]['FCIllumID'],lane[0]['prepID']))
         else: #In case of no database entry or external sample
             for flowcell in sample['fastq_loc']:
                 fastqs = glob(flowcell + '/*fastq.gz')
@@ -289,28 +284,22 @@ def isInternalSample(laneFCIDTuples):
 
 class dragen_sample:
     # store all relevant information about a sample in a dictionary
-    def __init__(self, sample_name, sample_type, pseudo_prepid, capture_kit, curs):
+    def __init__(self, sample_name, sample_type, pseudo_prepid, capture_kit, database):
         self.metadata = {}
         self.metadata['sample_name'] = sample_name
         self.metadata['sample_type'] = sample_type.lower()
         self.metadata['pseudo_prepid'] = pseudo_prepid
         if sample_type.lower() != 'genome':
             self.metadata['capture_kit'] = capture_kit
-            self.metadata['bed_file_loc'] = get_bed_file_loc(curs,self.metadata['capture_kit'])
+            self.metadata['bed_file_loc'] = get_bed_file_loc(database,self.metadata['capture_kit'])
         else:
             self.metadata['capture_kit'] = ''
             #Genome samples are set using the most current capture kit for any case which requires a target region.
             self.metadata['bed_file_loc'] = '/nfs/goldsteindata/refDB/captured_regions/Build37/65MB_build37/SeqCap_EZ_Exome_v3_capture.bed'
-        self.metadata['prepid'] = get_prepid(curs,self.metadata)
-        self.metadata['priority'] = get_priority(curs,self.metadata)
-        self.metadata['fastq_loc'] = get_fastq_loc(curs,self.metadata)
-        self.metadata['lane'] = get_lanes(curs,self.metadata)
-        self.metadata['output_dir'] = get_output_dir(curs,self.metadata)
-        self.metadata['script_dir'] = self.metadata['output_dir']+'scripts'
-        self.metadata['fastq_dir'] = self.metadata['output_dir']+'fastq'
-        self.metadata['log_dir'] = self.metadata['output_dir']+'logs'
-        self.metadata['dragen_stdout'] = "{log_dir}/{sample_name}.{pseudo_prepid}.dragen.out".format(**self.metadata)
-        self.metadata['dragen_stderr'] = "{log_dir}/{sample_name}.{pseudo_prepid}.dragen.err".format(**self.metadata)
+        self.metadata['prepid'] = get_prepid(database,self.metadata)
+        self.metadata['priority'] = get_priority(database,self.metadata)
+        self.metadata['fastq_loc'] = get_fastq_loc(database,self.metadata)
+        self.metadata['lane'] = get_lanes(database,self.metadata)
 
     def get_attribute(self, attribute):
         """return the value requested if present, otherwise raise a TypeError"""
