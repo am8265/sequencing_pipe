@@ -12,7 +12,7 @@ import sys
 import time
 from db_statements import *
 from glob import glob
-from utilities import get_connection
+from utilities import get_connection,is_external_or_legacy_sample
 class FastqError(Exception):
     """Fastq not found"""
     pass
@@ -32,7 +32,7 @@ def get_prepid(database,sample):
     """Retrieve qualifying prepids"""
     query = ("SELECT prepid FROM pseudo_prepid WHERE pseudo_prepid={0}"
             ).format(sample["pseudo_prepid"])
-    #print(query)
+    print(query)
     prepids = run_query(query,database)
     prepids = [x['prepid'] for x in prepids]
     return prepids
@@ -82,145 +82,73 @@ def get_fastq_loc(database, sample):
     #correcting the downstream consequences of "custom capture" as the sample_type
     corrected_sample_type = sample['sample_type'].upper().replace(" ","_")
     sample_name=sample['sample_name']
-    #pdb.set_trace()
+    print(sample['prepid'])
     for prepid in sample["prepid"]:
-        query = ("SELECT seqsataloc,FCIllumID FROM Flowcell f "
-            "JOIN Lane l ON f.FCID=l.FCID "
-            "JOIN prepT p ON l.prepID=p.prepID "
-            "WHERE (FailR1 IS NULL and FailR2 IS NULL) "
-            "AND l.prepID={0} AND f.fail=0 "
-            "GROUP BY f.fcid"
-            ).format(prepid)
-        seqsatalocs = run_query(query,database)
+        external_or_legacy_flag = is_external_or_legacy_sample(prepid,database)
         """For cases where there is not flowell information the sequeuncing
-        will have to found be manually.  There will be two types of samples
-        that under this catergory: Old Casava 1.8 sample (pre-seqDB) and
-        Casava 1.7 samples sequenced by the Illumina GAII."""
-        if seqsatalocs:
-            """For externally submitted sample they have a fake Flowcell entry
-            in the database.  The Flowcell.FCIllumID begins wt'X' always.
-            Typically when processing the external sample each read group is
-            enumerated 1,2,3...etc.
+        will have to found via brute force.  There will be three types of samples
+        that under this catergory: Old Casava 1.8 sample (pre-seqDB),
+        Casava 1.7 samples sequenced by the Illumina GAII and external samples.
 
-            Secondly when external samples are archived sometimes the FCIllumID
-            is preserved otherwise its enumerated."""
-            #print(sample)
-            if seqsatalocs[0]['FCIllumID'][0] == 'X':
-                print("Externally submitted samples")
-                if 'SRR' in sample_name: #specifically for SRR samples
-                    loc = ('/nfs/seqscratch10/SRA/{}/*X[XY]').format(sample_name)
-                    fastq_loc = glob(loc)
-                    for flowcell in fastq_loc:
-                        locs.append(os.path.realpath(flowcell))
-                elif 'CGNDHDA' in sample_name:
-                    fastq_loc = glob(('/nfs/seqscratch09/tx_temp/tx_2390/CGND_11418-fastq/Project_CGND_11418_B01_GRM_WGS.2016-03-30/{}/1').format(sample_name))
-                    if fastq_loc == []:
-                        fastq_loc = glob(('/nfs/seqscratch09/tx_temp/tx_2390/CGND_11645-fastq/Project_CGND_11645_B01_GRM_WGS.2016-08-17/{}/*[XY]').format(sample_name))
-                    if fastq_loc ==[]:
-                        fastq_loc = glob(('/nfs/seqscratch12/tx_temp/tx_2390/CGND_11911-fastq/Project_CGND_11911_B01_GRM_WGS.2016-09-29/{}/*[XY]').format(sample_name))
-                    if fastq_loc ==[]:
-                        fastq_loc = glob(('/nfs/seqscratch09/tx_temp/tx_2390/CGND_11772-fastq/Project_CGND_11772_B01_GRM_WGS.2016-06-09/{}/*[XY]').format(sample_name))
-                    if fastq_loc ==[]:
-                        fastq_loc = glob(('/nfs/seqscratch09/tx_temp/tx_2390/CGND_11772-fastq/Project_CGND_11772_B02_GRM_WGS.fastq_bam.2017-04-29{}/*[XY]').format(sample_name))
-                    for flowcell in fastq_loc:
-                        locs.append(os.path.realpath(flowcell))
-                elif glob(('/nfs/igmdata0[0-9]/{}/{}/*[0-9XY]'
-                    ).format(corrected_sample_type,sample_name)) != []: #external igmdata samples wt enumerated folders
-                    fastq_loc = glob(('/nfs/igmdata0[0-9]/{}/{}/*[0-9XY]'
-                                ).format(corrected_sample_type,sample_name))
-                    if fastq_loc:
-                        for flowcell in fastq_loc:
-                            locs.append(os.path.realpath(flowcell))
-                elif glob(('/nfs/fastq1[0-9]/{}/{}/*[0-9XY]'
-                    ).format(corrected_sample_type,sample_name)) != []: #external fastq16 samples wt enumerated folders
-                    fastq_loc = glob(('/nfs/fastq1[0-9]/{}/{}/*[0-9XY]'
-                                ).format(corrected_sample_type,sample_name))
-                    if fastq_loc:
-                        for flowcell in fastq_loc:
-                            locs.append(os.path.realpath(flowcell))
-                elif glob(('/nfs/seqsata*/seqfinal/whole_genome/{}/*[0-9XY]'
-                    ).format(sample_name)) != []: #external seqsata samples wt enumerated folders
-                    fastq_loc = glob(('/nfs/seqsata*/seqfinal/whole_genome/{}/[0-9]'
-                        ).format(sample_name))
-                    for flowcell in fastq_loc:
-                        locs.append(os.path.realpath(flowcell))
-                else:
-                    raise FastqError('{} Fastq files not found'.format(sample_name))
-            else:
-                print("Internally sequenced sample in sequenceDB")
-                for flowcell in seqsatalocs:
-                    print(flowcell)
-                    if 'igmdata' in flowcell['seqsataloc'] or 'fastq' in flowcell['seqsataloc']: #igmdata## or fastq_temp##
-                        fastq_loc = ('/nfs/{0}/{1}/{2}/{3}'
-                                ).format('seqscratch_ssd',corrected_sample_type,
-                                        sample_name,flowcell['FCIllumID'])
-                        if glob(fastq_loc) == []:
-                            fastq_loc = ('/nfs/{0}/{1}/{2}/{3}'
-                                    ).format(flowcell['seqsataloc'],corrected_sample_type,
-                                            sample_name,flowcell['FCIllumID'])
-                    elif 'seqsata' in flowcell['seqsataloc']: #seqsata## drives
-                        fastq_loc = ('/nfs/{0}/seqfinal/whole_genome/{1}/{2}'
-                                ).format(flowcell['seqsataloc'],sample_name,flowcell['FCIllumID'])
-                    else:
-                        raise FastqError('{} Fastq files not found'.format(sample_name))
-                    read = glob(os.path.realpath(fastq_loc))
-                    if read != []:
-                        locs.append(os.path.realpath(fastq_loc))
-                    elif glob(('/nfs/igmdata01/{}/{}/{}'
-                              ).format(corrected_sample_type,sample_name,flowcell['FCIllumID'])) != []:
-                        """ this is a hack for samples suppose to be on a
-                            RO avere volume downloaded from AWS to igmdata01
-                            instead"""
-                        fastq_loc = '/nfs/igmdata01/{}/{}/{}'.format(corrected_sample_type,sample_name,flowcell['FCIllumID'])
-                        locs.append(os.path.realpath(fastq_loc))
+        For externally submitted sample they have a fake Flowcell entry
+        in the database.  The Flowcell.FCIllumID begins wt'X' always.
+        Typically when processing the external sample each read group is
+        enumerated 1,2,3...etc.
+        Secondly when external samples are archived sometimes the FCIllumID
+        is preserved otherwise its enumerated."""
 
-                    else:
-                        # For samples in the database but stored on the quantum and 
-                        # have not had their location properly restored
-                        fastq_loc = glob('/nfs/stornext/seqfinal/casava1.8/whole_{0}/{1}/*X[XY]'.format(
-                            corrected_sample_type.lower(),sample_name))
-                        if fastq_loc:
-                            for path in fastq_loc:
-                                locs.append(os.path.realpath(path))
+        potential_locs = ['/nfs/seqscratch_ssd/{}/'.format(corrected_sample_type),
+                          '/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
+                          '/nfs/seqscratch10/SRR/',
+                          '/nfs/seqscratch*/tx_temp/tx_2390/CGND*/Project*/',
+                          '/nfs/stornext/seqfinal/casava1.8/whole_{}/'.format(corrected_sample_type),
+                          '/nfs/fastq1*/{}/'.format(corrected_sample_type),
+                          '/nfs/igmdata01/{}/'.format(corrected_sample_type),
+                          '/nfs/seqsata*/seqfinal/whole_genome/']
 
-        else:
-            print("Internally sequenced sample but not in SequenceDB")
-            if glob('/nfs/fastq_temp2/{}/{}/*[0-9XY]'.format(corrected_sample_type,sample_name)):
-                fastq_loc = glob('/nfs/fastq_temp2/{}/{}/*[0-9XY]'.format(corrected_sample_type,sample_name))
-                for flowcell in fastq_loc:
-                    locs.append(os.path.realpath(flowcell))
-            elif glob('/nfs/igmdata01/{}/{}/*X[XY]'.format(corrected_sample_type,sample_name)):
-                fastq_loc = glob('/nfs/fastq16/{}/{}/*X[XY]'.format(corrected_sample_type,sample_name))
-                for flowcell in fastq_loc:
-                    locs.append(os.path.realpath(flowcell))
-            elif glob('/nfs/igmdata01/{}/{}/[0-9]'.format(corrected_sample_type,sample_name)) != []:
-                fastq_loc = glob('/nfs/fastq16/{}/{}/[0-9]'.format(corrected_sample_type,sample_name))
-                for flowcell in fastq_loc:
-                    locs.append(os.path.realpath(flowcell))
-            elif glob('/nfs/igmdata01/{}/{}/*[0-9XY]'.format(corrected_sample_type,sample_name)) != []:
-                fastq_loc = glob('/nfs/fastq16/{}/{}/*[0-9XY]'.format(corrected_sample_type,sample_name))
-                for flowcell in fastq_loc:
-                    locs.append(os.path.realpath(flowcell))
-            elif glob('/nfs/fastq16/{}/{}/*[0-9XY]'.format(corrected_sample_type,sample_name)):
-                fastq_loc = glob('/nfs/fastq16/{}/{}/*[0-9XY]'.format(corrected_sample_type,sample_name))
-                for flowcell in fastq_loc:
-                    locs.append(os.path.realpath(flowcell))
-            elif glob('/nfs/stornext/seqfinal/casava1.8/whole_{0}/{1}/*X[XY]'.format(
-                corrected_sample_type.lower(),sample_name)):
-                fastq_loc = glob('/nfs/stornext/seqfinal/casava1.8/whole_{0}/{1}/*X[XY]'.format(corrected_sample_type.lower(),sample_name))
-                for flowcell in fastq_loc:
-                    locs.append(flowcell)
-            elif glob('/nfs/seqsata*/seqfinal/whole_genome/{}/*X[XY]'.format(sample_name)) != []:
-                fastq_loc = glob('/nfs/seqsata*/seqfinal/whole_genome/{}/*X[XY]'.format(sample_name))
-                for flowcell in fastq_loc:
-                    locs.append(os.path.realpath(flowcell))
-            else:
+        if external_or_legacy_flag == True:
+            print("Externally or legacy samples")
+            for potential_loc in potential_locs:
+                potential_path = '{}/{}/*[0-9XY]'.format(potential_loc,sample_name)
+                print('Checking {} for fastqs....'.format(potential_loc))
+                fastq_loc = glob(potential_path)
+                if fastq_loc != []:
+                    print('FOUND!')
+                    break
+            if fastq_loc == []:
                 raise FastqError('{} Fastq files not found'.format(sample_name))
+        else:
+            print("Internally sequenced sample in sequenceDB")
+            query = ("SELECT DISTINCT SEQSATALOC,FCILLUMID FROM Flowcell f "
+                "JOIN Lane l ON f.FCID=l.FCID "
+                "JOIN prepT p ON l.prepID=p.prepID "
+                "WHERE (FailR1 IS NULL and FailR2 IS NULL) "
+                "AND l.prepID={0} AND f.fail=0 "
+                "GROUP BY f.fcid"
+                ).format(prepid)
+            seqsatalocs = run_query(query,database)
+            for flowcell in seqsatalocs:
+                if flowcell['SEQSATALOC'] == '':
+                    msg = ('Sample {} on flowcell {} is missing seqsataloc!  Still sequencing?'
+                          ).format(sample_name,flowcell['FCILLUMID'])
+
+                    raise ValueError(msg)
+                print(flowcell)
+                for potential_loc in potential_locs:
+                    print('Checking {} for fastqs....'.format(potential_loc))
+                    print('FOUND!')
+                    potential_path = '{}/{}/{}'.format(potential_loc,sample_name,flowcell['FCILLUMID'])
+                    fastq_loc = glob(potential_path)
+                    if fastq_loc != []:
+                        break
+                if fastq_loc == []:
+                    raise FastqError('{} Fastq files not found'.format(sample_name))
+
 
     """For samples in the database we can exclude any samples that only have
     R1 data however for sampels that predate the database we have to manually
     check for R2 existance"""
-    locs = check_fastq_locs(list(set(locs)))
+    locs = check_fastq_locs(fastq_loc)
     return locs
 
 def check_fastq_locs(locs):
@@ -256,10 +184,9 @@ def get_lanes(database,sample):
             "AND l.prepID={0} AND p.failedPrep=0 "
             ).format(prepid)
         lane = run_query(query,database)
-        query = IS_SAMPLE_EXTERNAL_FROM_PREPID.format(prepid=prepid)
-        is_external_sample = run_query(query,database)
+        leg_or_ext = is_external_or_legacy_sample(prepid,database)
 
-        if lane and is_external_sample and int(is_external_sample[0]['IS_EXTERNAL']) == False:
+        if lane and leg_or_ext == False:
             lanes.append((lane[0]['lanenum'],lane[0]['FCIllumID'],lane[0]['prepID']))
         else: #In case of no database entry or external sample
             for flowcell in sample['fastq_loc']:

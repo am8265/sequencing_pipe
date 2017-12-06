@@ -59,7 +59,8 @@ def update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database):
     run_query(read_group_insert,database)
 
 def check_bam_found_vs_bam_db(sample,qualified_bams_found):
-    if is_external_or_legacy_sample(sample) == True:
+    max_prepid = max(map(lambda x:int(x),sample.metadata['prepid']))
+    if is_external_or_legacy_sample(max_prepid,database) == True:
         #skips db vs found bam sanity check
         pass
     else:
@@ -86,26 +87,6 @@ def get_component_bams(sample,debug):
     component_bams = ','.join(sorted(tmp_bam_list))
     return component_bams
 
-def is_external_or_legacy_sample(sample):
-    """In cases of legecy samples (prepid < 20000) or external samples. There are no cases of legecy samples with
-    multiple preps"""
-    if max(map(lambda x:int(x),sample.metadata['prepid'])) < 20000:
-        print("Sample has a prepID < 20000")
-        return True
-
-    else:
-        query = IS_SAMPLE_EXTERNAL_FROM_PREPID.format(prepid=sample.metadata['prepid'][0])
-        is_external_sample = int(run_query(query,database)[0]['IS_EXTERNAL'])
-        if is_external_sample == 1:
-            print("Sample is an external sample!")
-            return True
-        elif is_external_sample == 0:
-            print("Sample is not an external sample")
-            return False
-        else: #Returns None
-            raise ValueError("No value found.  Does prepID exist?")
-
-
 def write_sge_header(sample,step,script_loc):
     script = open(script_loc,'w')
     script.write("#! /bin/bash\n")
@@ -126,7 +107,7 @@ def write_sge_header(sample,step,script_loc):
 def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
     check_Fastq_Total_Size(sample,debug)
     setup_dir(seqscratch_drive,sample,debug)
-    existing_bams_check = False
+    existing_bams_check = True 
     output_dir = sample.metadata['output_dir']
     pseudo_prepid = sample.metadata['pseudo_prepid']
     submit_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -292,6 +273,7 @@ def check_Fastq_Total_Size(sample,debug):
     sample_type = sample.metadata['sample_type']
     fastq_filesize_sum = 0
     for fastq_loc in sample.metadata['fastq_loc']:
+        print(fastq_loc)
         for fastq in glob(fastq_loc + '/*gz'):
             fastq_filesize = os.stat(os.path.realpath(fastq)).st_size
             fastq_filesize_sum += fastq_filesize

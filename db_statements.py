@@ -8,17 +8,6 @@ GET_QUALIFIED_BAMS = """
     RELEASED = 1
     """
 
-IS_SAMPLE_EXTERNAL_FROM_PREPID = """
-    SELECT CASE
-        WHEN FCILLUMID LIKE 'X%'
-            THEN 1
-            ElSE 0
-        END AS IS_EXTERNAL
-    FROM Lane l
-    JOIN Flowcell f ON f.fcid=l.fcid
-    WHERE prepid = {prepid}
-    """
-
 GET_MACHINE_FROM_FCILLUMID_QUERY = """
     SELECT MACHINE
     FROM Flowcell
@@ -31,6 +20,7 @@ GET_PREPID_FROM_PSEUDO_PREPID = """
     WHERE P_PREPID = {}
     AND FAILEDPREP = 0
     """
+
 UPDATE_PSEUDO_PREPID_IN_PREPT = """
     UPDATE prepT
     SET P_PREPID = "{ppid}"
@@ -68,6 +58,7 @@ GET_POOLID_FROM_DBID = """
     FROM SampleT
     WHERE DBID = "{DBID}"
     """
+
 GET_FLOWCELL_PROJECTS = """
     SELECT distinct(s.GAFBIN)
     FROM SampleT s
@@ -75,6 +66,7 @@ GET_FLOWCELL_PROJECTS = """
     JOIN Flowcell f ON f.FCID=l.FCID
     WHERE FCILLUMID = "{fcillumid}"
     """
+
 GET_GAFBIN_FROM_SAMPLE_NAME = """
     SELECT GAFBIN
     FROM SampleT

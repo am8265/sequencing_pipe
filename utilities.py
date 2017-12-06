@@ -68,6 +68,36 @@ def get_connection(database):
         return connection
     except pymysql.err.OperationalError:
             sys.exit("Wrong username/database or password found, please try again")
+
+def is_external_or_legacy_sample(prepid,database):
+    """In cases of legecy samples (prepid < 20000) or external samples. There are no cases of legecy samples with
+    multiple preps"""
+    if prepid < 20000:
+        print("Sample has a prepID < 20000")
+        return True
+
+    else:
+        IS_SAMPLE_EXTERNAL_FROM_PREPID = """
+            SELECT CASE
+                WHEN FCILLUMID LIKE 'X%'
+                    THEN 1
+                    ElSE 0
+                END AS IS_EXTERNAL
+            FROM Lane l
+            JOIN Flowcell f ON f.fcid=l.fcid
+            WHERE prepid = {prepid}
+            """
+        query = IS_SAMPLE_EXTERNAL_FROM_PREPID.format(prepid=prepid)
+        is_external_sample = int(run_query(query,database)[0]['IS_EXTERNAL'])
+        if is_external_sample == 1:
+            print("Sample is an external sample!")
+            return True
+        elif is_external_sample == 0:
+            print("Sample is not an external sample")
+            return False
+        else: #Returns None
+            raise ValueError("No value found.  Does prepID exist?")
+
 def get_userid_from_uni(database):
     p = os.popen(' echo $USER ')
     userName = p.readline().strip()

@@ -14,11 +14,10 @@ def main():
         database = 'testDB'
     else:
         database = 'sequenceDB'
-    auto_release_flag = True
+    auto_release_flag = False
 
     rejected_samples = []
     if args.fcillumid:
-        auto_release_flag = False
         get_sample_info_from_flowcell = """SELECT DISTINCT CHVID,p.PREPID,SEQTYPE,
                                          p.EXOMEKIT,s.PRIORITY
                                          FROM Lane l
@@ -166,7 +165,7 @@ def check_yield(ppid,sample_type,auto_release_flag,rejected_samples,database):
    lane_yield_sum = run_query(GET_YIELD_FROM_PPID.format(ppid=ppid),database)[0]['LANE_YIELD_SUM']
    lane_yield_sum = int(lane_yield_sum)
 
-   if sample_type.lower() == 'exome' and lane_yield_sum > 7500:
+   if sample_type.lower() == 'exome' and lane_yield_sum > 7000:
        return rejected_samples
    elif sample_type.lower() == 'genome' and lane_yield_sum > 100000:
        return rejected_samples
@@ -195,7 +194,8 @@ def insert_pid_into_ppid(sample_name,sample_type,capture_kit,database):
     if pids:
         print(pids)
     else:
-        raise ValueError('No sample found!')
+        print(GET_PIDS_QUERY)
+        raise ValueError('No prep found for sample: {}'.format(sample_name))
     for pid in pids:
 
         INSERT_NEW_PID_INTO_PPID = """
@@ -222,7 +222,7 @@ def insert_pid_into_ppid(sample_name,sample_type,capture_kit,database):
 
 def update_ppid(sample_name,sample_type,capture_kit,database):
     GET_PID_PPID_FROM_TRIPLET= """
-        SELECT P_PREPID,p.PREPID
+        SELECT PSEUDO_PREPID,p.PREPID
         FROM prepT p
         JOIN pseudo_prepid pp on p.prepid=pp.prepid
         WHERE CHGVID='{chgvid}'
@@ -234,19 +234,20 @@ def update_ppid(sample_name,sample_type,capture_kit,database):
         GET_PID_PPID_FROM_TRIPLET += ("AND EXOMEKIT='{exomekit}'"
                                      ).format(exomekit=capture_kit)
     pid_and_ppid = run_query(GET_PID_PPID_FROM_TRIPLET,database)
-
-    if pid_and_ppid == ():
+    if pid_and_ppid[0]['PSEUDO_PREPID'] is None:
         ppid = insert_pid_into_ppid(sample_name,sample_type,capture_kit,database)
         return ppid
     else:
-        ppid_from_triplet = [x['P_PREPID'] for x in pid_and_ppid]
+        ppid_from_triplet = [x['PSEUDO_PREPID'] for x in pid_and_ppid]
         prepid_from_triplet = [x['PREPID'] for x in pid_and_ppid]
         final_pids = copy(prepid_from_triplet)
         if len(set(ppid_from_triplet)) != 1:
             raise Exception('Too many ppids found from triplet:{}'.format(set(ppid_from_triplet)))
+
         query = GET_PREPID_FROM_PSEUDO_PREPID.format(list(set(ppid_from_triplet))[0])
         prepid_from_ppid = run_query(query,database)
         prepid_from_ppid = [x['PREPID'] for x in prepid_from_ppid]
+
 
         while len(prepid_from_triplet) > 0:
             pid = prepid_from_triplet.pop()
