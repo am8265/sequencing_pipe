@@ -10,6 +10,7 @@ import pdb
 import subprocess
 import sys
 import time
+from db_statements import *
 from glob import glob
 from utilities import get_connection
 class FastqError(Exception):
@@ -255,7 +256,10 @@ def get_lanes(database,sample):
             "AND l.prepID={0} AND p.failedPrep=0 "
             ).format(prepid)
         lane = run_query(query,database)
-        if lane and isInternalSample(lane) == True:
+        query = IS_SAMPLE_EXTERNAL_FROM_PREPID.format(prepid=prepid)
+        is_external_sample = run_query(query,database)
+
+        if lane and is_external_sample and int(is_external_sample[0]['IS_EXTERNAL']) == False:
             lanes.append((lane[0]['lanenum'],lane[0]['FCIllumID'],lane[0]['prepID']))
         else: #In case of no database entry or external sample
             for flowcell in sample['fastq_loc']:
@@ -267,7 +271,7 @@ def get_lanes(database,sample):
                 lane_nums = set(sorted(lane))
                 for lane_num in lane_nums:
                     lanes.append((lane_num,flowcell.split('/')[-1],prepid))
-            lanes = (lanes,)
+        lanes = (lanes,)
     return lanes
 
 def isInternalSample(laneFCIDTuples):
