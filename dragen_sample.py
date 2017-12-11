@@ -13,6 +13,7 @@ import time
 from db_statements import *
 from glob import glob
 from utilities import get_connection,is_external_or_legacy_sample
+
 class FastqError(Exception):
     """Fastq not found"""
     pass
@@ -37,35 +38,34 @@ def get_prepid(database,sample):
     return prepids
 
 def get_priority(database,sample):
-    query = ("SELECT priority "
+    query = ("SELECT PRIORITY "
             "FROM SampleT s "
-            "JOIN prepT p ON s.CHGVID=p.CHGVID "
-            "JOIN SeqType st ON st.prepid=p.prepid "
-            "WHERE p.CHGVID='{sample_name}' "
-            "AND st.seqtype='{sample_type}' "
-            "AND p.exomekit='{capture_kit}' "
-            "ORDER BY priority ASC "
+            "JOIN prepT p ON s.DBID=p.DBID "
+            "WHERE P_PREPID ={pseudo_prepid} "
+            "ORDER BY PRIORITY DESC "
             "LIMIT 1"
-            ).format(sample_name=sample['sample_name'],
-                    sample_type=sample['sample_type'],
-                    capture_kit=sample['capture_kit'])
-    #print(query)
-    priority = run_query(query,database)[0]['priority']
+            ).format(**sample)
+    priority = run_query(query,database)[0]['PRIORITY']
     return priority
 
 def get_pseudo_prepid(database,sample):
     query = ("SELECT DISTINCT p_prepid "
             "FROM prepT p "
-            "JOIN SeqType s ON s.prepid=p.prepid "
             "WHERE CHGVID='{sample_name}' "
             "AND seqtype='{sample_type}' "
-            "AND p.exomekit='{capture_kit}' "
-            "AND failedprep=0"
-            ).format(sample_name=sample['sample_name'],
-                    sample_type=sample['sample_type'],
-                    capture_kit=sample['capture_kit'])
-    pseudo_prepid = run_query(query)[0]['p_prepid']
-    return pseudo_prepid
+            "AND failedprep=0 "
+            ).format(**sample)
+    if sample_type.lower() != 'genome':
+        query += ("AND EXOMEKIT='{capture_kit}' "
+                 ).format(**sample)
+    query += "ORDER BY PRIORITY DESC "
+
+    pseudo_prepid = run_query(query)
+    if len(pseudo_prepid) == 1:
+        return pseudo_prepid[0]['p_prepid']
+    else:
+        print pseudo_prepid
+        raise ValueError('Too many pseudo_prepids found!')
 
 def get_bed_file_loc(database,capture_kit):
     """Retrieve the bed file location for a given capture_kit name"""
