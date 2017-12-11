@@ -3,7 +3,8 @@ GET_QUALIFIED_BAMS = """
     JOIN Lane l on p.PREPID=l.PREPID
     JOIN Flowcell f on l.fcid=f.fcid
     WHERE P_PREPID = {pseudo_prepid} AND
-    FCILLUMID NOT LIKE 'X%'
+    FCILLUMID NOT LIKE 'X%' AND
+    FAILR1 IS NULL
     """
     # AND RELEASED = 1
     # Add when release module goes live for HTS
