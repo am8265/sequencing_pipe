@@ -27,7 +27,6 @@ def main():
                                          JOIN prepT p ON p.prepid=l.prepid
                                          WHERE FCILLUMID='{}'
                                          """.format(args.fcillumid)
-        print(get_sample_info_from_flowcell)
         print("Starting sample release for Flowcell: {}".format(args.fcillumid))
         for sample_info in run_query(get_sample_info_from_flowcell):
             seqtype = sample_info['SeqType']
@@ -138,8 +137,9 @@ def run_sample(sample_name,sample_type,capture_kit,priority,
                               WHERE STEP_STATUS='completed' AND
                               PSEUDO_PREPID={ppid}
                           """.format(ppid=ppid)
-    sample_status = run_query(sample_status_query,database)[0]['PIPELINE_STEP_ID']
-    if sample_status:
+    sample_status = run_query(sample_status_query,database)
+
+    if sample_status[0]['PIPELINE_STEP_ID'] != None:
         raise ValueError("Sample {} has already been run.  Cleanup required first".format(sample_name))
     else:
         print("Starting sample release for sample: {}, {}, {}".format(sample_name,
@@ -148,9 +148,7 @@ def run_sample(sample_name,sample_type,capture_kit,priority,
         sample = dragen_sample(sample_name,sample_type,ppid,
                                capture_kit,database)
         #every external sample should only have one pids
-        is_external = run_query(IS_SAMPLE_EXTERNAL_FROM_PREPID.format(prepid=pids[0]),database)
-        if is_external == True or int(pids[0]) < 20000:
-            print("Sample is external or legacy")
+        if is_external_or_legacy_sample(pids[0],database) == True:
             pass
         else:
             rejected_samples = check_yield(ppid,sample_type,
@@ -179,6 +177,14 @@ def check_yield(ppid,sample_type,auto_release_flag,rejected_samples,database):
            rejected_samples.append(ppid)
        return rejected_samples
 
+def update_prepT_ppid(ppid,pid,database):
+    INSERT_ppid_on_pid = """UPDATE prepT
+                            SET P_PREPID = {}
+                            WHERE PREPID = {}
+                         """.format(ppid,pid)
+    print("Updating prepT with ppid: {}".format(ppid))
+    run_query(INSERT_ppid_on_pid,database)
+
 def insert_pid_into_ppid(sample_name,sample_type,capture_kit,database):
     GET_PIDS_QUERY = """SELECT PREPID
                         FROM prepT p
@@ -192,39 +198,41 @@ def insert_pid_into_ppid(sample_name,sample_type,capture_kit,database):
     pids = run_query(GET_PIDS_QUERY,database)
     pid_counter = 0
     if pids:
-        print(pids)
+        pass
     else:
-        print(GET_PIDS_QUERY)
         raise ValueError('No prep found for sample: {}'.format(sample_name))
     for pid in pids:
-
-        INSERT_NEW_PID_INTO_PPID = """
-            INSERT INTO pseudo_prepid
-            (pseudo_prepid,prepid)
-            VALUES (NULL,"{pid}")
-            """
-        query = INSERT_NEW_PID_INTO_PPID.format(pid=pid['PREPID'])
-        run_query(query,database)
         if pid_counter == 0:
-            pseudo_prepid_query = "SELECT LAST_INSERT_ID()"
-            ppid = run_query(pseudo_prepid_query,database)
+            print('Inserting pid: {}'.format(pid['PREPID']))
+            INSERT_NEW_PID_INTO_PPID = """
+                INSERT INTO pseudo_prepid
+                (pseudo_prepid,prepid)
+                VALUES (NULL,"{pid}")
+                """.format(pid=pid['PREPID'])
+            run_query(INSERT_NEW_PID_INTO_PPID,database)
+            ppid_query = GET_P_PREPID_FROM_PREPID.format(prepid=pid['PREPID'])
+            ppid = run_query(ppid_query,database)[0]['P_PREPID']
+            update_prepT_ppid(ppid,pid['PREPID'],database)
             pid_counter += 1
         else:
+            print('Inserting pid,ppid: {},{}'.format(pid,ppid))
             INSERT_PID_INTO_PPID = """
                 INSERT INTO pseudo_prepid
                 ("{ppid"},"{pid}")
                 VALUES (pseudo_prepid,prepid)
                 """
             INSERT_PID_INTO_PPID.format(pid=pid['PREPID'],
-                                        ppid=ppid[0]['PSEUDO_PREPID'])
+                                        ppid=ppid)
             run_query(query,database)
-    return ppid
+            update_prepT_ppid(ppid,pid['PREPID'],database)
+    final_pids = [x['PREPID'] for x in pids]
+
+    return ppid,final_pids
 
 def update_ppid(sample_name,sample_type,capture_kit,database):
     GET_PID_PPID_FROM_TRIPLET= """
-        SELECT PSEUDO_PREPID,p.PREPID
-        FROM prepT p
-        JOIN pseudo_prepid pp on p.prepid=pp.prepid
+        SELECT P_PREPID,PREPID
+        FROM prepT 
         WHERE CHGVID='{chgvid}'
         AND SAMPLE_TYPE='{seqtype}'
         """.format(chgvid=sample_name,
@@ -234,17 +242,17 @@ def update_ppid(sample_name,sample_type,capture_kit,database):
         GET_PID_PPID_FROM_TRIPLET += ("AND EXOMEKIT='{exomekit}'"
                                      ).format(exomekit=capture_kit)
     pid_and_ppid = run_query(GET_PID_PPID_FROM_TRIPLET,database)
-    if pid_and_ppid[0]['PSEUDO_PREPID'] is None:
-        ppid = insert_pid_into_ppid(sample_name,sample_type,capture_kit,database)
-        return ppid
+    if pid_and_ppid == ():
+        ppid,pids = insert_pid_into_ppid(sample_name,sample_type,capture_kit,database)
+        return ppid,pids
     else:
-        ppid_from_triplet = [x['PSEUDO_PREPID'] for x in pid_and_ppid]
+        ppid_from_triplet = [x['P_PREPID'] for x in pid_and_ppid]
         prepid_from_triplet = [x['PREPID'] for x in pid_and_ppid]
         final_pids = copy(prepid_from_triplet)
         if len(set(ppid_from_triplet)) != 1:
             raise Exception('Too many ppids found from triplet:{}'.format(set(ppid_from_triplet)))
 
-        query = GET_PREPID_FROM_PSEUDO_PREPID.format(list(set(ppid_from_triplet))[0])
+        query = GET_PREPID_FROM_P_PREPID.format(list(set(ppid_from_triplet))[0])
         prepid_from_ppid = run_query(query,database)
         prepid_from_ppid = [x['PREPID'] for x in prepid_from_ppid]
 
@@ -282,7 +290,7 @@ def remove_pid_from_ppid(pid,ppid,database):
 
 def add_pid_to_ppid(pid,ppid,database):
     run_query(INSERT_PID_INTO_PPID.format(ppid=ppid,pid=pid),database)
-    run_query(UPDATE_PSEUDO_PREPID_IN_PREPT.format(ppid=ppid,pid=pid),database)
+    run_query(UPDATE_P_PREPID_IN_PREPT.format(ppid=ppid,pid=pid),database)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
