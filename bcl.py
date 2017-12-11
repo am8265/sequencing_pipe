@@ -124,19 +124,19 @@ def check_fcillumid(inputted_fcillumid,xml_fcillumid):
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("-f", "--fcillumid", dest='fcillumid', required=True,
+    parser.add_argument("-f", "--fcillumid", required=True,
                         help="Specify Illumina's Flowcell ID")
     parser.add_argument("-v", "--verbose", default=False, action="store_true",
                         help="Display verbose output")
-    parser.add_argument('-b','--bcl_drive', default='seqscratch_ssd', dest='bcl_drive',
+    parser.add_argument('-b','--bcl_drive', default='seqscratch_ssd',
                         help="Specify scratch dir for bcl2fastq")
-    parser.add_argument('-a','--archive_dir', default='igmdata01', dest='archive_dir',
+    parser.add_argument('-a','--archive_dir', default='igmdata01',
                         help="Specify scratch dir for bcl2fastq")
-    parser.add_argument('--tiles', dest='tiles',
+    parser.add_argument('--tiles',
                         help="Specify which tiles of the flowcell to convert")
     parser.add_argument('--use_bases_mask', action='store_true', default=False,
                         help="Specify any base positions to mask")
-    parser.add_argument('--sss', dest='sss_loc',
+    parser.add_argument('--sss',
                         help="Specify your own sequencing sample sheet")
     parser.add_argument('--noStatus', action='store_true', default=False,
                         help="Do not update status")

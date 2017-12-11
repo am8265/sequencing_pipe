@@ -255,7 +255,7 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
             #print sql
             sss_line = run_query(sql,database)
             check_number_query_results(sss_line,1)
-            str_desc = sss_line[0]['Description'].decode('UTF-8') #why did I use decode?
+            str_desc = sss_line[0]['Description'] #why did I use decode?
             #str_desc = sss_line[0]['Description']
             outfile.write("{Lane},{SampleID},{SampleID},,,,{Index},{Project},{str_desc}\n".format(str_desc=str_desc,**sss_line[0]))
     outfile.close()

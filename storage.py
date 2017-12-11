@@ -202,7 +202,7 @@ def createStorageCompleteFlag(verbose,config,run_info_dict):
     #subprocess.call(touchCmd)
 
 def processSAV(verbose,fcillumid,machine,run_info_dict,config,archive_drive,seqscratchBase):
-    logger = logging.getLogger(sys.modules[__name__])
+    logger = logging.getLogger(__name__)
     if machine[0] == 'A':
         runParametersFile = 'RunParameters.xml'
     else:
