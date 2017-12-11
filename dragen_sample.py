@@ -77,7 +77,7 @@ def get_bed_file_loc(database,capture_kit):
     return bed_file_loc
 
 def get_fastq_loc(database, sample):
-    locs = []
+    found_locs = []
     #correcting the downstream consequences of "custom capture" as the sample_type
     corrected_sample_type = sample['sample_type'].upper().replace(" ","_")
     sample_name=sample['sample_name']
@@ -112,6 +112,8 @@ def get_fastq_loc(database, sample):
                 fastq_loc = glob(potential_path)
                 if fastq_loc != []:
                     print('FOUND: {}'.format(potential_path))
+                    for folder in fastq_loc:
+                        found_locs.append(folder)
                     break
             if fastq_loc == []:
                 raise FastqError('{} Fastq files not found'.format(sample_name))
@@ -131,13 +133,14 @@ def get_fastq_loc(database, sample):
                           ).format(sample_name,flowcell['FCILLUMID'])
 
                     raise ValueError(msg)
-                print(flowcell)
                 for potential_loc in potential_locs:
                     #print('Checking {} for fastqs....'.format(potential_loc))
                     potential_path = '{}/{}/{}'.format(potential_loc,sample_name,flowcell['FCILLUMID'])
                     fastq_loc = glob(potential_path)
                     if fastq_loc != []:
                         print('FOUND: {}'.format(potential_path))
+                        for folder in fastq_loc:
+                            found_locs.append(folder)
                         break
                 if fastq_loc == []:
                     raise FastqError('{} Fastq files not found'.format(sample_name))
@@ -146,8 +149,8 @@ def get_fastq_loc(database, sample):
     """For samples in the database we can exclude any samples that only have
     R1 data however for sampels that predate the database we have to manually
     check for R2 existance"""
-    locs = check_fastq_locs(fastq_loc)
-    return locs
+    final_locs = check_fastq_locs(found_locs)
+    return final_locs
 
 def check_fastq_locs(locs):
     """Determine if loc has read 2 fastq files"""

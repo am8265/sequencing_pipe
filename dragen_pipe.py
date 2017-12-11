@@ -52,10 +52,10 @@ def update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database):
                          "JOIN Flowcell f on l.FCID=f.FCID "
                          "SET released=1,step_status='completed' "
                          "WHERE FCILLUMID='{}' AND "
-                         "LANENUM={} and "
+                         "LANENUM={} AND "
+                         "failr1 IS NULL AND "
                          "PREPID={} "
                         ).format(rg_fcillumid,rg_lane_num,rg_prepid)
-    #print(read_group_insert)
     run_query(read_group_insert,database)
 
 def check_bam_found_vs_bam_db(sample,qualified_bams_found):
@@ -64,12 +64,13 @@ def check_bam_found_vs_bam_db(sample,qualified_bams_found):
         #skips db vs found bam sanity check
         pass
     else:
-        qualified_bams_in_db = run_query(GET_QUALIFIED_BAMS.format(**sample.metadata),database)
+        print("Checking bams found vs RGs in db")
+        query = GET_QUALIFIED_BAMS.format(**sample.metadata)
+        qualified_bams_in_db = run_query(query,database)
         if len(qualified_bams_in_db) != len(qualified_bams_found):
-            #print(qualified_bams_found,qualified_bams_in_db)
+            print(qualified_bams_found,qualified_bams_in_db)
             raise ValueError("Number of bams found != number of RGs in database!")
         for db_bam in qualified_bams_in_db:
-            print(db_bam)
             db_bam = ("{output_dir}/{sample_name}.{pseudo_prepid}.{fcillumid}.{lane_num}.bam"
                      ).format(fcillumid=db_bam['fcillumid'],lane_num=db_bam['laneNum'],**sample.metadata)
             if glob(db_bam) == []:
@@ -169,6 +170,7 @@ def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
         subprocess.call(['chmod','-R','775','{}'.format(output_dir)])
     except:
         pass
+
 def update_dragen_metadata(sample,component_bams,database,debug):
     seqscratch_drive = sample.metadata['output_dir'].split('/')[2]
     get_dragen_metadata_query = ("SELECT * from dragen_sample_metadata "
@@ -200,14 +202,6 @@ def update_dragen_metadata(sample,component_bams,database,debug):
         print(query)
     run_query(query,database)
 
-def get_pipeline_version():
-    version = subprocess.check_output(
-        ["/nfs/goldstein/software/git-2.5.0/bin/git", "describe", "--always"]).strip()
-    if version:
-        return version
-    else:
-            raise ValueError("Could not get the version # of the pipeline; "
-                             "Check cwd?")
 
 def update_queue(pseudo_prepid,database,debug):
     insert_query = ("INSERT INTO tmp_dragen "
@@ -269,47 +263,42 @@ def get_first_read(sample,rg_lane_num,rg_fcillumid,debug):
     second_read = first_read.replace('_R1_','_R2_')
     return first_read,second_read
 
+def user_input_fastq_size(lg_or_gt):
+    if lg_or_gt == 'lt':
+        userInput = input('Sum of fastq files sizes are too small.  Is this ok? (y)es or (n)o ').lower()
+        if userInput == 'n':
+            raise Exception("Sum of fastq files sizes is too small for a {} sample!".format(sample_type))
+    elif lg_or_gt == 'gt':
+        userInput = input('Sum of fastq files sizes are too big.  Is this ok? (y)es or (n)o ').lower()
+        if userInput == 'n':
+             raise Exception("Sum of fastq files sizes is too big for a {} sample!".format(sample_type))
+    else:
+        raise Exception('Unhandled lg_or_gt variable')
+
 def check_Fastq_Total_Size(sample,debug):
     sample_type = sample.metadata['sample_type']
     fastq_filesize_sum = 0
     for fastq_loc in sample.metadata['fastq_loc']:
-        print(fastq_loc)
         for fastq in glob(fastq_loc + '/*gz'):
             fastq_filesize = os.stat(os.path.realpath(fastq)).st_size
             fastq_filesize_sum += fastq_filesize
     print("Sum of Fastq size: {}".format(fastq_filesize_sum))
     if sample_type == 'genome':
         if fastq_filesize_sum < 42949672960: # < 40GB
-            print(fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024)
-            userInput = input('Sum of fastq files sizes are too small.  Is this ok? (y)es or (n)o ').lower()
-            if userInput == 'n':
-                raise Exception("Sum of fastq files sizes is too small for a {} sample!".format(sample_type))
+            user_input_fastq_size('lt')
     elif sample_type == 'exome':
         if fastq_filesize_sum > 32212254720: # > 30GB
-            print(fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024)
-            userInput = input('Sum of fastq files sizes are too big.  Is this ok? (y)es or (n)o ').lower()
-            if userInput == 'n':
-                 raise Exception("Sum of fastq files is too big for a {} sample!".format(sample_type))
+            user_input_fastq_size('gt')
         elif fastq_filesize_sum < 1073741824: # < 1GB
-            userInput = input('Sum of fastq files sizes are too small.  Is this ok? (y)es or (n)o ').lower()
-            if userInput == 'n':
-                 raise Exception("Sum of fastq files is too small for a {} sample!".format(sample_type))
+            user_input_fastq_size('lt')
     elif sample_type == 'rnaseq':
         if fastq_filesize_sum > 32212254720: # > 30GB
-            print(fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024)
-            userInput = input('Sum of fastq files sizes are too big.  Is this ok? (y)es or (n)o ').lower()
-            if userInput == 'n':
-                 raise Exception("Sum of fastq files sizes is too big for a {} sample!".format(sample_type))
+            user_input_fastq_size('gt')
         elif fastq_filesize_sum < 1073741824: # < 1GB
-            userInput = input('Sum of fastq files sizes are too small.  Is this ok? (y)es or (n)o ').lower()
-            if userInput == 'n':
-                 raise Exception("Sum of fastq files is too small for a {} sample!".format(sample_type))
+            user_input_fastq_size('lt')
     elif sample_type == 'custom_capture':
         if fastq_filesize_sum > 10737418240: # > 10GB
-            print(fastq_filesize_sum,float(fastq_filesize_sum)/1024/1024/1024)
-            userInput = input('Sum of fastq files sizes are too big.  Is this ok? (y)es or (n)o ').lower()
-            if userInput == 'n':
-                 raise Exception("Sum of fastq files sizes is too big for a {} sample!".format(sample_type))
+            user_input_fastq_size('gt')
     else:
         raise Exception('Unhandled sample_type found: {}!'.format(sample_type))
     if debug:
@@ -350,7 +339,7 @@ def get_next_sample(pseudo_prepid,database,debug):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("-p", "--pseudo_prepid", type=str, 
+    group.add_argument("-p", "--pseudo_prepid", type=str,
                         help="Run dragen in single sample mode with provided pseudo_prepid")
     group.add_argument("-a", "--auto", default=False, action="store_true",
                         help="Run pipeline in automated mode")
