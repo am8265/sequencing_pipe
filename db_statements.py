@@ -1,12 +1,12 @@
 GET_QUALIFIED_BAMS = """
-    SELECT fcillumid,laneNum FROM pseudo_prepid pp
-    JOIN prepT p on p.PREPID=pp.PREPID
+    SELECT fcillumid,laneNum FROM prepT p
     JOIN Lane l on p.PREPID=l.PREPID
     JOIN Flowcell f on l.fcid=f.fcid
-    WHERE PSEUDO_PREPID = {pseudo_prepid} AND
-    FCILLUMID NOT LIKE 'X%' AND
-    RELEASED = 1
+    WHERE P_PREPID = {pseudo_prepid} AND
+    FCILLUMID NOT LIKE 'X%'
     """
+    # AND RELEASED = 1
+    # Add when release module goes live for HTS
 
 GET_MACHINE_FROM_FCILLUMID_QUERY = """
     SELECT MACHINE
@@ -14,14 +14,19 @@ GET_MACHINE_FROM_FCILLUMID_QUERY = """
     WHERE FCILLUMID = "{fcillumid}"
     """
 
-GET_PREPID_FROM_PSEUDO_PREPID = """
+GET_PREPID_FROM_P_PREPID = """
     SELECT PREPID
     FROM prepT
     WHERE P_PREPID = {}
     AND FAILEDPREP = 0
     """
+GET_P_PREPID_FROM_PREPID = """
+    SELECT DISTINCT P_PREPID
+    FROM prepT 
+    WHERE PREPID = {prepid}
+    """
 
-UPDATE_PSEUDO_PREPID_IN_PREPT = """
+UPDATE_P_PREPID_IN_PREPT = """
     UPDATE prepT
     SET P_PREPID = "{ppid}"
     WHERE prepID = "{pid}"
@@ -30,9 +35,8 @@ UPDATE_PSEUDO_PREPID_IN_PREPT = """
 GET_YIELD_FROM_PPID = """
     SELECT SUM(LNYIELD) AS LANE_YIELD_SUM
     FROM prepT p
-    JOIN pseudo_prepid pp ON p.prepid=pp.prepid
     JOIN Lane l ON p.prepid=l.prepid
-    WHERE pp.pseudo_prepid={ppid}
+    WHERE p.p_prepid={ppid}
     """
 
 GET_MACHINE_FAILED_STATUS_FROM_FCILLUMID_QUERY = """
