@@ -30,9 +30,8 @@ def run_query(query,database):
 
 def get_prepid(database,sample):
     """Retrieve qualifying prepids"""
-    query = ("SELECT prepid FROM pseudo_prepid WHERE pseudo_prepid={0}"
+    query = ("SELECT prepid FROM prepT WHERE p_prepid={0}"
             ).format(sample["pseudo_prepid"])
-    print(query)
     prepids = run_query(query,database)
     prepids = [x['prepid'] for x in prepids]
     return prepids
@@ -55,9 +54,8 @@ def get_priority(database,sample):
     return priority
 
 def get_pseudo_prepid(database,sample):
-    query = ("SELECT DISTINCT pseudo_prepid "
-            "FROM pseudo_prepid pp "
-            "JOIN prepT p ON pp.prepid=p.prepid "
+    query = ("SELECT DISTINCT p_prepid "
+            "FROM prepT p "
             "JOIN SeqType s ON s.prepid=p.prepid "
             "WHERE CHGVID='{sample_name}' "
             "AND seqtype='{sample_type}' "
@@ -66,7 +64,7 @@ def get_pseudo_prepid(database,sample):
             ).format(sample_name=sample['sample_name'],
                     sample_type=sample['sample_type'],
                     capture_kit=sample['capture_kit'])
-    pseudo_prepid = run_query(query)[0]['pseudo_prepid']
+    pseudo_prepid = run_query(query)[0]['p_prepid']
     return pseudo_prepid
 
 def get_bed_file_loc(database,capture_kit):
@@ -74,6 +72,7 @@ def get_bed_file_loc(database,capture_kit):
     query = (("SELECT region_file_lsrc FROM captureKit WHERE name='{0}' "
         "and chr = 'all'"
         ).format(capture_kit))
+    #print(query)
     bed_file_loc = run_query(query,database)[0]['region_file_lsrc']
     return bed_file_loc
 
@@ -82,7 +81,6 @@ def get_fastq_loc(database, sample):
     #correcting the downstream consequences of "custom capture" as the sample_type
     corrected_sample_type = sample['sample_type'].upper().replace(" ","_")
     sample_name=sample['sample_name']
-    print(sample['prepid'])
     for prepid in sample["prepid"]:
         external_or_legacy_flag = is_external_or_legacy_sample(prepid,database)
         """For cases where there is not flowell information the sequeuncing
@@ -102,18 +100,18 @@ def get_fastq_loc(database, sample):
                           '/nfs/seqscratch10/SRR/',
                           '/nfs/seqscratch*/tx_temp/tx_2390/CGND*/Project*/',
                           '/nfs/stornext/seqfinal/casava1.8/whole_{}/'.format(corrected_sample_type),
-                          '/nfs/fastq1*/{}/'.format(corrected_sample_type),
+                          '/nfs/fastq1[568]/{}/'.format(corrected_sample_type),
                           '/nfs/igmdata01/{}/'.format(corrected_sample_type),
                           '/nfs/seqsata*/seqfinal/whole_genome/']
 
         if external_or_legacy_flag == True:
             print("Externally or legacy samples")
             for potential_loc in potential_locs:
-                potential_path = '{}/{}/*[0-9XY]'.format(potential_loc,sample_name)
-                print('Checking {} for fastqs....'.format(potential_loc))
+                potential_path = '{}/{}/*[0-9xXyY]'.format(potential_loc,sample_name)
+                #print('Checking {} for fastqs....'.format(potential_loc))
                 fastq_loc = glob(potential_path)
                 if fastq_loc != []:
-                    print('FOUND!')
+                    print('FOUND: {}'.format(potential_path))
                     break
             if fastq_loc == []:
                 raise FastqError('{} Fastq files not found'.format(sample_name))
@@ -135,11 +133,11 @@ def get_fastq_loc(database, sample):
                     raise ValueError(msg)
                 print(flowcell)
                 for potential_loc in potential_locs:
-                    print('Checking {} for fastqs....'.format(potential_loc))
-                    print('FOUND!')
+                    #print('Checking {} for fastqs....'.format(potential_loc))
                     potential_path = '{}/{}/{}'.format(potential_loc,sample_name,flowcell['FCILLUMID'])
                     fastq_loc = glob(potential_path)
                     if fastq_loc != []:
+                        print('FOUND: {}'.format(potential_path))
                         break
                 if fastq_loc == []:
                     raise FastqError('{} Fastq files not found'.format(sample_name))
@@ -187,7 +185,8 @@ def get_lanes(database,sample):
         leg_or_ext = is_external_or_legacy_sample(prepid,database)
 
         if lane and leg_or_ext == False:
-            lanes.append((lane[0]['lanenum'],lane[0]['FCIllumID'],lane[0]['prepID']))
+            for entry in lane:
+                lanes.append((entry['lanenum'],entry['FCIllumID'],entry['prepID']))
         else: #In case of no database entry or external sample
             for flowcell in sample['fastq_loc']:
                 fastqs = glob(flowcell + '/*fastq.gz')
