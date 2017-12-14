@@ -64,7 +64,7 @@ def get_pseudo_prepid(database,sample):
     if len(pseudo_prepid) == 1:
         return pseudo_prepid[0]['p_prepid']
     else:
-        print pseudo_prepid
+        print(pseudo_prepid)
         raise ValueError('Too many pseudo_prepids found!')
 
 def get_bed_file_loc(database,capture_kit):
@@ -98,6 +98,7 @@ def get_fastq_loc(database, sample):
         potential_locs = ['/nfs/seqscratch_ssd/{}/'.format(corrected_sample_type),
                           '/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
                           '/nfs/seqscratch10/SRR/',
+                          '/nfs/fastq_temp/tx_temp/tx_2390/CGND*/Project*/',
                           '/nfs/seqscratch*/tx_temp/tx_2390/CGND*/Project*/',
                           '/nfs/stornext/seqfinal/casava1.8/whole_{}/'.format(corrected_sample_type),
                           '/nfs/fastq1[568]/{}/'.format(corrected_sample_type),
@@ -127,6 +128,7 @@ def get_fastq_loc(database, sample):
                 "GROUP BY f.fcid"
                 ).format(prepid)
             seqsatalocs = run_query(query,database)
+            print(seqsatalocs)
             for flowcell in seqsatalocs:
                 if flowcell['SEQSATALOC'] == '':
                     msg = ('Sample {} on flowcell {} is missing seqsataloc!  Still sequencing?'
