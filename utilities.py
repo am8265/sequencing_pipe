@@ -23,6 +23,7 @@ def parse_run_parameters_xml(fcillumid):
 
     with open(run_parameters_xml,'r') as xml:
         run_info_dict = {}
+        run_info_dict['type'] = xml_type
         tree = ElementTree.parse(xml)
         if xml_type == 'NovaSeq':
             run_info_dict['RtaVersion'] = tree.findall('RtaVersion')[0].text
@@ -42,11 +43,15 @@ def parse_run_parameters_xml(fcillumid):
             run_info_dict['experimentName'] = tree.findall('Setup')[0].find('ExperimentName').text
             run_info_dict['runFolder'] = tree.findall('Setup')[0].find('RunID').text
             run_info_dict['runDate'] = tree.findall('Setup')[0].find('RunStartDate').text
-            run_info_dict['machineName'] = tree.findall('Setup')[0].find('ComputerName').text.split('-')[1]
+            ComputerName = tree.findall('Setup')[0].find('ComputerName').text
+            if '-' in ComputerName:
+                run_info_dict['machineName'] = ComputerName.split('-')[-1]
+            else:
+                run_info_dict['machineName'] = 'External-HiSeq'
             run_info_dict['ControlSoftwareVer'] = tree.findall('Setup')[0].find('ApplicationVersion').text
             run_info_dict['FCIllumID'] = tree.findall('Setup')[0].find('Barcode').text
             run_info_dict['Side'] = tree.findall('Setup')[0].find('FCPosition').text
-
+            run_info_dict['machine'] = run_info_dict['machineName'] + run_info_dict['Side'][0]
         else:
             raise ValueError("Undefined xml_type:{}!".format(xml_type))
     return run_info_dict
@@ -55,7 +60,8 @@ def parse_run_parameters_xml(fcillumid):
 def get_connection(database):
     try:
         reader = configparser.RawConfigParser()
-        reader.read('/home/jb3816/.my.cnf')
+        my_cnf = glob(os.path.expanduser('~/.my.cnf'))
+        reader.read(my_cnf[0])
         db = 'client' + database
         db_host = reader.get(db, 'host')
         db_user = reader.get(db, 'user')
@@ -285,7 +291,7 @@ def run_query(query,database):
 
 def get_config():
     config = configparser.ConfigParser()
-    config.read('config.ini')
+    config.read('/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/config.ini')
     return config
 
 def check_exist_bcl_dir(BCLDrive):
@@ -293,18 +299,19 @@ def check_exist_bcl_dir(BCLDrive):
     if dir_path != []:
         raise Exception('BCL directory already exists: {}!'.format(BCLDrive))
 
-def check_flowcell_complete(bcl_dir,run_folder_path):
+def check_flowcell_complete(bcl_dir,run_folder_path,machine_type):
     rta_complete_loc = bcl_dir + run_folder_path + '/RTAComplete.txt'
     if os.path.isfile(rta_complete_loc) == False:
         print(rta_complete_loc)
         raise Exception("RTA has not completed!")
     else:
         print("RTAComplete.txt check: OK!")
-    storage_complete_loc = bcl_dir + run_folder_path + '/CopyComplete.txt'
-    if os.path.isfile(storage_complete_loc) == False:
-        raise Exception("Copy has not completed!")
-    else:
-        print("CopyComplete.txt check: OK!")
+    if machine_type == 'NovaSeq':
+        storage_complete_loc = bcl_dir + run_folder_path + '/CopyComplete.txt'
+        if os.path.isfile(storage_complete_loc) == False:
+            raise Exception("Copy has not completed!")
+        else:
+            print("CopyComplete.txt check: OK!")
 
 def get_user_id(database):
     p = os.popen('echo $USER')

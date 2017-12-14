@@ -164,16 +164,16 @@ def main():
 
     check_fcillumid(args.fcillumid,run_info_dict['FCIllumID'])
     check_machine(run_info_dict['machine'],args.fcillumid,database)
-    check_flowcell_complete(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
+    check_flowcell_complete(config.get('locs','bcl_dir'),run_info_dict['runFolder'],run_info_dict['type'])
 
-    if args.sss_loc is None:
+    if args.sss is None:
         sss_loc = create_sss_from_database(args.fcillumid,run_info_dict['machine'],run_info_dict,config,database)
         cp_cmd= ('cp {} /nfs/igmdata01/Sequencing_SampleSheets/'
              ).format(sss_loc)
         os.system(cp_cmd)
 
     else:
-        sss_loc = args.sss_loc
+        sss_loc = args.sss
         print("Using SSS: {}".format(sss_loc))
     #check_sss(sss_loc)
     run_bcl2fastq(args,run_info_dict,config,sss_loc,database,args.verbose)

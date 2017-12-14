@@ -161,7 +161,7 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info('Running GAF_Pipeline.py')
 
-    check_flowcell_complete(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
+    check_flowcell_complete(config.get('locs','bcl_dir'),run_info_dict['runFolder'],run_info_dict['type'])
     check_machine(machine,args.fcillumid,database)
     """Sequencing output is in the following format:
     [Date]_[IGM Machine Name]_[HiSeq Run Number]_[Flowcell ID]_[Project Name]
