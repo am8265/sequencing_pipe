@@ -237,7 +237,7 @@ def checkLaneFractions(fcillumid,Machine,unaligned_dir,sample_info,database):
             cluster_density = run_query(GET_CLUSTER_DENSITY_FOR_LANE.format(fcillumid=fcillumid,lanenum=lanes[0][5]),database)
             cluster_density = cluster_density[0]['CLUSTDEN']
             #HiSeqs
-            if chemVer[0]['CHEMVER'][0] == 'H':
+            if chemVer[0]['CHEMVER'][0] == 'H' or chemVer[0]['CHEMVER'] == 'v4':
                 if samp[0] == 'undetermined':
                     if float(samp[1]) > 3:
                         emailSwitch = 1
@@ -268,7 +268,7 @@ def checkLaneFractions(fcillumid,Machine,unaligned_dir,sample_info,database):
                     highlightRowNumber.append(4)
 
             else:
-                raise Exception("Unhandled chemVer type: {}!".format(chemVer['CHEMVER']))
+                raise Exception("Unhandled chemVer type: {}!".format(chemVer[0]['CHEMVER']))
 
             #print(samp,lane_switch,samp[0][0:4] == 'lane' and samp[1] > 5) 
         if lane_switch == 1:
