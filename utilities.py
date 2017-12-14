@@ -47,7 +47,7 @@ def parse_run_parameters_xml(fcillumid):
             if '-' in ComputerName:
                 run_info_dict['machineName'] = ComputerName.split('-')[-1]
             else:
-                run_info_dict['machineName'] = 'External-HiSeq'
+                run_info_dict['machineName'] = 'External'
             run_info_dict['ControlSoftwareVer'] = tree.findall('Setup')[0].find('ApplicationVersion').text
             run_info_dict['FCIllumID'] = tree.findall('Setup')[0].find('Barcode').text
             run_info_dict['Side'] = tree.findall('Setup')[0].find('FCPosition').text
