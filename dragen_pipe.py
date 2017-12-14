@@ -39,6 +39,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
             except:
                 print("No more samples in the queue")
                 sys.exit()
+
 def update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database):
     #read_group_insert = ("UPDATE Lane l "
     #                     "JOIN Flowcell f on l.FCID=f.FCID "
@@ -61,8 +62,17 @@ def update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database):
 def check_bam_found_vs_bam_db(sample,qualified_bams_found):
     max_prepid = max(map(lambda x:int(x),sample.metadata['prepid']))
     if is_external_or_legacy_sample(max_prepid,database) == True:
-        #skips db vs found bam sanity check
-        pass
+       print("Checking bams found vs RGs form fastqs")
+       for laneFCID in sample.metadata['lane'][0]: #loop over read groups
+            rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
+
+            bam_loc = ("{output_dir}/{sample_name}.{pseudo_prepid}.{rg_fcillumid}.{rg_lane_num}.*bam"
+                      ).format(rg_fcillumid=rg_fcillumid,
+                               rg_lane_num=rg_lane_num,
+                               **sample.metadata)
+            if glob(bam_loc) == []:
+                raise ValueError("Bam {} not found!".format(bam_loc))
+
     else:
         print("Checking bams found vs RGs in db")
         query = GET_QUALIFIED_BAMS.format(**sample.metadata)
@@ -108,7 +118,7 @@ def write_sge_header(sample,step,script_loc):
 def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
     check_Fastq_Total_Size(sample,debug)
     setup_dir(seqscratch_drive,sample,debug)
-    existing_bams_check = True 
+    existing_bams_check = True
     output_dir = sample.metadata['output_dir']
     pseudo_prepid = sample.metadata['pseudo_prepid']
     submit_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -134,8 +144,7 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
         run_query(rm_query,database)
 
     else:
-        print(("Sample {sample_name} bam file already exists!")
-              ).format(sample_name=sample.metadata['sample_name'])
+        print("Sample with bam files already exists!")
         sys.exit(1)
 
 def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
