@@ -4,6 +4,7 @@ import logging
 import os
 from copy import copy
 from dragen_sample import dragen_sample
+from glob import glob
 from utilities import *
 
 def main():
@@ -40,8 +41,7 @@ def main():
         email(fcillumid,rejected_samples,config)
 
     else:
-        run_sample(args.sample_name,args.sample_type,args.capture_kit,
-                   args.priority,auto_release_flag,rejected_samples,database)
+        run_sample(args,config,auto_release_flag,rejected_samples,database)
 
 def email(fcillumid,rejected_samples,config):
     email_program=config.get('emails','email_program')
@@ -119,7 +119,7 @@ def update_queues(sample_name,sample_type,capture_kit,ppid,priority,database):
                                       sample_type=sample_type,
                                       capture_kit=capture_kit,
                                       ppid=ppid,
-                                      priority=40)
+                                      priority=10)
             run_query(insert_query,database)
     if priority is not None:
         print("Updating sample {} priority to {}".format(sample_name,priority))
@@ -129,35 +129,62 @@ def update_queues(sample_name,sample_type,capture_kit,ppid,priority,database):
                               """.format(priority=priority,ppid=ppid)
         run_query(update_dragen_queue,database)
 
-def run_sample(sample_name,sample_type,capture_kit,priority,
-               auto_release_flag,rejected_samples,database):
-    ppid,pids = update_ppid(sample_name,sample_type,capture_kit,database)
-    sample_status_query = """ SELECT MAX(PIPELINE_STEP_ID) as PIPELINE_STEP_ID
-                              FROM dragen_pipeline_step
-                              WHERE STEP_STATUS='completed' AND
-                              PSEUDO_PREPID={ppid}
+
+
+def check_db_check_seqscratch(config,sample_name,sample_type,ppid,database):
+    alignment_dir = '{}/{}/{}.{}'.format(config.get('locs','dragen_aligment_dir'),
+                                         sample_type.upper(),sample_name,ppid)
+    sample_alignment = (glob(alignment_dir))
+    if sample_alignment != []:
+        raise ValueError("Scratch alignment director found.  Cleanup required first!")
+
+    sample_status_query = """SELECT MAX(PIPELINE_STEP_ID) as PIPELINE_STEP_ID
+                             FROM dragen_pipeline_step
+                             WHERE STEP_STATUS='completed' AND
+                             PSEUDO_PREPID={ppid}
                           """.format(ppid=ppid)
     sample_status = run_query(sample_status_query,database)
 
     if sample_status[0]['PIPELINE_STEP_ID'] != None:
         raise ValueError("Sample {} has already been run.  Cleanup required first".format(sample_name))
+
+    dsm_query = """SELECT * FROM dragen_sample_metadata
+                   WHERE PSEUDO_PREPID={ppid}
+                """.format(ppid=ppid)
+    dsm_status = run_query(dsm_query,database)
+    if dsm_status:
+        if dsm_status[0]['is_merged'] != 0:
+            raise ValueError("Sample {} has an attempted merge already! Cleanup required first".format(sample_name))
+        if dsm_status[0]['component_bams']:
+            print(dsm_status[0]['component_bams'])
+            raise ValueError("Sample {} already has component bams!".format(sample_name))
+
+
+def run_sample(args,config,auto_release_flag,rejected_samples,database):
+    sample_name = args.sample_name
+    sample_type = args.sample_type
+    capture_kit = args.capture_kit
+    priority = args.priority
+    ppid,pids = update_ppid(sample_name,sample_type,capture_kit,database)
+    sample = dragen_sample(sample_name,sample_type,ppid,
+                           capture_kit,database)
+    check_db_check_seqscratch(config,sample_name,sample_type,ppid,database)
+
+    print("Starting sample release for sample: {}, {}, {}".format(sample_name,
+                                                                  sample_type,
+                                                                  capture_kit))
+
+    #every external sample should only have one pids
+    if is_external_or_legacy_sample(pids[0],database) == True:
+        pass
     else:
-        print("Starting sample release for sample: {}, {}, {}".format(sample_name,
-                                                                      sample_type,
-                                                                      capture_kit))
-        sample = dragen_sample(sample_name,sample_type,ppid,
-                               capture_kit,database)
-        #every external sample should only have one pids
-        if is_external_or_legacy_sample(pids[0],database) == True:
-            pass
-        else:
-            rejected_samples = check_yield(ppid,sample_type,
-                                           auto_release_flag,
-                                           rejected_samples,database)
-        update_queues(sample_name,sample_type,capture_kit,ppid,priority,database)
-        ##update statusT
-        ##update prepT.status
-        return rejected_samples
+        rejected_samples = check_yield(ppid,sample_type,
+                                       auto_release_flag,
+                                       rejected_samples,database)
+    update_queues(sample_name,sample_type,capture_kit,ppid,priority,database)
+    ##update statusT
+    ##update prepT.status
+    return rejected_samples
 
 def check_yield(ppid,sample_type,auto_release_flag,rejected_samples,database):
    lane_yield_sum = run_query(GET_YIELD_FROM_PPID.format(ppid=ppid),database)[0]['LANE_YIELD_SUM']
