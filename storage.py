@@ -172,7 +172,7 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
     processSAV(verbose,fcillumid,machine,run_info_dict,config,archive_drive,seqscratchBase)
     processBcl2fastqLog(verbose,fcillumid,machine,archive_drive,UnalignedLoc)
     createStorageCompleteFlag(verbose,config,run_info_dict)
-    #archiveFastqs(archive_tuples_list,origTotalFastqSize,verbose)
+    archiveFastqs(archive_tuples_list,origTotalFastqSize,verbose)
     updateLaneStatus(verbose,fcillumid,noStatus,database)
     updateStatus(verbose,fcillumid,noStatus,database)
     updateFlowcell(verbose,fcillumid,archive_drive,database)
@@ -199,7 +199,7 @@ def createStorageCompleteFlag(verbose,config,run_info_dict):
     touchCmd = ['touch',flagloc]
     if verbose:
         print(' '.join(touchCmd))
-    #subprocess.call(touchCmd)
+    subprocess.call(touchCmd)
 
 def processSAV(verbose,fcillumid,machine,run_info_dict,config,archive_drive,seqscratchBase):
     logger = logging.getLogger(__name__)
