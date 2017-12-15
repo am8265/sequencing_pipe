@@ -4,8 +4,10 @@ GET_QUALIFIED_BAMS = """
     JOIN Flowcell f on l.fcid=f.fcid
     WHERE P_PREPID = {pseudo_prepid} AND
     FCILLUMID NOT LIKE 'X%' AND
-    FAILR1 IS NULL
+    FAILR1 IS NULL AND
+    FAILR2 IS NULL
     """
+    # doesn't support SE cases
     # AND RELEASED = 1
     # Add when release module goes live for HTS
 

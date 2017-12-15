@@ -62,7 +62,7 @@ def update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database):
 def check_bam_found_vs_bam_db(sample,qualified_bams_found):
     max_prepid = max(map(lambda x:int(x),sample.metadata['prepid']))
     if is_external_or_legacy_sample(max_prepid,database) == True:
-       print("Checking bams found vs RGs form fastqs")
+       print("Checking bams found vs RGs from fastqs")
        for laneFCID in sample.metadata['lane'][0]: #loop over read groups
             rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
 
