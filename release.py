@@ -187,7 +187,8 @@ def run_sample(args,config,auto_release_flag,rejected_samples,database):
     return rejected_samples
 
 def check_yield(ppid,sample_type,auto_release_flag,rejected_samples,database):
-   lane_yield_sum = run_query(GET_YIELD_FROM_PPID.format(ppid=ppid),database)[0]['LANE_YIELD_SUM']
+   query = GET_YIELD_FROM_PPID.format(ppid=ppid)
+   lane_yield_sum = run_query(query,database)[0]['LANE_YIELD_SUM']
    lane_yield_sum = int(lane_yield_sum)
 
    if sample_type.lower() == 'exome' and lane_yield_sum > 7000:
@@ -259,7 +260,7 @@ def insert_pid_into_ppid(sample_name,sample_type,capture_kit,database):
 def update_ppid(sample_name,sample_type,capture_kit,database):
     GET_PID_PPID_FROM_TRIPLET= """
         SELECT P_PREPID,PREPID
-        FROM prepT 
+        FROM prepT
         WHERE CHGVID='{chgvid}'
         AND SAMPLE_TYPE='{seqtype}'
         """.format(chgvid=sample_name,

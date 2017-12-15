@@ -76,10 +76,10 @@ def get_connection(database):
             sys.exit("Wrong username/database or password found, please try again")
 
 def is_external_or_legacy_sample(prepid,database):
-    """In cases of legecy samples (prepid < 20000) or external samples. There are no cases of legecy samples with
+    """In cases of legecy samples (prepid < 22000) or external samples. There are no cases of legecy samples with
     multiple preps"""
-    if prepid < 20000:
-        print("Sample has a prepID < 20000")
+    if prepid < 22000:
+        print("Sample has a prepID < 22000")
         return True
 
     else:
