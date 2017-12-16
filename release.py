@@ -132,11 +132,16 @@ def update_queues(sample_name,sample_type,capture_kit,ppid,priority,database):
 
 
 def check_db_check_seqscratch(config,sample_name,sample_type,ppid,database):
-    alignment_dir = '{}/{}/{}.{}'.format(config.get('locs','dragen_aligment_dir'),
+    ssd_dir = '{}/{}/{}.{}'.format(config.get('locs','dragen_aligment_dir'),
                                          sample_type.upper(),sample_name,ppid)
-    sample_alignment = (glob(alignment_dir))
-    if sample_alignment != []:
-        raise ValueError("Scratch alignment director found.  Cleanup required first!")
+    ft_dir = '{}/{}/{}.{}'.format('/nfs/fastq_temp/ALIGNMENT/',sample_type.upper(),sample_name,ppid)
+    ft2_dir = '{}/{}/{}.{}'.format('/nfs/fastq_temp2',sample_type.upper(),sample_name,ppid)
+    print(ssd_dir)
+    alignment_dirs = [ssd_dir,ft_dir,ft2_dir]
+    for alignment_dir in alignment_dirs:
+        sample_alignment = (glob(alignment_dir))
+        if sample_alignment != []:
+            raise ValueError("Scratch alignment director found.  Cleanup required first!")
 
     sample_status_query = """SELECT MAX(PIPELINE_STEP_ID) as PIPELINE_STEP_ID
                              FROM dragen_pipeline_step
@@ -146,7 +151,7 @@ def check_db_check_seqscratch(config,sample_name,sample_type,ppid,database):
     sample_status = run_query(sample_status_query,database)
 
     if sample_status[0]['PIPELINE_STEP_ID'] != None:
-        raise ValueError("Sample {} has already been run.  Cleanup required first".format(sample_name))
+        raise ValueError("Sample {} has already been run in GATK pipe.  Cleanup required first".format(sample_name))
 
     dsm_query = """SELECT * FROM dragen_sample_metadata
                    WHERE PSEUDO_PREPID={ppid}
