@@ -281,7 +281,6 @@ def send_email(emailSwitch,fcillumid,Machine,unaligned_dir):
     logger = logging.getLogger(__name__)
     if emailSwitch == 1 and os.path.isfile('%s/EmailSent.txt' % unaligned_dir) == False:
         address = "igm-hts@columbia.edu"
-        address = 'jb3816@cumc.columbia.edu'
         emailProgramLocation = '/nfs/goldstein/software/mutt-1.5.23/bin/mutt '
         emailCmd = emailProgramLocation + '-e "set content_type=text/html" '
         emailCmd += '-s \"Problem with Lane Fractions for flowcell %s %s\" ' % (fcillumid,Machine)
