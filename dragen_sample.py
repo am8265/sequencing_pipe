@@ -98,6 +98,7 @@ def get_fastq_loc(database, sample):
         potential_locs = ['/nfs/seqscratch_ssd/{}/'.format(corrected_sample_type),
                           '/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
                           '/nfs/seqscratch10/SRR/',
+                          '/nfs/sequencing/tx_2390/CGND*/Project*/',
                           '/nfs/fastq_temp/tx_temp/tx_2390/CGND*/Project*/',
                           '/nfs/seqscratch*/tx_temp/tx_2390/CGND*/Project*/',
                           '/nfs/stornext/seqfinal/casava1.8/whole_{}/'.format(corrected_sample_type),
