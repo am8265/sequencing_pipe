@@ -65,15 +65,46 @@ def email(emailAddress,storageStatus,FCID):
     logger.info(emailCmd)
     os.system(emailCmd)
 
-def archiveFastqs(archive_tuples_list,origTotalFastqSize,verbose):
-    logger = logging.getLogger(__name__)
+def regenerate_archive_tuples_list(config,fcillumid,database):
+    archive_tuples_list = []
+    query = """SELECT CHGVID,FCILLUMID,LANENUM,SEQTYPE
+               FROM prepT p
+               JOIN Lane l ON l.PREPID=p.PREPID
+               JOIN Flowcell f ON l.FCID=f.FCID
+               JOIN SeqType st ON st.prepid=p.prepid
+               WHERE f.fcillumid='{}'
+            """.format(fcillumid)
+    sample_info_on_flowcell = run_query(query,database)
+    for sample in sample_info_on_flowcell:
+        sampleArchiveLoc = '/nfs/{}/{}/{}/{}'.format(config.get('locs','fastq_archive_drive'),
+                                                     sample['SEQTYPE'].upper(),
+                                                     sample['CHGVID'],fcillumid)
+        for read in range(1,3):
+           scratchFastq = ('/nfs/{archive_drive}/{sample_type}/{sample_name}/{fcillumid}/{sample_name}_*L00{lanenum}_R{read}_*.fastq.gz'
+                          ).format(archive_drive=config.get('locs','bcl2fastq_scratch_drive'),
+                                   sample_type=sample['SEQTYPE'].upper(),
+                                   sample_name=sample['CHGVID'],
+                                   lanenum=sample['LANENUM'],
+                                   fcillumid=fcillumid,
+                                   read=read)
+           if glob(scratchFastq) == []:
+               print(scratchFastq)
+               raise Exception('Fastq not found for regenerated tuple list')
+           else:
+               archive_tuples_list.append((glob(scratchFastq)[0],sampleArchiveLoc))
+    return archive_tuples_list
 
+def archiveFastqs(config,archive_tuples_list,origTotalFastqSize,fcillumid,verbose,database):
+    if archive_tuples_list == []:
+        archive_tuples_list = regenerate_archive_tuples_list(config,fcillumid,database)
+    logger = logging.getLogger(__name__)
     for orig_dest_pair in archive_tuples_list:
+        subprocess.check_call(['mkdir','-p',orig_dest_pair[1]])
         fastqMoveCmd = ['rsync','--inplace','-aq',orig_dest_pair[0],orig_dest_pair[1]]
         if verbose:
             print(' '.join(fastqMoveCmd))
         logger.info(fastqMoveCmd)
-        subprocess.call(fastqMoveCmd)
+        subprocess.check_call(fastqMoveCmd)
 
 def get_mv_fastq_size_sum(drive,fcillumid):
     logger = logging.getLogger(__name__)
@@ -127,14 +158,13 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
     verbose = args.verbose
     UnalignedLoc = '/nfs/{}/BCL/{}_{}_{}_Unaligned'.format(bcl_drive,run_info_dict['runDate'],
                                                   machine,fcillumid)
-    print(UnalignedLoc)
     fastq_list = glob('{}/*/*fastq.gz'.format(UnalignedLoc))
     origNumFastq = len(fastq_list)
     origTotalFastqSize = 0
     archive_tuples_list = []
     if len(fastq_list) == 0:
         raise Exception('No fastqs were found!')
-    #Interate over Project*/Sample*
+
     for fastq in fastq_list:
         fastqSize = os.path.getsize(fastq)
         logger.info('{} original filesize: {}'.format(fastq,fastqSize))
@@ -154,7 +184,7 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
         if verbose:
             print(' '.join(fastqMoveCmd))
         logger.info(fastqMoveCmd)
-        subprocess.call(fastqMoveCmd)
+        subprocess.check_call(fastqMoveCmd)
 
         reportLaneBarcodeLoc = ('{}/Reports/html/{}/{}/{}/all/laneBarcode.html'
                                 ).format(UnalignedLoc,fcillumid,gaf_bin[0]['GAFBIN'],sampleName)
@@ -163,16 +193,16 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
         if verbose:
             print(' '.join(reportCpCmd))
         logger.info(reportCpCmd)
-        subprocess.call(reportCpCmd)
+        subprocess.check_call(reportCpCmd)
 
     mvTotalFastqSize,mvNumFastq = get_mv_fastq_size_sum(dest_drive,fcillumid)
     check_orig_dest_transfer(dest_drive,origNumFastq,origTotalFastqSize,mvNumFastq,mvTotalFastqSize)
 
-    seqscratchBase = '/nfs/seqscratch1/Runs'
+    seqscratchBase = config.get('locs','bcl_dir')
     processSAV(verbose,fcillumid,machine,run_info_dict,config,archive_drive,seqscratchBase)
     processBcl2fastqLog(verbose,fcillumid,machine,archive_drive,UnalignedLoc)
     createStorageCompleteFlag(verbose,config,run_info_dict)
-    archiveFastqs(archive_tuples_list,origTotalFastqSize,verbose)
+    archiveFastqs(config,archive_tuples_list,origTotalFastqSize,fcillumid,verbose,database)
     updateLaneStatus(verbose,fcillumid,noStatus,database)
     updateStatus(verbose,fcillumid,noStatus,database)
     updateFlowcell(verbose,fcillumid,archive_drive,database)
@@ -199,7 +229,7 @@ def createStorageCompleteFlag(verbose,config,run_info_dict):
     touchCmd = ['touch',flagloc]
     if verbose:
         print(' '.join(touchCmd))
-    subprocess.call(touchCmd)
+    subprocess.check_call(touchCmd)
 
 def processSAV(verbose,fcillumid,machine,run_info_dict,config,archive_drive,seqscratchBase):
     logger = logging.getLogger(__name__)
@@ -208,7 +238,6 @@ def processSAV(verbose,fcillumid,machine,run_info_dict,config,archive_drive,seqs
     else:
         runParametersFile = 'runParameters.xml'
     raw_sequencing_folder_loc = '{}/{}'.format(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
-    print(raw_sequencing_folder_loc)
     RunInfoLoc = glob('{}/RunInfo.xml'.format(raw_sequencing_folder_loc))[0]
     runParaLoc= glob('{}/{}'.format(raw_sequencing_folder_loc,runParametersFile))[0]
     InteropsLoc = glob('{}/InterOp'.format(raw_sequencing_folder_loc))[0]
@@ -254,10 +283,10 @@ def updateStatus(verbose,FCID,noStatus,database):
 
 def updateFlowcell(verbose,fcillumid,archive_drive,database):
     logger = logging.getLogger(__name__)
-    print(archive_drive)
     query = ("UPDATE Flowcell "
              "SET DateStor=CURRENT_TIMESTAMP(), "
-             "SeqsataLoc='{}' "
+             "SeqsataLoc='{}',"
+             "PIPELINE_COMPLETE=1"
              "WHERE FCIllumid='{}'").format(archive_drive,fcillumid)
     if verbose:
         print(query)
