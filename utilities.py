@@ -104,14 +104,6 @@ def is_external_or_legacy_sample(prepid,database):
         else: #Returns None
             raise ValueError("No value found.  Does prepID exist?")
 
-def get_userid_from_uni(database):
-    p = os.popen(' echo $USER ')
-    userName = p.readline().strip()
-    p.close()
-    if userName == 'solexa': #GAF user name back at duke
-        userName = 'jb3816'
-    userid = run_query(GET_USERID_FROM_UNI.format(uni=uni))['USERID']
-    return userid
 
 def check_number_query_results(results,expected):
     if len(results) == 0:
@@ -312,12 +304,15 @@ def check_flowcell_complete(bcl_dir,run_folder_path,machine_type):
             raise Exception("Copy has not completed!")
         else:
             print("CopyComplete.txt check: OK!")
-
-def get_user_id(database):
+def get_user():
     p = os.popen('echo $USER')
     userName = p.readline().strip()
     p.close()
-    get_userID_query = GET_USERID_FROM_UNI.format(uni=userName)
+    return userName
+
+def get_user_id(database):
+    uni = get_user()
+    get_userID_query = GET_USERID_FROM_UNI.format(uni=uni)
     userID = run_query(get_userID_query,database)
     check_number_query_results(userID,1)
     userID = userID[0]['USERID']
