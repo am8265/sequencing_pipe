@@ -119,15 +119,15 @@ def update_queues(sample_name,sample_type,capture_kit,ppid,priority,database):
                                       sample_type=sample_type,
                                       capture_kit=capture_kit,
                                       ppid=ppid,
-                                      priority=10)
+                                      priority=priority)
             run_query(insert_query,database)
-    if priority is not None:
-        print("Updating sample {} priority to {}".format(sample_name,priority))
-        update_dragen_queue = """UPDATE dragen_queue
-                                 SET PRIORITY={priority}
-                                 WHERE PSEUDO_PREPID = {ppid}
-                              """.format(priority=priority,ppid=ppid)
-        run_query(update_dragen_queue,database)
+
+    print("Updating sample {} priority to {}".format(sample_name,priority))
+    update_dragen_queue = """UPDATE dragen_queue
+                             SET PRIORITY={priority}
+                             WHERE PSEUDO_PREPID = {ppid}
+                          """.format(priority=priority,ppid=ppid)
+    run_query(update_dragen_queue,database)
 
 
 
@@ -169,10 +169,14 @@ def run_sample(args,config,auto_release_flag,rejected_samples,database):
     sample_name = args.sample_name
     sample_type = args.sample_type
     capture_kit = args.capture_kit
-    priority = args.priority
     ppid,pids = update_ppid(sample_name,sample_type,capture_kit,database)
     sample = dragen_sample(sample_name,sample_type,ppid,
                            capture_kit,database)
+    if args.priority is None:
+        priority = sample.metadata['priority']
+    else:
+        priority = args.priority
+
     check_db_check_seqscratch(config,sample_name,sample_type,ppid,database)
 
     print("Starting sample release for sample: {}, {}, {}".format(sample_name,
