@@ -16,7 +16,7 @@ def submit(config,args,run_info_dict,database):
     bcl2fastq_scratch_drive = config.get('locs','bcl2fastq_scratch_drive')
     archive_dir = config.get('locs','fastq_archive_drive')
     logger = logging.getLogger(__name__)
-    address = '{}@cumc.columbia.edu'.format(get_user_id(database))
+    address = '{}@cumc.columbia.edu'.format(get_user())
     python36_program = config.get('programs','python36_program')
     #scriptLoc = '/nfs/goldstein/software/sequencing_pipe/dev/'
     scriptLoc = '/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe'
@@ -28,16 +28,12 @@ def submit(config,args,run_info_dict,database):
     BCLMySQLCmd =    ("{} {}/bcl_mysql.py -f {}").format(python36_program,scriptLoc,fcillumid)
     postBCLCmd =     ("{} {}/post_bcl.py -f {}").format(python36_program,scriptLoc,fcillumid)
     storageCmd =     ("{} {}/storage.py -f {}").format(python36_program,scriptLoc,fcillumid)
-    fastqcCmd =      ("{} {}/fastqc.py -f {}").format(python36_program,scriptLoc,fcillumid)
-    fastqcMySQLCmd = ("{} {}/fastqc_mysql.py -f {}").format(python36_program,scriptLoc,fcillumid)
 
     if args.test == True:
         BCLCmd += ' --test'
         BCLMySQLCmd += ' --test'
         postBCLCmd += ' --test'
         storageCmd += ' --test'
-        fastqcCmd += ' --test'
-        fastqcMySQLCmd += ' --test'
 
     if args.run == False:
         #prints out all the commands to run manually
@@ -47,9 +43,6 @@ def submit(config,args,run_info_dict,database):
         print(BCLMySQLCmd)
         print(postBCLCmd)
         print(storageCmd)
-        print(fastqcCmd)
-        #fastqcMySQLCmd is now run within the fastqcCmd
-        print(fastqcMySQLCmd)
         print("="*86)
         print
         print(('Log file: {}'
@@ -64,23 +57,21 @@ def submit(config,args,run_info_dict,database):
 
         #run post_bcl2fastq
         create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,address,postBCLCmd)
-        run_qsub_command(sample,'post_bcl','bcl',run_info_dict)
+        run_qsub_command(config,fcillumid,'post_bcl',run_info_dict)
         create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address,storageCmd)
-        run_qsub_command(sample,'storage','post_bcl',run_info_dict)
-        #create_fastqc_script(config,archive_dir,runFolder,machine,fcillumid,address,fastqcCmd)
-        #run_qsub_command(sample,'fastqc','storage',run_info_dict)
+        run_qsub_command(config,fcillumid,'storage',run_info_dict)
 
-def run_qsub_command(sample,step,fcillumid,run_info_dict):
+def run_qsub_command(config,fcillumid,step,run_info_dict):
     logger = logging.getLogger(__name__)
     qsub_cmd = ('{qsub_program} -N {machine}_{fcillumid}_{bcl2fastq_scratch_drive}_{step} '
-                '/nfs/seqscratch1/Runs/{runFolder}/{machine}_{fcillumid}_{archive_dir}_{step}.sh'
+                '/nfs/seqscratch1/Runs/{runFolder}/{machine}_{fcillumid}_{step}.sh'
                ).format(qsub_program=config.get('programs','qsub_program'),
                         machine=run_info_dict['machine'],
                         fcillumid=fcillumid,
-                        archive_dir=run_info_dict['marchive_dir'],
                         runFolder=run_info_dict['runFolder'],
-                        bcl2fastq_scratch_drive=config.get('locs','bcl2fastq_scratch_drive'))
-
+                        bcl2fastq_scratch_drive=config.get('locs','bcl2fastq_scratch_drive'),
+                        step=step)
+    print(qsub_cmd)
     logger.info(qsub_cmd)
     os.system(qsub_cmd)
 
@@ -92,6 +83,7 @@ def add_sge_header(config,file,fcillumid,step,hold):
     file.write('#$ -o {}/{}_{}.out\n'.format(log_dir,fcillumid,step))
     file.write('#$ -e {}/{}_{}.err\n'.format(log_dir,fcillumid,step))
     file.write('#$ -V\n')
+    file.write('#$ -N {}_{}\n'.format(step,fcillumid))
     file.write('#$ -M jb3816@cumc.columbia.edu\n')
     file.write('#$ -m bea\n')
     file.write('#\n')
@@ -103,22 +95,20 @@ def create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,addres
     #writes out the stage 2 script
     logger = logging.getLogger(__name__)
 
-    post_bcl_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_%s_post_bcl.sh' % (runFolder,machine,fcillumid,archive_dir),'w')
+    post_bcl_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_post_bcl.sh' % (runFolder,machine,fcillumid),'w')
     add_sge_header(config,post_bcl_script,fcillumid,'post_bcl',True)
-    post_bcl_script.write("export LD_LIBRARY_PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/lib:$LD_LIBRARY_PATH ; export PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/bin:$PATH \n")
+    post_bcl_script.write("export LD_LIBRARY_PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/lib:$LD_LIBRARY_PATH\n")
+    post_bcl_script.write("export PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/bin:$PATH \n")
     post_bcl_script.write(postBCLCmd + '\n')
-    post_bcl_script.write('if [ $? -eq 0 ] ; then echo "Post BCL completed successfully" ; else echo "Post BCL failed"\n')
+    post_bcl_script.write('if [ $? -eq 0 ] \n')
+    post_bcl_script.write('then echo "Post BCL completed successfully"\n')
+    post_bcl_script.write('else echo "Post BCL failed"\n')
     post_bcl_script.write('/nfs/goldstein/software/mutt-1.5.23 -s "Post_BCL failure: %s %s" %s < /dev/null; exit 1; fi\n' % (machine,fcillumid,address))
 
 def create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address,storageCmd):
-    storage_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_%s_storage.sh' % (runFolder,machine,fcillumid,archive_dir),'w')
+    storage_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_storage.sh' % (runFolder,machine,fcillumid),'w')
     add_sge_header(config,storage_script,fcillumid,'storage',True)
     storage_script.write(storageCmd + '\n')
-
-def create_fastqc_script(config,archive_dir,runFolder,machine,fcillumid,address,fastqcCmd):
-    add_sge_header(config,fastqc_script,fcillumid,'fastqc',True)
-    fastqc_script.write(fastqCmd + '\n')
-    fastqc_script.close()
 
 def checkSeqsata(archive_dir):
     try:
