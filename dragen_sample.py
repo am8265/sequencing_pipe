@@ -107,7 +107,6 @@ def get_fastq_loc(database, sample):
                           '/nfs/seqsata*/seqfinal/whole_genome/']
 
         if external_or_legacy_flag == True:
-            print("Externally or legacy samples")
             for potential_loc in potential_locs:
                 potential_path = '{}/{}/*[0-9xXyY]'.format(potential_loc,sample_name)
                 #print('Checking {} for fastqs....'.format(potential_loc))
@@ -120,7 +119,6 @@ def get_fastq_loc(database, sample):
             if fastq_loc == []:
                 raise FastqError('{} Fastq files not found'.format(sample_name))
         else:
-            print("Internally sequenced sample in sequenceDB")
             query = ("SELECT DISTINCT SEQSATALOC,FCILLUMID FROM Flowcell f "
                 "JOIN Lane l ON f.FCID=l.FCID "
                 "JOIN prepT p ON l.prepID=p.prepID "
@@ -137,7 +135,6 @@ def get_fastq_loc(database, sample):
 
                     raise ValueError(msg)
                 for potential_loc in potential_locs:
-                    #print('Checking {} for fastqs....'.format(potential_loc))
                     potential_path = '{}/{}/{}'.format(potential_loc,sample_name,flowcell['FCILLUMID'])
                     fastq_loc = glob(potential_path)
                     if fastq_loc != []:
