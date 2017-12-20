@@ -5,7 +5,8 @@ GET_QUALIFIED_BAMS = """
     WHERE P_PREPID = {pseudo_prepid} AND
     FCILLUMID NOT LIKE 'X%' AND
     FAILR1 IS NULL AND
-    FAILR2 IS NULL
+    FAILR2 IS NULL AND
+    FAILEDPREP = 0
     """
     # doesn't support SE cases
     # AND RELEASED = 1
@@ -39,7 +40,8 @@ GET_YIELD_FROM_PPID = """
     SELECT SUM(LNYIELD) AS LANE_YIELD_SUM
     FROM prepT p
     JOIN Lane l ON p.prepid=l.prepid
-    WHERE p.p_prepid={ppid}
+    WHERE p.p_prepid={ppid} AND
+    FAILEDPREP = 0
     """
 
 GET_MACHINE_FAILED_STATUS_FROM_FCILLUMID_QUERY = """
