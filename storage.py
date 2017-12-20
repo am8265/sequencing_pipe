@@ -193,7 +193,7 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
         if verbose:
             print(' '.join(reportCpCmd))
         logger.info(reportCpCmd)
-        subprocess.check_call(reportCpCmd)
+        subprocess.call(reportCpCmd)
 
     mvTotalFastqSize,mvNumFastq = get_mv_fastq_size_sum(dest_drive,fcillumid)
     check_orig_dest_transfer(dest_drive,origNumFastq,origTotalFastqSize,mvNumFastq,mvTotalFastqSize)
@@ -286,7 +286,7 @@ def updateFlowcell(verbose,fcillumid,archive_drive,database):
     query = ("UPDATE Flowcell "
              "SET DateStor=CURRENT_TIMESTAMP(), "
              "SeqsataLoc='{}',"
-             "PIPELINE_COMPLETE=1"
+             "PIPELINECOMPLETE=1 "
              "WHERE FCIllumid='{}'").format(archive_drive,fcillumid)
     if verbose:
         print(query)
