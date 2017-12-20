@@ -136,7 +136,6 @@ def check_db_check_seqscratch(config,sample_name,sample_type,ppid,database):
                                          sample_type.upper(),sample_name,ppid)
     ft_dir = '{}/{}/{}.{}'.format('/nfs/fastq_temp/ALIGNMENT/',sample_type.upper(),sample_name,ppid)
     ft2_dir = '{}/{}/{}.{}'.format('/nfs/fastq_temp2',sample_type.upper(),sample_name,ppid)
-    print(ssd_dir)
     alignment_dirs = [ssd_dir,ft_dir,ft2_dir]
     for alignment_dir in alignment_dirs:
         sample_alignment = (glob(alignment_dir))
@@ -222,91 +221,32 @@ def update_prepT_ppid(ppid,pid,database):
     print("Updating prepT with ppid: {}".format(ppid))
     run_query(INSERT_ppid_on_pid,database)
 
-def insert_pid_into_ppid(sample_name,sample_type,capture_kit,database):
-    GET_PIDS_QUERY = """SELECT PREPID
-                        FROM prepT p
-                        WHERE CHGVID='{chgvid}'
-                        AND SAMPLE_TYPE='{seqtype}'
-                     """.format(chgvid=sample_name,seqtype=sample_type)
-    if sample_type.lower() != 'genome':
-        GET_PIDS_QUERY += ("AND EXOMEKIT='{exomekit}'"
-                          ).format(exomekit=capture_kit)
-
-    pids = run_query(GET_PIDS_QUERY,database)
-    pid_counter = 0
-    if pids:
-        pass
-    else:
-        raise ValueError('No prep found for sample: {}'.format(sample_name))
-    for pid in pids:
-        if pid_counter == 0:
-            print('Inserting pid: {}'.format(pid['PREPID']))
-            INSERT_NEW_PID_INTO_PPID = """
-                INSERT INTO pseudo_prepid
-                (pseudo_prepid,prepid)
-                VALUES (NULL,"{pid}")
-                """.format(pid=pid['PREPID'])
-            run_query(INSERT_NEW_PID_INTO_PPID,database)
-            ppid_query = GET_P_PREPID_FROM_PREPID.format(prepid=pid['PREPID'])
-            ppid = run_query(ppid_query,database)[0]['P_PREPID']
-            update_prepT_ppid(ppid,pid['PREPID'],database)
-            pid_counter += 1
-        else:
-            print('Inserting pid,ppid: {},{}'.format(pid,ppid))
-            INSERT_PID_INTO_PPID = """
-                INSERT INTO pseudo_prepid
-                ("{ppid"},"{pid}")
-                VALUES (pseudo_prepid,prepid)
-                """
-            INSERT_PID_INTO_PPID.format(pid=pid['PREPID'],
-                                        ppid=ppid)
-            run_query(query,database)
-            update_prepT_ppid(ppid,pid['PREPID'],database)
-    final_pids = [x['PREPID'] for x in pids]
-
-    return ppid,final_pids
 
 def update_ppid(sample_name,sample_type,capture_kit,database):
     GET_PID_PPID_FROM_TRIPLET= """
-        SELECT P_PREPID,PREPID
-        FROM prepT
+        SELECT P_PREPID,p.PREPID
+        FROM prepT p
+        JOIN SeqType st on p.prepid=st.prepid
         WHERE CHGVID='{chgvid}'
-        AND SAMPLE_TYPE='{seqtype}'
+        AND SEQTYPE='{seqtype}'
+        AND FAILEDPREP = 0
         """.format(chgvid=sample_name,
                    seqtype=sample_type)
 
     if sample_type != 'genome':
-        GET_PID_PPID_FROM_TRIPLET += ("AND EXOMEKIT='{exomekit}'"
+        GET_PID_PPID_FROM_TRIPLET += ("AND p.EXOMEKIT='{exomekit}'"
                                      ).format(exomekit=capture_kit)
     pid_and_ppid = run_query(GET_PID_PPID_FROM_TRIPLET,database)
+
     if pid_and_ppid == ():
-        ppid,pids = insert_pid_into_ppid(sample_name,sample_type,capture_kit,database)
-        return ppid,pids
+        raise Exception('No preps were found!')
     else:
         ppid_from_triplet = [x['P_PREPID'] for x in pid_and_ppid]
         prepid_from_triplet = [x['PREPID'] for x in pid_and_ppid]
-        final_pids = copy(prepid_from_triplet)
         if len(set(ppid_from_triplet)) != 1:
             raise Exception('Too many ppids found from triplet:{}'.format(set(ppid_from_triplet)))
 
-        query = GET_PREPID_FROM_P_PREPID.format(list(set(ppid_from_triplet))[0])
-        prepid_from_ppid = run_query(query,database)
-        prepid_from_ppid = [x['PREPID'] for x in prepid_from_ppid]
-
-
-        while len(prepid_from_triplet) > 0:
-            pid = prepid_from_triplet.pop()
-            try:
-                prepid_from_ppid.remove(pid)
-            except ValueError:
-                raise Exception("Really add {} to pid?".format(pid))
-                #add_pid_to_ppid(prepid,database)
-        while len(prepid_from_ppid) > 0:
-            pid2 = prepid_from_ppid.pop()
-            raise Exception("Really remove {} from pid?".format(pid2))
-            #remove_pid_from_ppid(prepid,database)
-
-        return list(set(ppid_from_triplet))[0],final_pids
+        return list(set(ppid_from_triplet))[0],prepid_from_triplet
 
 
         """  ---->  check difference from DSM <------"""
@@ -326,8 +266,12 @@ def remove_pid_from_ppid(pid,ppid,database):
     run_query(rm_query,database)
 
 def add_pid_to_ppid(pid,ppid,database):
-    run_query(INSERT_PID_INTO_PPID.format(ppid=ppid,pid=pid),database)
-    run_query(UPDATE_P_PREPID_IN_PREPT.format(ppid=ppid,pid=pid),database)
+    query = """INSERT INTO PSEUDO_PREPID
+               (PSEUDO_PREPID,PREPID)
+               VALUES ({ppid},{pid})
+            """.format(ppid=ppid,pid=pid)
+
+    run_query(query,database)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
