@@ -3,6 +3,7 @@ import logging
 import os
 import pymysql
 import sys
+import traceback
 from db_statements import *
 from glob import glob
 from xml.etree import ElementTree
@@ -73,7 +74,8 @@ def get_connection(database):
                                      cursorclass=pymysql.cursors.DictCursor)
         return connection
     except pymysql.err.OperationalError:
-            sys.exit("Wrong username/database or password found, please try again")
+        traceback.print_exc()
+        sys.exit("Wrong username/database or password found, please try again")
 
 def is_external_or_legacy_sample(prepid,database):
     """In cases of legecy samples (prepid < 22000) or external samples. There are no cases of legecy samples with
@@ -96,10 +98,10 @@ def is_external_or_legacy_sample(prepid,database):
         query = IS_SAMPLE_EXTERNAL_FROM_PREPID.format(prepid=prepid)
         is_external_sample = int(run_query(query,database)[0]['IS_EXTERNAL'])
         if is_external_sample == 1:
-            print("Sample is an external sample!")
+            #print("Sample is an external sample!")
             return True
         elif is_external_sample == 0:
-            print("Sample is not an external sample")
+            #print("Sample is not an external sample")
             return False
         else: #Returns None
             raise ValueError("No value found.  Does prepID exist?")
@@ -231,10 +233,10 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
                 '',\
                 (case \
                     WHEN f.recipe=2 THEN '' \
-                    WHEN st.SeqType='Exome' THEN pm.adapterlet \
-                    WHEN st.Seqtype='RNAseq' THEN s2r.adapterlet \
-                    WHEN st.Seqtype='Genome' THEN s2r.adapterlet \
-                    WHEN st.SeqType='Custom Capture' THEN pm.adapterlet \
+                    WHEN SAMPLE_TYPE='Exome' THEN pm.adapterlet \
+                    WHEN SAMPLE_TYPE='RNAseq' THEN s2r.adapterlet \
+                    WHEN SAMPLE_TYPE='Genome' THEN s2r.adapterlet \
+                    WHEN SAMPLE_TYPE='Custom Capture' THEN pm.adapterlet \
                 END) 'Index',\
                 replace(s.GAFbin,' ','') Project, \
                 CONCAT(round('{0}',4),'_',round(s2r.picomoles,1),'pM') Description \
@@ -242,7 +244,6 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
                     JOIN Flowcell f ON f.FCID=l.FCID \
                     JOIN prepT pt ON l.prepID=pt.prepID \
                     JOIN samplesTOrun s2r ON s2r.seqID=l.seqID \
-                    JOIN SeqType st ON l.prepID=st.prepID \
                     JOIN SampleT s ON s.DBID=pt.DBID \
                     LEFT JOIN poolMembers pm ON \
                         (pm.DBID=pt.DBID AND pm.poolID=l.poolID) \

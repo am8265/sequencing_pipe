@@ -52,8 +52,8 @@ def get_pseudo_prepid(database,sample):
     query = ("SELECT DISTINCT p_prepid "
             "FROM prepT p "
             "WHERE CHGVID='{sample_name}' "
-            "AND seqtype='{sample_type}' "
-            "AND failedprep=0 "
+            "AND SAMPLE_TYPE='{sample_type}' "
+            "AND FAILEDPREP=0 "
             ).format(**sample)
     if sample_type.lower() != 'genome':
         query += ("AND EXOMEKIT='{capture_kit}' "

@@ -132,7 +132,7 @@ def checkStatus(fcillumid,database):
                            "DESC LIMIT 1".format(prepID['prepID']),database)
         SeqType = run_query(GET_SEQTYPE_FROM_PREPID.format(prepid=prepID['prepID']),database)
         # Sometimes multiple flowcells of Genomes finish bcl2fastq near the same time so its status =='storage'
-        if status[0]['status'] != 'BCL' and SeqType[0]['SeqType'] != 'Genome':
+        if status[0]['status'] != 'BCL' and SeqType[0]['SAMPLE_TYPE'] != 'Genome':
             raise_exception_switch = 1
             logger.warn("{} does not have the correct status!  Current status: '{}'".format(status[0]['CHGVID'],status[0]['status']))
             print("{} does not have the correct status!  Current status: '{}'".format(status[0]['CHGVID'],status[0]['status']))
@@ -205,8 +205,8 @@ def checkLaneFractions(fcillumid,Machine,unaligned_dir,sample_info,database):
                             ).format(fcillumid,SampleID,LaneNum)
             LnFrac = run_query(LnFracQuery,database)
             LnFrac = LnFrac[0]['LnFraction']
-            query = ("SELECT SeqType "
-                    "FROM SeqType s "
+            query = ("SELECT SAMPLE_TYPE "
+                    "FROM prepT p "
                     "WHERE prepID=(SELECT Distinct l.prepID "
                         "FROM Lane l "
                         "JOIN Flowcell f on l.FCID=f.FCID "
@@ -218,7 +218,7 @@ def checkLaneFractions(fcillumid,Machine,unaligned_dir,sample_info,database):
             SeqType = run_query(query,database)
             #print(SampleID,fcillumid,Lane,SeqType)
             #print(SampleID,fcillumid,SeqType)
-            SeqType = SeqType[0]['SeqType']
+            SeqType = SeqType[0]['SAMPLE_TYPE']
         if LnFractionAct != 0:
             LnFracDiff = LnFrac/LnFractionAct
         else:

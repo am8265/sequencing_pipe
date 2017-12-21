@@ -67,11 +67,10 @@ def email(emailAddress,storageStatus,FCID):
 
 def regenerate_archive_tuples_list(config,fcillumid,database):
     archive_tuples_list = []
-    query = """SELECT CHGVID,FCILLUMID,LANENUM,SEQTYPE
+    query = """SELECT CHGVID,FCILLUMID,LANENUM,SAMPLE_TYPE
                FROM prepT p
                JOIN Lane l ON l.PREPID=p.PREPID
                JOIN Flowcell f ON l.FCID=f.FCID
-               JOIN SeqType st ON st.prepid=p.prepid
                WHERE f.fcillumid='{}'
             """.format(fcillumid)
     sample_info_on_flowcell = run_query(query,database)
@@ -82,7 +81,7 @@ def regenerate_archive_tuples_list(config,fcillumid,database):
         for read in range(1,3):
            scratchFastq = ('/nfs/{archive_drive}/{sample_type}/{sample_name}/{fcillumid}/{sample_name}_*L00{lanenum}_R{read}_*.fastq.gz'
                           ).format(archive_drive=config.get('locs','bcl2fastq_scratch_drive'),
-                                   sample_type=sample['SEQTYPE'].upper(),
+                                   sample_type=sample['SAMPLE_TYPE'].upper(),
                                    sample_name=sample['CHGVID'],
                                    lanenum=sample['LANENUM'],
                                    fcillumid=fcillumid,
@@ -209,17 +208,16 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
 
 def getSeqtype(fcillumid,sampleName,database):
     logger = logging.getLogger(__name__)
-    seqtypeQuery = ("SELECT DISTINCT(st.seqtype) AS seqtype "
+    seqtypeQuery = ("SELECT DISTINCT(SAMPLE_TYPE) AS SAMPLE_TYPE "
             "FROM Lane l "
             "JOIN Flowcell f ON l.fcid=f.fcid "
-            "JOIN SeqType st ON l.prepid=st.prepid "
             "JOIN prepT p ON l.prepid=p.prepid "
             "WHERE FCIllumID='{}' AND CHGVID='{}'"
             ).format(fcillumid,sampleName)
     logger.info(seqtypeQuery)
     #print(seqtypeQuery)
     seqtype = run_query(seqtypeQuery,database)
-    seqtype = seqtype[0]['seqtype'].upper().replace(' ','_')
+    seqtype = seqtype[0]['SAMPLE_TYPE'].upper().replace(' ','_')
     return seqtype
 
 def createStorageCompleteFlag(verbose,config,run_info_dict):

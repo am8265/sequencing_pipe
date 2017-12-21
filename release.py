@@ -19,18 +19,17 @@ def main():
 
     rejected_samples = []
     if args.fcillumid:
-        get_sample_info_from_flowcell = """SELECT DISTINCT CHVID,p.PREPID,SEQTYPE,
+        get_sample_info_from_flowcell = """SELECT DISTINCT CHVID,p.PREPID,SAMPLE_TYPE,
                                          p.EXOMEKIT,s.PRIORITY
                                          FROM Lane l
                                          JOIN SampleT ON p.dbid=s.dbid
                                          JOIN Flowcell f ON f.fcid=l.fcid
-                                         JOIN SeqType st on st.prepid=l.prepid
                                          JOIN prepT p ON p.prepid=l.prepid
                                          WHERE FCILLUMID='{}'
                                          """.format(args.fcillumid)
         print("Starting sample release for Flowcell: {}".format(args.fcillumid))
         for sample_info in run_query(get_sample_info_from_flowcell):
-            seqtype = sample_info['SeqType']
+            seqtype = sample_info['SAMPLE_TYPE']
             sample_name = sample_info['CHVID']
             priority=sample_info['PRIORITY']
             if seqtype.lower() == 'exome' or seqtype.lower() == 'custom_capture':
@@ -140,7 +139,7 @@ def check_db_check_seqscratch(config,sample_name,sample_type,ppid,database):
     for alignment_dir in alignment_dirs:
         sample_alignment = (glob(alignment_dir))
         if sample_alignment != []:
-            raise ValueError("Scratch alignment director found.  Cleanup required first!")
+            raise Exception("Scratch alignment directory found.  Cleanup required first!")
 
     sample_status_query = """SELECT MAX(PIPELINE_STEP_ID) as PIPELINE_STEP_ID
                              FROM dragen_pipeline_step
@@ -150,7 +149,7 @@ def check_db_check_seqscratch(config,sample_name,sample_type,ppid,database):
     sample_status = run_query(sample_status_query,database)
 
     if sample_status[0]['PIPELINE_STEP_ID'] != None:
-        raise ValueError("Sample {} has already been run in GATK pipe.  Cleanup required first".format(sample_name))
+        raise Exception("Sample {} has already been run in GATK pipe.  Cleanup required first".format(sample_name))
 
     dsm_query = """SELECT * FROM dragen_sample_metadata
                    WHERE PSEUDO_PREPID={ppid}
@@ -158,10 +157,10 @@ def check_db_check_seqscratch(config,sample_name,sample_type,ppid,database):
     dsm_status = run_query(dsm_query,database)
     if dsm_status:
         if dsm_status[0]['is_merged'] != 0:
-            raise ValueError("Sample {} has an attempted merge already! Cleanup required first".format(sample_name))
+            raise Exception("Sample {} has an attempted merge already! Cleanup required first".format(sample_name))
         if dsm_status[0]['component_bams']:
             print(dsm_status[0]['component_bams'])
-            raise ValueError("Sample {} already has component bams!".format(sample_name))
+            raise Exception("Sample {} already has component bams!".format(sample_name))
 
 
 def run_sample(args,config,auto_release_flag,rejected_samples,database):
@@ -199,7 +198,7 @@ def check_yield(ppid,sample_type,auto_release_flag,rejected_samples,database):
    lane_yield_sum = run_query(query,database)[0]['LANE_YIELD_SUM']
    lane_yield_sum = int(lane_yield_sum)
 
-   if sample_type.lower() == 'exome' and lane_yield_sum > 7000:
+   if sample_type.lower() == 'exome' and lane_yield_sum > 6000:
        return rejected_samples
    elif sample_type.lower() == 'genome' and lane_yield_sum > 100000:
        return rejected_samples
@@ -226,9 +225,8 @@ def update_ppid(sample_name,sample_type,capture_kit,database):
     GET_PID_PPID_FROM_TRIPLET= """
         SELECT P_PREPID,p.PREPID
         FROM prepT p
-        JOIN SeqType st on p.prepid=st.prepid
         WHERE CHGVID='{chgvid}'
-        AND SEQTYPE='{seqtype}'
+        AND SAMPLE_TYPE='{seqtype}'
         AND FAILEDPREP = 0
         """.format(chgvid=sample_name,
                    seqtype=sample_type)
@@ -249,29 +247,7 @@ def update_ppid(sample_name,sample_type,capture_kit,database):
         return list(set(ppid_from_triplet))[0],prepid_from_triplet
 
 
-        """  ---->  check difference from DSM <------"""
 
-def remove_pid_from_ppid(pid,ppid,database):
-    check_fail_query = """SELECT FAILPREP
-                          FROM PREPT
-                          WHERE PREPID={pid}
-                       """.format(pid=pid)
-    fail_flag = run_query(check_fail_query,database)[0]['FAILPREP']
-    if fail_flag != '1':
-        raise ValueError('prepid flagged for removal from ppid but its not failed: {}'.format(pid))
-
-    rm_query = """DELETE FROM PSEUDO_PREPID
-                  WHERE PREPID={pid}
-               """.format(pid=pid)
-    run_query(rm_query,database)
-
-def add_pid_to_ppid(pid,ppid,database):
-    query = """INSERT INTO PSEUDO_PREPID
-               (PSEUDO_PREPID,PREPID)
-               VALUES ({ppid},{pid})
-            """.format(ppid=ppid,pid=pid)
-
-    run_query(query,database)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
