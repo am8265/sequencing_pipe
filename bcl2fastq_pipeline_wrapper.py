@@ -64,10 +64,11 @@ def submit(config,args,run_info_dict,database):
 def run_qsub_command(config,fcillumid,step,run_info_dict):
     logger = logging.getLogger(__name__)
     qsub_cmd = ('{qsub_program} -N {machine}_{fcillumid}_{bcl2fastq_scratch_drive}_{step} '
-                '/nfs/seqscratch1/Runs/{runFolder}/{machine}_{fcillumid}_{step}.sh'
+                '{bcl_dir}/{runFolder}/{machine}_{fcillumid}_{step}.sh'
                ).format(qsub_program=config.get('programs','qsub_program'),
                         machine=run_info_dict['machine'],
                         fcillumid=fcillumid,
+                        bcl_dir=config.get('locs','bcl_dir'),
                         runFolder=run_info_dict['runFolder'],
                         bcl2fastq_scratch_drive=config.get('locs','bcl2fastq_scratch_drive'),
                         step=step)
@@ -94,8 +95,12 @@ def add_sge_header(config,file,fcillumid,step,hold):
 def create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,address,postBCLCmd):
     #writes out the stage 2 script
     logger = logging.getLogger(__name__)
-
-    post_bcl_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_post_bcl.sh' % (runFolder,machine,fcillumid),'w')
+    script_loc = ('/{bcl_dir}/{runFolder}/{machine}_{fcillumid}_post_bcl.sh'
+                 ).format(bcl_dir=config.get('locs','bcl_dir'),
+                          runFolder=runFolder,
+                          machine=machine,
+                          fcillumid=fcillumid)
+    post_bcl_script = open(script_loc,'w')
     add_sge_header(config,post_bcl_script,fcillumid,'post_bcl',True)
     post_bcl_script.write("export LD_LIBRARY_PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/lib:$LD_LIBRARY_PATH\n")
     post_bcl_script.write("export PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/bin:$PATH \n")
@@ -106,7 +111,12 @@ def create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,addres
     post_bcl_script.write('/nfs/goldstein/software/mutt-1.5.23 -s "Post_BCL failure: %s %s" %s < /dev/null; exit 1; fi\n' % (machine,fcillumid,address))
 
 def create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address,storageCmd):
-    storage_script = open('/nfs/seqscratch1/Runs/%s/%s_%s_storage.sh' % (runFolder,machine,fcillumid),'w')
+    script_loc = ('/{bcl_dir}/{runFolder}/{machine}_{fcillumid}_storage.sh'
+                 ).format(bcl_dir=config.get('locs','bcl_dir'),
+                          runFolder=runFolder,
+                          machine=machine,
+                          fcillumid=fcillumid)
+    storage_script = open(script_loc,'w')
     add_sge_header(config,storage_script,fcillumid,'storage',True)
     storage_script.write(storageCmd + '\n')
 

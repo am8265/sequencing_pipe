@@ -9,7 +9,8 @@ from glob import glob
 from xml.etree import ElementTree
 
 def parse_run_parameters_xml(fcillumid):
-    run_folder = '/nfs/seqscratch1/Runs/*{}*'.format(fcillumid)
+    config = get_config()
+    run_folder = '{}/*{}*'.format(config.get('locs','bcl_dir'),fcillumid)
     xml_type = 'HiSeq'
     run_parameters_xml = glob('{}/runParameters.xml'.format(run_folder))
     if run_parameters_xml == []:
@@ -165,7 +166,7 @@ def check_machine(machine,fcillumid,database):
 
 def getSSSLaneFraction(prepid,fcillumid,chem_version,lane_num,config,database):
     #get seqtype
-    seqtype = run_query(GET_SEQTYPE_FROM_PREPID.format(prepid=prepid),database)[0]['SEQTYPE'].lower()
+    seqtype = run_query(GET_SEQTYPE_FROM_PREPID.format(prepid=prepid),database)[0]['SAMPLE_TYPE'].lower()
     #Values currently hard coded at Colin's request.  See Redmine#2320
     if seqtype == 'exome':
         return 1.0/int(config.get(chem_version,'exome_per_lane'))
@@ -294,6 +295,7 @@ def check_exist_bcl_dir(BCLDrive):
 
 def check_flowcell_complete(bcl_dir,run_folder_path,machine_type):
     rta_complete_loc = bcl_dir + run_folder_path + '/RTAComplete.txt'
+    print(rta_complete_loc)
     if os.path.isfile(rta_complete_loc) == False:
         print(rta_complete_loc)
         raise Exception("RTA has not completed!")

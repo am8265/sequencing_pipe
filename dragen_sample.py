@@ -12,7 +12,7 @@ import sys
 import time
 from db_statements import *
 from glob import glob
-from utilities import get_connection,is_external_or_legacy_sample
+from utilities import check_number_query_results,get_connection,is_external_or_legacy_sample
 
 class FastqError(Exception):
     """Fastq not found"""
@@ -36,6 +36,13 @@ def get_prepid(database,sample):
     prepids = run_query(query,database)
     prepids = [x['prepid'] for x in prepids]
     return prepids
+
+def get_dbid(database,sample):
+    query = """SELECT DBID FROM prepT WHERE p_prepid={}
+            """.format(sample['pseudo_prepid'])
+    results = run_query(query,database)
+    check_number_query_results(results,1)
+    return results[0]['DBID']
 
 def get_priority(database,sample):
     query = ("SELECT PRIORITY "
@@ -227,8 +234,8 @@ class dragen_sample:
             self.metadata['bed_file_loc'] = get_bed_file_loc(database,self.metadata['capture_kit'])
         else:
             self.metadata['capture_kit'] = ''
-            #Genome samples are set using the most current capture kit for any case which requires a target region.
             self.metadata['bed_file_loc'] = '/nfs/goldsteindata/refDB/captured_regions/Build37/65MB_build37/SeqCap_EZ_Exome_v3_capture.bed'
+        self.metadata['dbid'] = get_dbid(database,self.metadata)
         self.metadata['prepid'] = get_prepid(database,self.metadata)
         self.metadata['priority'] = get_priority(database,self.metadata)
         self.metadata['fastq_loc'] = get_fastq_loc(database,self.metadata)

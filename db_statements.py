@@ -95,8 +95,8 @@ GET_CLUSTER_DENSITY_FOR_LANE = """
     """
 
 GET_SEQTYPE_FROM_PREPID = """
-    SELECT SEQTYPE
-    FROM SeqType
+    SELECT SAMPLE_TYPE
+    FROM prepT
     WHERE PREPID={prepid}
     """
 

@@ -22,17 +22,26 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
         pseudo_prepid = run_type_flag
         sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,database,debug)
         sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
-        run_sample(sample,dontexecute,config,seqscratch_drive,database,debug)
+        try:
+            run_sample(sample,dontexecute,config,seqscratch_drive,database,debug)
+        except:
+            tb = traceback.format_exc()
+            print(tb)
+            status='Dragen Alignment Failure'
+            update_status(sample,status,database)
 
     elif run_type_flag == True: #Automated run
         pseudo_prepid = 0
         sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,database,debug)
         while sample_name is not None:
             sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
-            run_sample(sample,dontexecute,config,seqscratch_drive,database,debug)
-            """ These two functions will need to be moved to the dragen_release
-                script when available.  For now will run on every bam in scratch
-                folder """
+            try:
+                run_sample(sample,dontexecute,config,seqscratch_drive,database,debug)
+            except:
+                tb = traceback.format_exc()
+                print(tb)
+                status='Dragen Alignment Failure'
+                update_status(sample,status,database)
 
             try:
                 sample_name, sample_type, pseudo_prepid, capture_kit  = get_next_sample(0,database,debug)
@@ -71,7 +80,7 @@ def check_bam_found_vs_bam_db(sample,qualified_bams_found):
                                rg_lane_num=rg_lane_num,
                                **sample.metadata)
             if glob(bam_loc) == []:
-                raise ValueError("Bam {} not found!".format(bam_loc))
+                raise Exception("Bam {} not found!".format(bam_loc))
 
     else:
         print("Checking bams found vs RGs in db")
@@ -79,12 +88,12 @@ def check_bam_found_vs_bam_db(sample,qualified_bams_found):
         qualified_bams_in_db = run_query(query,database)
         if len(qualified_bams_in_db) != len(qualified_bams_found):
             print(qualified_bams_found,qualified_bams_in_db)
-            raise ValueError("Number of bams found != number of RGs in database!")
+            raise Exception("Number of bams found != number of RGs in database!")
         for db_bam in qualified_bams_in_db:
             db_bam = ("{output_dir}/{sample_name}.{pseudo_prepid}.{fcillumid}.{lane_num}.bam"
                      ).format(fcillumid=db_bam['fcillumid'],lane_num=db_bam['laneNum'],**sample.metadata)
             if glob(db_bam) == []:
-                raise ValueError("Bam {} not found!".format(db_bam))
+                raise Exception("Bam {} not found!".format(db_bam))
 
 def get_component_bams(sample,debug):
     qualified_bams_found = glob('{output_dir}/*bam'.format(**sample.metadata))
@@ -118,7 +127,7 @@ def write_sge_header(sample,step,script_loc):
 def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
     check_Fastq_Total_Size(sample,debug)
     setup_dir(seqscratch_drive,sample,debug)
-    existing_bams_check = True
+    existing_bams_check = False
     output_dir = sample.metadata['output_dir']
     pseudo_prepid = sample.metadata['pseudo_prepid']
     submit_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -137,7 +146,7 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
             update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database)
 
         component_bams = get_component_bams(sample,debug)
-        update_dragen_metadata(sample,component_bams,database,debug)
+        update_dragen_metadata_prepT_status(sample,component_bams,database,debug)
         rm_query = "DELETE FROM {0} WHERE pseudo_prepid={1}".format("tmp_dragen",pseudo_prepid)
         if debug:
             print(rm_query)
@@ -180,7 +189,7 @@ def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
     except:
         pass
 
-def update_dragen_metadata(sample,component_bams,database,debug):
+def update_dragen_metadata_prepT_status(sample,component_bams,database,debug):
     seqscratch_drive = sample.metadata['output_dir'].split('/')[2]
     get_dragen_metadata_query = ("SELECT * from dragen_sample_metadata "
                                  "WHERE pseudo_prepid = {pseudo_prepid} "
@@ -210,7 +219,33 @@ def update_dragen_metadata(sample,component_bams,database,debug):
     if debug:
         print(query)
     run_query(query,database)
+    status='Dragen Alignment Completed'
+    update_status(sample,status,database)
 
+def update_status(sample,status,database):
+    prepT_query = """UPDATE prepT
+                     SET status='{status}'
+                     WHERE p_prepid={pseudo_prepid}
+                  """.format(status=status,**sample.metadata)
+    run_query(prepT_query,database)
+
+    prepT_public_query = """UPDATE prepT_public
+                            SET prepT_status='{status}',
+                            prepT_status_time=unix_timestamp()
+                            WHERE p_prepid={pseudo_prepid}
+                         """.format(status=status,**sample.metadata)
+    run_query(prepT_public_query,database)
+
+    userID = get_user_id(database)
+    statusT_insert = """INSERT INTO statusT
+                        (CHGVID,status,status_time,DBID,prepID,userID)
+                        VALUES ('{sample_name}','{status}',unix_timestamp(),
+                                {dbid},{prepid},{userID})
+                     """.format(userID=userID,status=status,
+                                prepid=sample.metadata['prepid'][0],
+                                dbid=sample.metadata['dbid'],
+                                sample_name=sample.metadata['sample_name'])
+    run_query(statusT_insert,database)
 
 def update_queue(pseudo_prepid,database,debug):
     insert_query = ("INSERT INTO tmp_dragen "
@@ -379,6 +414,7 @@ if __name__ == "__main__":
     except Exception:
         tb = traceback.format_exc()
         print(tb)
+
         emailAddresses = ['jb3816@cumc.columbia.edu']
         emailCmd = ('echo "Dragen Pipe failure" | mail -s "Dragen Pipe Failure" {}'
                    ).format(' '.join(emailAddresses))
