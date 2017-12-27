@@ -17,6 +17,7 @@ def main():
     while  sample_path[-1] == '/':
         sample_path = sample_path[0:-1]
     sample = sample_path.split('/')[-1]
+    print(sample_path)
     if os.path.isdir('{}/raw'.format(sample_path))== False:
         raise Exception("Raw fastq folder not found!")
     check_for_fastqs(sample_path)
@@ -26,10 +27,12 @@ def main():
     if fastqs == []:
         fastqs = glob('{}/raw/*/*fastq.gz'.format(sample_path))
         if fastqs == []:
-            raise Exception("No fastq.gz were found!")
+            fastqs = glob('{}/raw/*txt.gz'.format(sample_path))
+            if fastqs == []:
+                raise Exception("No fastq.gz were found!")
     total_fastqs = len(fastqs)
     for fastq in fastqs:
-        fcillumid,lane,read,adapter = get_rg_info(fastq)
+        fcillumid,lane,read,adapter = get_rg_info(fastq,verbose)
         fastq_counter = fastq.split('.')[0].split('_')[-1]
         if len(fastq_counter) != 3 or fastq_counter.isdigit() == False:
             fastq_counter = '001'
@@ -102,23 +105,43 @@ def make_fcillumid_dir(fastq_dir,verbose):
             if e.errno != errno.EEXIST:
                     raise
 
-def get_rg_info(fastq):
+def get_rg_info(fastq,verbose):
     gz = gzip.open(fastq,'rt')
     fastq_read_header = gz.readline()
+    rg_info = fastq_read_header.strip().split(':')
     gz.close()
-    if len(fastq_read_header.split(':')) == 10:
+    if verbose:
+        print(fastq_read_header.strip())
+    if len(rg_info) == 10:
         """ Illumina read head example
         @K00347:44:HL7K2BBXX:5:1101:13352:1384 1:N:0:NCTATCCT+NGGATAGG
         @Instrument:RunID:FlowCellID:Lane:Tile:X:Y:UMI ReadNum:FilterFlag:0:IndexSequence or SampleNumber"""
-        machine,run_number,fcillumid,lane,tile,X,read,control,something,adapter = fastq_read_header.strip().split(':')
+        machine,run_number,fcillumid,lane,tile,X,read,control,something,adapter = rg_info
 
         read = read.split(' ')[1]
     elif len(fastq_read_header.split(':')) == 7:
         """@HISEQ:549:C6PE0ANXX:2:2305:17233:17109/1
         @Instrument:RunID:FlowCellID:Lane:Tile:X:Y IndexSequence"""
-        machine,run_number,fcillumid,lane,tile,X,Y_and_read = fastq_read_header.strip().split(':')
+        machine,run_number,fcillumid,lane,tile,X,Y_and_read = rg_info
         read = Y_and_read.split('/')[1]
         adapter = 'AAAAAA'
+    elif len(fastq_read_header.split(':')) == 5:
+        if '#' in fastq_read_header and len(rg_info[0]) == 12:
+            """@FCHNYHLBCXX:1:1207:6982:25608#TGACCAAN/1"""
+            fcillumid,lane,tile,X,Y_and_read = rg_info
+            fcillumid = fcillumid[3:]
+            tmp = Y_and_read.split('#')[1]
+            adapter,read = tmp.split('/')
+        elif len(rg_info[0]) == 16:
+            """@H7YNGADXY160912:1:1202:21282:28638/1"""
+            fcillumid,lane,tile,X,Y_and_read = rg_info
+            fcillumid = fcillumid[1:10]
+            read = Y_and_read.split('/')[1]
+            adapter = 'AAAAAA'
+        else:
+            print rg_info,len(rg_info)
+            print fastq_read_header
+            raise Exception('Incorrect read header format!')
     else:
 
         print fastq_read_header
@@ -126,6 +149,9 @@ def get_rg_info(fastq):
     if read not in '123':
         raise ValueError('read is not formatted correctly: {}!'.format(read))
     adapter = adapter.replace('+','-')
+    if verbose:
+        print(fcillumid,lane,read,adapter)
+    #rg_info_sanity_check(fcillumid,lane,read,adapter)
     return fcillumid,lane,read,adapter
 
 if __name__ == '__main__':
