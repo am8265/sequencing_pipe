@@ -42,7 +42,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
                 print(tb)
                 status='Dragen Alignment Failure'
                 update_status(sample,status,database)
-
+                sys.exit()
             try:
                 sample_name, sample_type, pseudo_prepid, capture_kit  = get_next_sample(0,database,debug)
             except:
@@ -252,11 +252,11 @@ def update_queue(pseudo_prepid,database,debug):
                     "SELECT * FROM dragen_queue WHERE pseudo_prepid={0}"
                    ).format(pseudo_prepid)
     rm_query = ("DELETE FROM {0} WHERE pseudo_prepid={1}").format("dragen_queue",pseudo_prepid)
-    run_query(insert_query,database)
-    run_query(rm_query,database)
     if debug:
         print(insert_query)
         print(rm_query)
+    run_query(insert_query,database)
+    run_query(rm_query,database)
 
 def set_seqtime(rg_fcillumid,sample,database):
     query = ("SELECT FROM_UNIXTIME(Seqtime) AS SEQTIME "
@@ -307,7 +307,7 @@ def get_first_read(sample,rg_lane_num,rg_fcillumid,debug):
     second_read = first_read.replace('_R1_','_R2_')
     return first_read,second_read
 
-def user_input_fastq_size(lg_or_gt):
+def user_input_fastq_size(lg_or_gt,sample_type):
     if lg_or_gt == 'lt':
         userInput = input('Sum of fastq files sizes are too small.  Is this ok? (y)es or (n)o ').lower()
         if userInput == 'n':
@@ -329,20 +329,20 @@ def check_Fastq_Total_Size(sample,debug):
     print("Sum of Fastq size: {}".format(fastq_filesize_sum))
     if sample_type == 'genome':
         if fastq_filesize_sum < 42949672960: # < 40GB
-            user_input_fastq_size('lt')
+            user_input_fastq_size('lt',sample.metadata['sample_type'])
     elif sample_type == 'exome':
         if fastq_filesize_sum > 32212254720: # > 30GB
-            user_input_fastq_size('gt')
+            user_input_fastq_size('gt',sample.metadata['sample_type'])
         elif fastq_filesize_sum < 1073741824: # < 1GB
-            user_input_fastq_size('lt')
+            user_input_fastq_size('lt',sample.metadata['sample_type'])
     elif sample_type == 'rnaseq':
         if fastq_filesize_sum > 32212254720: # > 30GB
-            user_input_fastq_size('gt')
+            user_input_fastq_size('gt',sample.metadata['sample_type'])
         elif fastq_filesize_sum < 1073741824: # < 1GB
-            user_input_fastq_size('lt')
+            user_input_fastq_size('lt',sample.metadata['sample_type'])
     elif sample_type == 'custom_capture':
         if fastq_filesize_sum > 10737418240: # > 10GB
-            user_input_fastq_size('gt')
+            user_input_fastq_size('gt',sample.metadata['sample_type'])
     else:
         raise Exception('Unhandled sample_type found: {}!'.format(sample_type))
     if debug:
