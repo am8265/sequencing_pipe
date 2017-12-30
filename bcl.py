@@ -134,8 +134,9 @@ def parse_arguments():
                         help="Specify scratch dir for bcl2fastq")
     parser.add_argument('--tiles',
                         help="Specify which tiles of the flowcell to convert")
-    parser.add_argument('--use_bases_mask', action='store_true', default=False,
-                        help="Specify any base positions to mask")
+    parser.add_argument('--use_bases_mask', dest='use_bases_mask',
+                        help="""Specify any base positions to mask"
+                             Ex: y150n,I8n,y150n""")
     parser.add_argument('--sss',
                         help="Specify your own sequencing sample sheet")
     parser.add_argument('--noStatus', action='store_true', default=False,
