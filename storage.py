@@ -76,34 +76,53 @@ def regenerate_archive_tuples_list(config,fcillumid,database):
     sample_info_on_flowcell = run_query(query,database)
     for sample in sample_info_on_flowcell:
         sampleArchiveLoc = '/nfs/{}/{}/{}/{}'.format(config.get('locs','fastq_archive_drive'),
-                                                     sample['SEQTYPE'].upper(),
+                                                     sample['SAMPLE_TYPE'].upper(),
                                                      sample['CHGVID'],fcillumid)
         for read in range(1,3):
-           scratchFastq = ('/nfs/{archive_drive}/{sample_type}/{sample_name}/{fcillumid}/{sample_name}_*L00{lanenum}_R{read}_*.fastq.gz'
-                          ).format(archive_drive=config.get('locs','bcl2fastq_scratch_drive'),
-                                   sample_type=sample['SAMPLE_TYPE'].upper(),
-                                   sample_name=sample['CHGVID'],
-                                   lanenum=sample['LANENUM'],
-                                   fcillumid=fcillumid,
-                                   read=read)
-           if glob(scratchFastq) == []:
-               print(scratchFastq)
-               raise Exception('Fastq not found for regenerated tuple list')
-           else:
-               archive_tuples_list.append((glob(scratchFastq)[0],sampleArchiveLoc))
+            scratchFastq = ('/nfs/{archive_drive}/{sample_type}/{sample_name}/{fcillumid}/{sample_name}_*L00{lanenum}_R{read}_*.fastq.gz'
+                           ).format(archive_drive=config.get('locs','bcl2fastq_scratch_drive'),
+                                    sample_type=sample['SAMPLE_TYPE'].upper(),
+                                    sample_name=sample['CHGVID'],
+                                    lanenum=sample['LANENUM'],
+                                    fcillumid=fcillumid,
+                                    read=read)
+            if glob(scratchFastq) == []:
+                print(scratchFastq)
+                raise Exception('Fastq not found for regenerated tuple list')
+            else:
+                if len(glob(scratchFastq)) > 1:
+                    raise Exception('Too many fastqs found for regenerated tuple list')
+                archive_tuples_list.append((glob(scratchFastq)[0],sampleArchiveLoc))
     return archive_tuples_list
 
-def archiveFastqs(config,archive_tuples_list,origTotalFastqSize,fcillumid,verbose,database):
+def archiveFastqs(config,archive_tuples_list,fcillumid,verbose,database):
     if archive_tuples_list == []:
         archive_tuples_list = regenerate_archive_tuples_list(config,fcillumid,database)
     logger = logging.getLogger(__name__)
+    origNumFastq = 0
+    origTotalFastqSize = 0
     for orig_dest_pair in archive_tuples_list:
+        origNumFastq += 1
+
+        fastqSize = os.path.getsize(orig_dest_pair[0])
+        logger.info('{} original filesize: {}'.format(orig_dest_pair[0],fastqSize))
+        origTotalFastqSize += fastqSize
+
         subprocess.check_call(['mkdir','-p',orig_dest_pair[1]])
         fastqMoveCmd = ['rsync','--inplace','-aq',orig_dest_pair[0],orig_dest_pair[1]]
         if verbose:
             print(' '.join(fastqMoveCmd))
         logger.info(fastqMoveCmd)
         subprocess.check_call(fastqMoveCmd)
+    if verbose:
+        print('Counting archived fastqs...')
+    dest_drive = config.get('locs','fastq_archive_drive')
+    fastqList = glob('/nfs/{}/*/*/{}/*.fastq.gz'.format(dest_drive,fcillumid))
+    mvTotalFastqSize = 0
+    for archive_fastq in fastqList:
+        mvTotalFastqSize += os.path.getsize(archive_fastq)
+    mvNumFastq = len(fastqList)
+    check_orig_dest_transfer(dest_drive,origNumFastq,origTotalFastqSize,mvNumFastq,mvTotalFastqSize)
 
 def get_mv_fastq_size_sum(drive,fcillumid):
     logger = logging.getLogger(__name__)
@@ -161,50 +180,51 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
     origNumFastq = len(fastq_list)
     origTotalFastqSize = 0
     archive_tuples_list = []
-    if len(fastq_list) == 0:
-        raise Exception('No fastqs were found!')
+    if args.rerun is None:
+        if len(fastq_list) == 0:
+            raise Exception('No fastqs were found!')
 
-    for fastq in fastq_list:
-        fastqSize = os.path.getsize(fastq)
-        logger.info('{} original filesize: {}'.format(fastq,fastqSize))
-        origTotalFastqSize += fastqSize
-        sampleName = fastq.split('/')[6].split('_')[0]
-        seqtype = getSeqtype(fcillumid,sampleName,database)
-        dest_drive = config.get('locs','bcl2fastq_scratch_drive')
-        gaf_bin = run_query(GET_GAFBIN_FROM_SAMPLE_NAME.format(CHGVID=sampleName),database)
-        sampleArchiveLoc = '/nfs/{}/{}/{}/{}'.format(archive_drive,seqtype,sampleName,fcillumid)
-        scratchArchiveLoc = '/nfs/{}/{}/{}/{}'.format(dest_drive,seqtype,
-                                                      sampleName,fcillumid)
-        archive_tuples_list.append((scratchArchiveLoc,sampleArchiveLoc))
-        logger.debug('Starting transfer of {}'.format(sampleName))
-        logger.debug('mkdir -p {}'.format(scratchArchiveLoc))
-        mkdir_p(scratchArchiveLoc,verbose)
-        fastqMoveCmd = ['mv',fastq,scratchArchiveLoc]
-        if verbose:
-            print(' '.join(fastqMoveCmd))
-        logger.info(fastqMoveCmd)
-        subprocess.check_call(fastqMoveCmd)
+        for fastq in fastq_list:
+            fastqSize = os.path.getsize(fastq)
+            logger.info('{} original filesize: {}'.format(fastq,fastqSize))
+            origTotalFastqSize += fastqSize
+            sampleName = fastq.split('/')[6].split('_')[0]
+            seqtype = getSeqtype(fcillumid,sampleName,database)
+            dest_drive = config.get('locs','bcl2fastq_scratch_drive')
+            gaf_bin = run_query(GET_GAFBIN_FROM_SAMPLE_NAME.format(CHGVID=sampleName),database)
+            sampleArchiveLoc = '/nfs/{}/{}/{}/{}'.format(archive_drive,seqtype,sampleName,fcillumid)
+            scratchArchiveLoc = '/nfs/{}/{}/{}/{}'.format(dest_drive,seqtype,
+                                                          sampleName,fcillumid)
+            archive_tuples_list.append((scratchArchiveLoc,sampleArchiveLoc))
+            logger.debug('Starting transfer of {}'.format(sampleName))
+            logger.debug('mkdir -p {}'.format(scratchArchiveLoc))
+            mkdir_p(scratchArchiveLoc,verbose)
+            fastqMoveCmd = ['mv',fastq,scratchArchiveLoc]
+            if verbose:
+                print(' '.join(fastqMoveCmd))
+            logger.info(fastqMoveCmd)
+            subprocess.check_call(fastqMoveCmd)
 
-        reportLaneBarcodeLoc = ('{}/Reports/html/{}/{}/{}/all/laneBarcode.html'
-                                ).format(UnalignedLoc,fcillumid,gaf_bin[0]['GAFBIN'],sampleName)
-        reportCpCmd = ['cp',reportLaneBarcodeLoc,scratchArchiveLoc]
+            reportLaneBarcodeLoc = ('{}/Reports/html/{}/{}/{}/all/laneBarcode.html'
+                                    ).format(UnalignedLoc,fcillumid,gaf_bin[0]['GAFBIN'],sampleName)
+            reportCpCmd = ['cp',reportLaneBarcodeLoc,scratchArchiveLoc]
 
-        if verbose:
-            print(' '.join(reportCpCmd))
-        logger.info(reportCpCmd)
-        subprocess.call(reportCpCmd)
+            if verbose:
+                print(' '.join(reportCpCmd))
+            logger.info(reportCpCmd)
+            subprocess.call(reportCpCmd)
 
-    mvTotalFastqSize,mvNumFastq = get_mv_fastq_size_sum(dest_drive,fcillumid)
-    check_orig_dest_transfer(dest_drive,origNumFastq,origTotalFastqSize,mvNumFastq,mvTotalFastqSize)
+        mvTotalFastqSize,mvNumFastq = get_mv_fastq_size_sum(dest_drive,fcillumid)
+        check_orig_dest_transfer(dest_drive,origNumFastq,origTotalFastqSize,mvNumFastq,mvTotalFastqSize)
 
     seqscratchBase = config.get('locs','bcl_dir')
     processSAV(verbose,fcillumid,machine,run_info_dict,config,archive_drive,seqscratchBase)
     processBcl2fastqLog(verbose,fcillumid,machine,archive_drive,UnalignedLoc)
-    createStorageCompleteFlag(verbose,config,run_info_dict)
-    archiveFastqs(config,archive_tuples_list,origTotalFastqSize,fcillumid,verbose,database)
+    archiveFastqs(config,archive_tuples_list,fcillumid,verbose,database)
     updateLaneStatus(verbose,fcillumid,noStatus,database)
     updateStatus(verbose,fcillumid,noStatus,database)
     updateFlowcell(verbose,fcillumid,archive_drive,database)
+    createStorageCompleteFlag(verbose,config,run_info_dict)
 
 def getSeqtype(fcillumid,sampleName,database):
     logger = logging.getLogger(__name__)
@@ -317,9 +337,12 @@ def parse_arguments():
                         help="Specify scratch dir for bcl2fastq")
     parser.add_argument('-a','--archive_dir', default='igmdata01', dest='archive_dir',
                         help="Specify scratch dir for bcl2fastq")
+    parser.add_argument('--rerun',action='store_true',
+                        help="""Allows for re-archival of sample even after its been
+                              moved to its scratch location""")
     parser.add_argument("--test", default=False, action="store_true",
-                        help="Query and updates to the database occur on the "
-                        "test server")
+                        help="""Query and updates to the database occur on the
+                             test server""")
     parser.add_argument('--noStatus', action='store_true',
                         help='do not update sample statuses')
     parser.add_argument('--version', action='version',
