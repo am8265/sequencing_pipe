@@ -50,6 +50,12 @@ def submit(config,args,run_info_dict,database):
 
     else:
         #run bcl2fastq
+        out_dir = '{}/{}_{}_{}_Unaligned'.format(config.get('locs','bcl2fastq_scratch_dir'),
+                                             run_info_dict['runDate'],
+                                             run_info_dict['machine'],
+                                             run_info_dict['FCIllumID'])
+
+        check_exist_bcl_dir(out_dir)
         os.system(BCLCmd) #bcl2fastq auto submits to cluster
         logger.info(BCLCmd)
         os.system(BCLMySQLCmd) #quick msyql updates.  
@@ -104,7 +110,7 @@ def create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,addres
     add_sge_header(config,post_bcl_script,fcillumid,'post_bcl',True)
     post_bcl_script.write("export LD_LIBRARY_PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/lib:$LD_LIBRARY_PATH\n")
     post_bcl_script.write("export PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/bin:$PATH \n")
-    post_bcl_script.write(postBCLCmd + '\n')
+    post_bcl_script.write(postBCLCmd + '-v\n')
     post_bcl_script.write('if [ $? -eq 0 ] \n')
     post_bcl_script.write('then echo "Post BCL completed successfully"\n')
     post_bcl_script.write('else echo "Post BCL failed"\n')
@@ -118,7 +124,7 @@ def create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address
                           fcillumid=fcillumid)
     storage_script = open(script_loc,'w')
     add_sge_header(config,storage_script,fcillumid,'storage',True)
-    storage_script.write(storageCmd + '\n')
+    storage_script.write(storageCmd + '-v \n')
 
 def checkSeqsata(archive_dir):
     try:
@@ -155,13 +161,13 @@ def main():
         database = 'testDB'
     else:
         database = 'sequenceDB'
-
     machine = run_info_dict['machine'] # Ex A00123 + B = A00123B 
     setup_logging(machine,args.fcillumid,config.get('locs','logs_dir'))
     logger = logging.getLogger(__name__)
     logger.info('Running GAF_Pipeline.py')
 
-    check_flowcell_complete(config.get('locs','bcl_dir'),run_info_dict['runFolder'],run_info_dict['type'])
+    check_flowcell_complete(args.fcillumid,config.get('locs','bcl_dir'),
+                            run_info_dict['runFolder'],run_info_dict['type'],database)
     check_machine(machine,args.fcillumid,database)
     """Sequencing output is in the following format:
     [Date]_[IGM Machine Name]_[HiSeq Run Number]_[Flowcell ID]_[Project Name]

@@ -64,7 +64,7 @@ def build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,dat
         run_query(update_flowcell_tile_query,database)
 
     # Used to mask any bases on the read
-    if args.use_bases_mask != False:
+    if args.use_bases_mask is not None:
         bcl2fastq_cmd += '--use-bases-mask {} '.format(args.use_bases_mask)
     return bcl2fastq_cmd
 
@@ -103,7 +103,7 @@ def add_libraries_to_script(bcl_script):
 def update_sample_status(database,fcillumid,verbose):
     logger = logging.getLogger(__name__)
     userID = get_user_id(database)
-    sample_status_update_query = ("INSERT INTO statusT "
+    sample_status_insert_query = ("INSERT INTO statusT "
                                   "(CHGVID,status_time,status,DBID,prepID,userID) "
                                   "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),"
                                   "'BCL',pt.DBID,pt.prepID,{0} "
@@ -112,15 +112,25 @@ def update_sample_status(database,fcillumid,verbose):
                                   "JOIN prepT pt ON pt.prepID=l.prepID "
                                   "WHERE FCillumid='{1}'"
                                  ).format(userID,fcillumid)
-
+    prepT_status_update_query = """UPDATE prepT p
+                                   JOIN Lane l ON p.PREPID=l.PREPID
+                                   JOIN Flowcell f ON f.FCID=l.FCID
+                                   SET STATUS='BCL'
+                                   WHERE FCILLUMID='{}'
+                                """.format(fcillumid)
     if verbose == True:
-        print(sample_status_update_query)
-    run_query(sample_status_update_query,database)
-    logger.info(sample_status_update_query)
+        print(sample_status_insert_query)
+        print(prepT_status_update_query)
+    run_query(sample_status_insert_query,database)
+    logger.info(sample_status_insert_query)
+    run_query(prepT_status_update_query,database)
+    logger.info(prepT_status_update_query)
 
 def check_fcillumid(inputted_fcillumid,xml_fcillumid):
     if inputted_fcillumid != xml_fcillumid:
-        raise ValueError("FCIllumIDs don't match! {} != {}".format(inputted_fcillumid,xml_fcillumid))
+        update_pipeline_complete(fcillumid,'-2',database)
+        raise Exception("FCIllumIDs don't match! {} != {}".format(inputted_fcillumid,xml_fcillumid))
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -165,10 +175,12 @@ def main():
 
     check_fcillumid(args.fcillumid,run_info_dict['FCIllumID'])
     check_machine(run_info_dict['machine'],args.fcillumid,database)
-    check_flowcell_complete(config.get('locs','bcl_dir'),run_info_dict['runFolder'],run_info_dict['type'])
-
+    check_flowcell_complete(args.fcillumid,config.get('locs','bcl_dir'),
+                            run_info_dict['runFolder'],run_info_dict['type'],database)
+    update_pipeline_complete(args.fcillumid,'-1',database)
     if args.sss is None:
-        sss_loc = create_sss_from_database(args.fcillumid,run_info_dict['machine'],run_info_dict,config,database)
+        sss_loc = create_sss_from_database(args.fcillumid,run_info_dict['machine'],
+                                           run_info_dict,config,database)
         cp_cmd= ('cp {} /nfs/igmdata01/Sequencing_SampleSheets/'
              ).format(sss_loc)
         os.system(cp_cmd)

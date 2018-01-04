@@ -36,6 +36,12 @@ UPDATE_P_PREPID_IN_PREPT = """
     WHERE prepID = "{pid}"
     """
 
+UPDATE_PIPELINE_COMPLETE = """
+    UPDATE Flowcell
+    SET PIPELINECOMPLETE = "{code}"
+    WHERE FCILLUMID = "{fcillumid}"
+    """
+
 GET_YIELD_FROM_PPID = """
     SELECT SUM(LNYIELD) AS LANE_YIELD_SUM
     FROM prepT p

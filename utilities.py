@@ -17,9 +17,11 @@ def parse_run_parameters_xml(fcillumid):
         xml_type = 'NovaSeq'
         run_parameters_xml = glob('{}/RunParameters.xml'.format(run_folder))
     if run_parameters_xml == []:
-        raise ValueError("Could not find run parameters xml files!")
+        update_pipeline_complete(fcillumid,'-404',database)
+        raise Exception("Could not find run parameters xml files!")
     if len(run_parameters_xml) != 1:
-        raise ValueError("Too many run folders found!")
+        update_pipeline_complete(fcillumid,'-6',database)
+        raise Exception("Too many run folders found!")
     else:
         run_parameters_xml = run_parameters_xml[0]
 
@@ -55,7 +57,8 @@ def parse_run_parameters_xml(fcillumid):
             run_info_dict['Side'] = tree.findall('Setup')[0].find('FCPosition').text
             run_info_dict['machine'] = run_info_dict['machineName'] + run_info_dict['Side'][0]
         else:
-            raise ValueError("Undefined xml_type:{}!".format(xml_type))
+            update_pipeline_complete(fcillumid,'-100',database)
+            raise Exception("Undefined xml_type:{}!".format(xml_type))
     return run_info_dict
 
 
@@ -105,22 +108,22 @@ def is_external_or_legacy_sample(prepid,database):
             #print("Sample is not an external sample")
             return False
         else: #Returns None
-            raise ValueError("No value found.  Does prepID exist?")
+            raise Exception("No value found.  Does prepID exist?")
 
 
 def check_number_query_results(results,expected):
     if len(results) == 0:
-        raise ValueError("No results found!".format(results,expected))
+        raise Exception("No results found!".format(results,expected))
     elif len(results) > 1 and expected == 'many':
         pass
     elif len(results) <= 1 and expected == 'many':
-        raise ValueError("Number of results: {} < expected: {}".format(results,expected))
+        raise Exception("Number of results: {} < expected: {}".format(results,expected))
     elif len(results) == expected:
         pass
     elif len(results) < expected:
-        raise ValueError("Number of results: {} < expected: {}".format(results,expected))
+        raise Exception("Number of results: {} < expected: {}".format(results,expected))
     elif len(results) > expected:
-        raise ValueError("Number of results: {} > expected: {}".format(results,expected))
+        raise Exception("Number of results: {} > expected: {}".format(results,expected))
     else:
         raise Exception("Unhandled {} condition. Results: {}  Expected: {}").format(__name__,results,expected)
 
@@ -156,13 +159,15 @@ def check_machine(machine,fcillumid,database):
             fcillumid=fcillumid),database)
     check_number_query_results(machine_complete,1)
     if machine_complete[0]['COMPLETE'] != 1:
-        raise ValueError("Flowcell {} has not yet been completed".format(fcillumid))
+        update_pipeline_complete(fcillumid,'-3',database)
+        raise Exception("Flowcell {} has not yet been completed".format(fcillumid))
 
     machine_failed = run_query(
         GET_MACHINE_FAILED_STATUS_FROM_FCILLUMID_QUERY.format(
             fcillumid=fcillumid),database)
     if machine_failed[0]['FAIL'] == 1:
-        raise ValueError("Flowcell {} has been failed".format(fcillumid))
+        update_pipeline_complete(fcillumid,'-99',database)
+        raise Exception("Flowcell {} has been failed".format(fcillumid))
 
 def getSSSLaneFraction(prepid,fcillumid,chem_version,lane_num,config,database):
     #get seqtype
@@ -177,7 +182,11 @@ def getSSSLaneFraction(prepid,fcillumid,chem_version,lane_num,config,database):
     elif seqtype == 'rnaseq':
         return 1.0/int(config.get(chem_version,'rna_per_lane'))
     else:
-        raise ValueError("Unhandled seqtype: {}!".format(seqtype))
+        raise Exception("Unhandled seqtype: {}!".format(seqtype))
+
+def update_pipeline_complete(fcillumid,code,database):
+    query = UPDATE_PIPELINE_COMPLETE.format(fcillumid=fcillumid,code=code)
+    run_query(query,database)
 
 def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
     """Newer version of bcl2fastq v2 require a new sample sheet format
@@ -291,22 +300,26 @@ def get_config():
 def check_exist_bcl_dir(BCLDrive):
     dir_path = glob(BCLDrive)
     if dir_path != []:
+        update_pipeline_complete(fcillumid,'-7',database)
         raise Exception('BCL directory already exists: {}!'.format(BCLDrive))
 
-def check_flowcell_complete(bcl_dir,run_folder_path,machine_type):
+def check_flowcell_complete(fcillumid,bcl_dir,run_folder_path,machine_type,database):
     rta_complete_loc = bcl_dir + run_folder_path + '/RTAComplete.txt'
     print(rta_complete_loc)
     if os.path.isfile(rta_complete_loc) == False:
         print(rta_complete_loc)
+        update_pipeline_complete(fcillumid,'-4',database)
         raise Exception("RTA has not completed!")
     else:
         print("RTAComplete.txt check: OK!")
     if machine_type == 'NovaSeq':
         storage_complete_loc = bcl_dir + run_folder_path + '/CopyComplete.txt'
         if os.path.isfile(storage_complete_loc) == False:
+            update_pipeline_complete(fcillumid,'-5',database)
             raise Exception("Copy has not completed!")
         else:
             print("CopyComplete.txt check: OK!")
+
 def get_user():
     p = os.popen('echo $USER')
     userName = p.readline().strip()
