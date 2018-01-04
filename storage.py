@@ -180,7 +180,7 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
     origNumFastq = len(fastq_list)
     origTotalFastqSize = 0
     archive_tuples_list = []
-    if args.rerun is None:
+    if args.rerun == False:
         if len(fastq_list) == 0:
             raise Exception('No fastqs were found!')
 
@@ -188,7 +188,7 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
             fastqSize = os.path.getsize(fastq)
             logger.info('{} original filesize: {}'.format(fastq,fastqSize))
             origTotalFastqSize += fastqSize
-            sampleName = fastq.split('/')[6].split('_')[0]
+            sampleName = '_'.join(fastq.split('/')[6].split('_')[0:-4])
             seqtype = getSeqtype(fcillumid,sampleName,database)
             dest_drive = config.get('locs','bcl2fastq_scratch_drive')
             gaf_bin = run_query(GET_GAFBIN_FROM_SAMPLE_NAME.format(CHGVID=sampleName),database)
@@ -293,11 +293,20 @@ def updateStatus(verbose,FCID,noStatus,database):
                 "JOIN Lane l on l.FCID=f.FCID "
                 "JOIN prepT pt on pt.prepID=l.prepID "
                 "WHERE FCillumid='{}'").format(userID,FCID)
+        prepT_status_update_query = """UPDATE prepT p
+                                       JOIN Lane l ON p.PREPID=l.PREPID
+                                       JOIN Flowcell f ON f.FCID=l.FCID
+                                       SET STATUS='Storage'
+                                       WHERE FCILLUMID='{}'
+                                    """.format(fcillumid)
 
         if verbose == True:
             print(query)
-        logger.info(query)
+            print(prepT_status_update_query)
+        run_query(prepT_status_update_query,database)
+        logger.info(prepT_status_update_query)
         run_query(query,database)
+        logger.info(query)
 
 def updateFlowcell(verbose,fcillumid,archive_drive,database):
     logger = logging.getLogger(__name__)
@@ -337,7 +346,7 @@ def parse_arguments():
                         help="Specify scratch dir for bcl2fastq")
     parser.add_argument('-a','--archive_dir', default='igmdata01', dest='archive_dir',
                         help="Specify scratch dir for bcl2fastq")
-    parser.add_argument('--rerun',action='store_true',
+    parser.add_argument('--rerun',default=False, action='store_true',
                         help="""Allows for re-archival of sample even after its been
                               moved to its scratch location""")
     parser.add_argument("--test", default=False, action="store_true",

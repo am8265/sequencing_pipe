@@ -26,7 +26,10 @@ def UpdateFC(fcillumid,unaligned_dir,sample_info,verbose,database):
 
     fcYield = 0
     for i in sample_info.keys():
-        LaneNum,SampleID,adapter = i.split('_')
+        info = i.split('_')
+        LaneNum = info[0]
+        SampleID = '_'.join(info[1:-1])
+        adapter = info[-1]
         LnFractionAct = sample_info[i][0]
         LnYield = int(sample_info[i][1].replace(',',''))
         fcYield += LnYield
@@ -91,10 +94,11 @@ def update_lane(unaligned_dir,fcillumid,verbose,database):
                 sample_info[key] = []
             elif num == 5 or num == 8:
                 sample_info[key].append(datarows[sampleNum][num].text)
-
     for i in sample_info.keys():
-        #print(sample_info[i],i)
-        LaneNum,SampleID,adapter = i.split('_')
+        info = i.split('_')
+        LaneNum = info[0]
+        SampleID = '_'.join(info[1:-1])
+        adapter = info[-1]
         LnFractionAct = sample_info[i][0]
         LnYield = sample_info[i][1].replace(',','')
 
@@ -187,7 +191,11 @@ def checkLaneFractions(fcillumid,Machine,unaligned_dir,sample_info,database):
 
     for sample in sample_info.keys():
         #print(sample)
-        LaneNum,SampleID,adapter = sample.split('_')
+        info = sample.split('_')
+        LaneNum = info[0]
+        SampleID = '_'.join(info[1:-1])
+        adapter = info[-1]
+
         LnFractionAct = float(sample_info[sample][0])
         LnYield = sample_info[sample][1].replace(',','')
 
