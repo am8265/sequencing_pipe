@@ -8,7 +8,7 @@ from db_statements import *
 from glob import glob
 from xml.etree import ElementTree
 
-def parse_run_parameters_xml(fcillumid):
+def parse_run_parameters_xml(fcillumid,database):
     config = get_config()
     run_folder = '{}/*{}*'.format(config.get('locs','bcl_dir'),fcillumid)
     xml_type = 'HiSeq'
