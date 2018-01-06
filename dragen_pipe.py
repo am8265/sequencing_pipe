@@ -363,22 +363,22 @@ def get_reads(sample,read_number,debug):
 
 def get_next_sample(pseudo_prepid,database,debug):
     if pseudo_prepid == 0:
-        query = ("SELECT sample_name,sample_type,pseudo_prepid,capture_kit "
-            "FROM dragen_queue "
-            "WHERE PRIORITY < 99 "
-            "ORDER BY PRIORITY ASC LIMIT 1 ")
-        sample_info = run_query(query,database)
-    else:
-        query = ("SELECT sample_name,sample_type,pseudo_prepid,capture_kit "
-            "FROM dragen_queue "
-            "WHERE pseudo_prepid={}"
-            ).format(pseudo_prepid)
-        sample_info = run_query(query,database)
+        pid_query = ("SELECT PSEUDO_PREPID "
+                     "FROM dragen_queue "
+                     "WHERE PRIORITY < 99 "
+                     "ORDER BY PRIORITY ASC LIMIT 1 ")
+        pid = run_query(pid_query,database)[0]['PSEUDO_PREPID']
+
+    prepT_query = ("SELECT CHGVID,SAMPLE_TYPE,EXOMEKIT "
+                   "FROM prepT "
+                   "WHERE P_PREPID={}"
+                  ).format(pid)
     if debug:
-        print(query)
-        print('Dragen_queue info: {0}'.format(sample_info))
-    print(sample_info)
-    return sample_info[0]['sample_name'],sample_info[0]['sample_type'],sample_info[0]['pseudo_prepid'],sample_info[0]['capture_kit']
+        print(prepT_query)
+    sample_info = run_query(prepT_query,database)
+    if debug:
+        print('Dragen_queue info: {0}'.format(sample_info,"PPID:",pid))
+    return sample_info[0]['CHGVID'],sample_info[0]['SAMPLE_TYPE'],pid,sample_info[0]['EXOMEKIT']
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
