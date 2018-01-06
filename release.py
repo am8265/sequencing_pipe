@@ -46,7 +46,6 @@ def email(fcillumid,rejected_samples,config):
     email_program=config.get('emails','email_program')
     failure_email_addy = config.get('emails','release_failure')
 
-
     """
     today = datetime.today().strftime("%y.%m.%d")
     if SeqType == 'exome':
@@ -60,7 +59,6 @@ def email(fcillumid,rejected_samples,config):
     return Subject
     """
     sampleNumber = len(rejected_samples)
-
 
     #name = get nameAasdl;fkjal
     release_email = open('release_email.txt','w')
@@ -78,7 +76,6 @@ def email(fcillumid,rejected_samples,config):
 
     #os.system(email_cmd)
     #os.remove('release_email.txt')
-
 
 def update_queues(sample_name,sample_type,capture_kit,ppid,priority,database):
     table = 'tmp_dragen'
@@ -120,15 +117,12 @@ def update_queues(sample_name,sample_type,capture_kit,ppid,priority,database):
                                       ppid=ppid,
                                       priority=priority)
             run_query(insert_query,database)
-
     print("Updating sample {} priority to {}".format(sample_name,priority))
     update_dragen_queue = """UPDATE dragen_queue
                              SET PRIORITY={priority}
                              WHERE PSEUDO_PREPID = {ppid}
                           """.format(priority=priority,ppid=ppid)
     run_query(update_dragen_queue,database)
-
-
 
 def check_db_check_seqscratch(config,sample_name,sample_type,ppid,database):
     ssd_dir = '{}/{}/{}.{}'.format(config.get('locs','dragen_aligment_dir'),
@@ -152,7 +146,8 @@ def check_db_check_seqscratch(config,sample_name,sample_type,ppid,database):
         raise Exception("Sample {} has already been run in GATK pipe.  Cleanup required first".format(sample_name))
 
     dsm_query = """SELECT * FROM dragen_sample_metadata
-                   WHERE PSEUDO_PREPID={ppid}
+                   WHERE PSEUDO_PREPID={ppid} and
+                   IS_MERGED = 1
                 """.format(ppid=ppid)
     dsm_status = run_query(dsm_query,database)
     if dsm_status:
@@ -161,7 +156,6 @@ def check_db_check_seqscratch(config,sample_name,sample_type,ppid,database):
         if dsm_status[0]['component_bams']:
             print(dsm_status[0]['component_bams'])
             raise Exception("Sample {} already has component bams!".format(sample_name))
-
 
 def run_sample(args,config,auto_release_flag,rejected_samples,database):
     sample_name = args.sample_name
@@ -176,7 +170,6 @@ def run_sample(args,config,auto_release_flag,rejected_samples,database):
         priority = args.priority
 
     check_db_check_seqscratch(config,sample_name,sample_type,ppid,database)
-
     print("Starting sample release for sample: {}, {}, {}".format(sample_name,
                                                                   sample_type,
                                                                   capture_kit))
@@ -234,6 +227,7 @@ def update_ppid(sample_name,sample_type,capture_kit,database):
     if sample_type != 'genome':
         GET_PID_PPID_FROM_TRIPLET += ("AND p.EXOMEKIT='{exomekit}'"
                                      ).format(exomekit=capture_kit)
+        #print(GET_PID_PPID_FROM_TRIPLET)
     pid_and_ppid = run_query(GET_PID_PPID_FROM_TRIPLET,database)
 
     if pid_and_ppid == ():
