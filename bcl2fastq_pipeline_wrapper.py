@@ -156,11 +156,11 @@ def arg_parser(config):
 def main():
     config = get_config()
     args = arg_parser(config)
-    run_info_dict = parse_run_parameters_xml(args.fcillumid)
     if args.test:
         database = 'testDB'
     else:
         database = 'sequenceDB'
+    run_info_dict = parse_run_parameters_xml(args.fcillumid,database)
     machine = run_info_dict['machine'] # Ex A00123 + B = A00123B 
     setup_logging(machine,args.fcillumid,config.get('locs','logs_dir'))
     logger = logging.getLogger(__name__)

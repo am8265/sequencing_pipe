@@ -27,7 +27,7 @@ def main(config):
         pass
         #print('No flowcells were found')
 def check_and_run_flowcell(fcillumid,config,database):
-    run_info_dict = parse_run_parameters_xml(fcillumid)
+    run_info_dict = parse_run_parameters_xml(fcillumid,database)
     bcl_dir = '{}/'.format(config.get('locs','bcl_dir'))
     check_flowcell_complete(fcillumid,bcl_dir,run_info_dict['runFolder'],
                             run_info_dict['type'],database)

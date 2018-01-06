@@ -17,11 +17,11 @@ def parse_arguments():
 def main():
     config = get_config()
     args = parse_arguments()
-    run_info_dict = parse_run_parameters_xml(args.fcillumid)
     if args.test:
         database = 'testDB'
     else:
         database = 'sequenceDB'
+    run_info_dict = parse_run_parameters_xml(args.fcillumid,database)
     create_sss_from_database(args.fcillumid,run_info_dict['machine'],run_info_dict,config,database)
 
 if __name__ == '__main__':
