@@ -3,6 +3,7 @@ import argparse
 import gzip
 import io
 import os
+import re
 import subprocess
 import sys
 from glob import glob
@@ -10,7 +11,6 @@ from glob import glob
 
 def main():
     args = parse_arguments()
-    cwd = os.getcwd()
     sample_path = args.fastq_folder
     verbose = args.verbose
 
@@ -126,25 +126,21 @@ def get_rg_info(fastq,verbose):
         read = Y_and_read.split('/')[1]
         adapter = 'AAAAAA'
     elif len(fastq_read_header.split(':')) == 5:
-        if '#' in fastq_read_header and len(rg_info[0]) == 12:
+        if re.search('[a-zA-Z]',rg_info[4]):
             """@FCHNYHLBCXX:1:1207:6982:25608#TGACCAAN/1"""
             fcillumid,lane,tile,X,Y_and_read = rg_info
             fcillumid = fcillumid[3:]
             tmp = Y_and_read.split('#')[1]
             adapter,read = tmp.split('/')
-        elif len(rg_info[0]) == 16:
+        else:
             """@H7YNGADXY160912:1:1202:21282:28638/1"""
             fcillumid,lane,tile,X,Y_and_read = rg_info
-            fcillumid = fcillumid[1:10]
+            fcillumid = fcillumid[3:]
             read = Y_and_read.split('/')[1]
             adapter = 'AAAAAA'
-        else:
-            print rg_info,len(rg_info)
-            print fastq_read_header
-            raise Exception('Incorrect read header format!')
     else:
 
-        print fastq_read_header
+        print(fastq_read_header)
         raise Exception('Incorrect read header format!')
     if read not in '123':
         raise ValueError('read is not formatted correctly: {}!'.format(read))
