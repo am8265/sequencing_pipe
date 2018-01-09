@@ -361,8 +361,8 @@ def get_reads(sample,read_number,debug):
     else:
         return sorted(read)[0]
 
-def get_next_sample(pseudo_prepid,database,debug):
-    if pseudo_prepid == 0:
+def get_next_sample(pid,database,debug):
+    if pid == 0:
         pid_query = ("SELECT PSEUDO_PREPID "
                      "FROM dragen_queue "
                      "WHERE PRIORITY < 99 "
