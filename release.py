@@ -187,12 +187,11 @@ def run_sample(args,config,auto_release_flag,rejected_samples,verbose,database):
 def update_sample_status(ppid,verbose,database):
     logger = logging.getLogger(__name__)
     userID = get_user_id(database)
-    print(ppid)
     status = 'Released to Bioinformatics Team'
     sample_status_insert_query = ("INSERT INTO statusT "
-                                  "(CHGVID,STATUS_TIME,STATUS,DBID,PREPID,USERID) "
+                                  "(CHGVID,STATUS_TIME,STATUS,DBID,PREPID,USERID,POOLID,SEQID,PLATENAME) "
                                   "SELECT DISTINCT(CHGVID),UNIX_TIMESTAMP(),"
-                                  "'{}',DBID,PREPID,{} "
+                                  "'{}',DBID,PREPID,{},0,0,' ' "
                                   "FROM prepT "
                                   "WHERE P_PREPID={}"
                                  ).format(status,userID,ppid)
