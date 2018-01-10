@@ -171,7 +171,8 @@ def check_machine(machine,fcillumid,database):
 
 def getSSSLaneFraction(prepid,fcillumid,chem_version,lane_num,config,database):
     #get seqtype
-    seqtype = run_query(GET_SEQTYPE_FROM_PREPID.format(prepid=prepid),database)[0]['SAMPLE_TYPE'].lower()
+    query = GET_SEQTYPE_FROM_PREPID.format(prepid=prepid)
+    seqtype = run_query(query,database)[0]['SAMPLE_TYPE'].lower()
     #Values currently hard coded at Colin's request.  See Redmine#2320
     if seqtype == 'exome':
         return 1.0/int(config.get(chem_version,'exome_per_lane'))

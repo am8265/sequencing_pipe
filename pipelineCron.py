@@ -18,7 +18,7 @@ def main(config):
             GROUP BY l.FCID
             ORDER BY MIN(PRIORITY) ASC , FROM_UNIXTIME(SEQEND) ASC
             """
-    #print query
+    #print(query)
     complete_flowcells = run_query(query,database)
     for fcillumid in complete_flowcells:
         fcillumid = fcillumid['FCILLUMID']
