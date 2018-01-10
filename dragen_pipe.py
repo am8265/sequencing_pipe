@@ -29,6 +29,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
             print(tb)
             status='Dragen Alignment Failure'
             update_status(sample,status,database)
+            email_failure()
 
     elif run_type_flag == True: #Automated run
         pseudo_prepid = 0
@@ -42,7 +43,9 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
                 print(tb)
                 status='Dragen Alignment Failure'
                 update_status(sample,status,database)
+                email_failure()
                 sys.exit()
+
             try:
                 sample_name, sample_type, pseudo_prepid, capture_kit  = get_next_sample(0,database,debug)
             except:
@@ -380,6 +383,13 @@ def get_next_sample(pid,database,debug):
         print('Dragen_queue info: {0}'.format(sample_info,"PPID:",pid))
     return sample_info[0]['CHGVID'],sample_info[0]['SAMPLE_TYPE'],pid,sample_info[0]['EXOMEKIT']
 
+def email_failure():
+    emailAddresses = ['jb3816@cumc.columbia.edu']
+    emailCmd = ('echo "Dragen Pipe failure" | mail -s "Dragen Pipe Failure" {}'
+               ).format(' '.join(emailAddresses))
+    print(emailCmd)
+    os.system(emailCmd)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
@@ -414,9 +424,5 @@ if __name__ == "__main__":
     except Exception:
         tb = traceback.format_exc()
         print(tb)
+        email_failure()
 
-        emailAddresses = ['jb3816@cumc.columbia.edu']
-        emailCmd = ('echo "Dragen Pipe failure" | mail -s "Dragen Pipe Failure" {}'
-                   ).format(' '.join(emailAddresses))
-        print(emailCmd)
-        os.system(emailCmd)
