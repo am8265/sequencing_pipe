@@ -16,6 +16,8 @@ def main():
 
     while  sample_path[-1] == '/':
         sample_path = sample_path[0:-1]
+    if os.path.isabs(sample_path) == False:
+        raise Exception("Location is not absolute path!")
     sample = sample_path.split('/')[-1]
     print(sample_path)
     if os.path.isdir('{}/raw'.format(sample_path))== False:

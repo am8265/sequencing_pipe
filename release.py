@@ -40,7 +40,7 @@ def main():
         email(fcillumid,rejected_samples,config)
 
     else:
-        run_sample(args,config,auto_release_flag,rejected_samples,database)
+        run_sample(args,config,auto_release_flag,rejected_samples,args.verbose,database)
 
 def email(fcillumid,rejected_samples,config):
     email_program=config.get('emails','email_program')
@@ -157,7 +157,7 @@ def check_db_check_seqscratch(config,sample_name,sample_type,ppid,database):
             print(dsm_status[0]['component_bams'])
             raise Exception("Sample {} already has component bams!".format(sample_name))
 
-def run_sample(args,config,auto_release_flag,rejected_samples,database):
+def run_sample(args,config,auto_release_flag,rejected_samples,verbose,database):
     sample_name = args.sample_name
     sample_type = args.sample_type
     capture_kit = args.capture_kit
@@ -182,9 +182,30 @@ def run_sample(args,config,auto_release_flag,rejected_samples,database):
                                        auto_release_flag,
                                        rejected_samples,database)
     update_queues(sample_name,sample_type,capture_kit,ppid,priority,database)
-    ##update statusT
-    ##update prepT.status
-    return rejected_samples
+    update_sample_status(ppid,verbose,database)
+
+def update_sample_status(ppid,verbose,database):
+    logger = logging.getLogger(__name__)
+    userID = get_user_id(database)
+    print(ppid)
+    status = 'Released to Bioinformatics Team'
+    sample_status_insert_query = ("INSERT INTO statusT "
+                                  "(CHGVID,STATUS_TIME,STATUS,DBID,PREPID,USERID) "
+                                  "SELECT DISTINCT(CHGVID),UNIX_TIMESTAMP(),"
+                                  "'{}',DBID,PREPID,{} "
+                                  "FROM prepT "
+                                  "WHERE P_PREPID={}"
+                                 ).format(status,userID,ppid)
+
+    prepT_status_update_query = ("UPDATE prepT "
+                                "SET STATUS='{}' "
+                                "WHERE P_PREPID={}"
+                                ).format(status,ppid)
+    if verbose == True:
+        print(sample_status_insert_query)
+        print(prepT_status_update_query)
+    run_query(sample_status_insert_query,database)
+    run_query(prepT_status_update_query,database)
 
 def check_yield(ppid,sample_type,auto_release_flag,rejected_samples,database):
    query = GET_YIELD_FROM_PPID.format(ppid=ppid)
