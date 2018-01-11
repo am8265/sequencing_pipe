@@ -48,15 +48,20 @@ def main():
 
         if os.path.exists(sym_link_fastq):
 
-            raise ValueError('Symlink already exists!: {}'.format(ln_cmd))
+            raise Exception('Symlink already exists!: {}'.format(ln_cmd))
         else:
             if verbose:
                 print(' '.join(ln_cmd))
             subprocess.check_call(ln_cmd)
-    symlinks = glob('{}/*[XxYy]/*fastq.gz'.format(sample_path))
-    total_symlins = len(symlinks)
-    if total_symlins != total_fastqs:
-        raise ValueError('Number of raw fastqs and symlinks do not match!')
+    symlinks = glob('{}/*/*fastq.gz'.format(sample_path))
+    total_symlinks = []
+    for symlink in symlinks:
+        if 'raw' not in symlink:
+            total_symlinks.append(symlink)
+    total_symlinks_count = len(total_symlinks)
+    if total_symlinks_count != total_fastqs:
+        print(total_symlinks_count,total_fastqs)
+        raise Exception('Number of raw fastqs and symlinks do not match!')
     else:
         print("Sample {}'s symlink creation done".format(sample))
 
@@ -64,7 +69,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-v", "--verbose", default=False, action="store_true",
                         help="Display verbose output")
-    parser.add_argument('-f','--fastq-folder', required=True, 
+    parser.add_argument('-f','--fastq-folder', required=True,
                         help="Specify scratch dir for bcl2fastq")
     args=parser.parse_args()
     return args
@@ -75,26 +80,25 @@ def check_for_fastqs(sample_path):
         raise Exception("Fastqs not gzip!")
 
 def check_for_symlinks(sample_path,verbose):
-    enumerated_folder=glob('{}/[0-9]'.format(sample_path))
-    clean_up_symlink_folder(enumerated_folder,verbose)
-    fcillumid_folder=glob('{}/*[xXyY]'.format(sample_path))
-    clean_up_symlink_folder(fcillumid_folder,verbose)
+    possible_folders = glob('{}/*'.format(sample_path))
+    for folder in possible_folders:
+        if os.path.isdir(folder) == True and 'raw' not in folder:
+            clean_up_symlink_folder(folder,verbose)
 
 def clean_up_symlink_folder(folder,verbose):
-    for folder in folder:
-        files = glob('{}/*'.format(folder))
-        for file in files:
-            if os.path.islink(file) == True:
-                if verbose:
-                    print('removing symlink: {}'.format(file))
-                os.remove(file)
-        files = glob('{}/*'.format(folder))
-        if files != []:
-            raise Exception("Files still exist in folder")
-        else:
+    files = glob('{}/*'.format(folder))
+    for file in files:
+        if os.path.islink(file) == True:
             if verbose:
-                print('removing folder: {}'.format(folder))
-            os.rmdir(folder)
+                print('removing symlink: {}'.format(file))
+            os.remove(file)
+    files = glob('{}/*'.format(folder))
+    if files != []:
+        raise Exception("Files still exist in folder")
+    else:
+        if verbose:
+            print('removing folder: {}'.format(folder))
+        os.rmdir(folder)
 
 
 def make_fcillumid_dir(fastq_dir,verbose):
@@ -145,7 +149,7 @@ def get_rg_info(fastq,verbose):
         print(fastq_read_header)
         raise Exception('Incorrect read header format!')
     if read not in '123':
-        raise ValueError('read is not formatted correctly: {}!'.format(read))
+        raise Exception('read is not formatted correctly: {}!'.format(read))
     adapter = adapter.replace('+','-')
     if verbose:
         print(fcillumid,lane,read,adapter)
