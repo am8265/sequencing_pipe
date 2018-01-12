@@ -95,6 +95,25 @@ def regenerate_archive_tuples_list(config,fcillumid,database):
                 archive_tuples_list.append((glob(scratchFastq)[0],sampleArchiveLoc))
     return archive_tuples_list
 
+def get_distinct_seqtype_on_flowcell(fcillumid,database):
+    seqtypes_on_flowcell_query = ("SELECT DISTINCT(SAMPLE_TYPE) AS SAMPLE_TYPE "
+                                  "FROM Lane l "
+                                  "JOIN Flowcell f ON l.fcid=f.fcid "
+                                  "JOIN prepT p ON l.prepid=p.prepid "
+                                  "WHERE FCIllumID = '{}'").format(fcillumid)
+    seqtypes_on_flowcell = run_query(seqtypes_on_flowcell_query,database)
+
+    distinct_seqtype = []
+    for entry in seqtypes_on_flowcell:
+        distinct_seqtype.append(entry['SAMPLE_TYPE'].upper())
+    distinct_seqtype = list(set(distinct_seqtype))
+    if len(distinct_seqtype) == 1:
+        return ','.join(distinct_seqtype)
+    elif len(distinct_seqtype) > 1:
+        return  '{' + ','.join(distinct_seqtype) + '}'
+    else:
+        raise Exception('No seqtypes were found!')
+
 def archiveFastqs(config,archive_tuples_list,fcillumid,verbose,database):
     if archive_tuples_list == []:
         archive_tuples_list = regenerate_archive_tuples_list(config,fcillumid,database)
@@ -117,21 +136,27 @@ def archiveFastqs(config,archive_tuples_list,fcillumid,verbose,database):
     if verbose:
         print('Counting archived fastqs...')
     dest_drive = config.get('locs','fastq_archive_drive')
-    fastqList = glob('/nfs/{}/*/*/{}/*.fastq.gz'.format(dest_drive,fcillumid))
+    distinct_seqtype = get_distinct_seqtype_on_flowcell(fcillumid,database)
+    dest_check_loc ='/nfs/{}/{}/*/{}/*.fastq.gz'.format(dest_drive,distinct_seqtype,fcillumid)
+    logger.info('checking {}'.format(dest_check_loc))
+    fastqList = glob(dest_check_loc)
     mvTotalFastqSize = 0
     for archive_fastq in fastqList:
         mvTotalFastqSize += os.path.getsize(archive_fastq)
     mvNumFastq = len(fastqList)
     check_orig_dest_transfer(dest_drive,origNumFastq,origTotalFastqSize,mvNumFastq,mvTotalFastqSize)
 
-def get_mv_fastq_size_sum(drive,fcillumid):
+def get_mv_fastq_size_sum(drive,fcillumid,database):
     logger = logging.getLogger(__name__)
-    mvFastqList = glob('/nfs/{}/*/*/{}/*fastq.gz'.format(drive,fcillumid))
+    distinct_seqtype = get_distinct_seqtype_on_flowcell(fcillumid,database)
+    dest_check_loc ='/nfs/{}/{}/*/{}/*.fastq.gz'.format(drive,distinct_seqtype,fcillumid)
+    logger.info('checking {}'.format(dest_check_loc))
+    mvFastqList = glob(dest_check_loc)
     mvNumFastq = len(mvFastqList)
     mvTotalFastqSize = 0
     for mvFastq in mvFastqList:
         mvFastqSize = os.path.getsize(mvFastq)
-        logger.info('{} moved filesize: {}'.format(mvFastqList,mvFastqSize))
+        logger.info('{} moved filesize: {}'.format(mvFastq,mvFastqSize))
         mvTotalFastqSize += mvFastqSize
     return mvTotalFastqSize,mvNumFastq
 
@@ -214,7 +239,7 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
             logger.info(reportCpCmd)
             subprocess.call(reportCpCmd)
 
-        mvTotalFastqSize,mvNumFastq = get_mv_fastq_size_sum(dest_drive,fcillumid)
+        mvTotalFastqSize,mvNumFastq = get_mv_fastq_size_sum(dest_drive,fcillumid,database)
         check_orig_dest_transfer(dest_drive,origNumFastq,origTotalFastqSize,mvNumFastq,mvTotalFastqSize)
 
     seqscratchBase = config.get('locs','bcl_dir')

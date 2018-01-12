@@ -124,6 +124,7 @@ def create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address
                           fcillumid=fcillumid)
     storage_script = open(script_loc,'w')
     add_sge_header(config,storage_script,fcillumid,'storage',True)
+    storage_script.write('export LD_LIBRARY_PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/lib:$LD_LIBRARY_PATH\n')
     storage_script.write(storageCmd + '-v \n')
 
 def checkSeqsata(archive_dir):
