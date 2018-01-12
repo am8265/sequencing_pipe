@@ -24,8 +24,9 @@ def main(config):
         fcillumid = fcillumid['FCILLUMID']
         check_and_run_flowcell(fcillumid,config,database)
     if complete_flowcells == ():
-        pass
         #print('No flowcells were found')
+        pass
+
 def check_and_run_flowcell(fcillumid,config,database):
     run_info_dict = parse_run_parameters_xml(fcillumid,database)
     bcl_dir = '{}/'.format(config.get('locs','bcl_dir'))
@@ -36,6 +37,7 @@ def check_and_run_flowcell(fcillumid,config,database):
                                   run_info_dict['runDate'],
                                   run_info_dict['machine'],
                                   run_info_dict['FCIllumID'])
+
     if glob(out_dir) == []:
         cmd = ("{} {}/bcl2fastq_pipeline_wrapper.py --fcillumid {} -r"
               ).format(config.get('programs','python36_program'),
@@ -43,8 +45,9 @@ def check_and_run_flowcell(fcillumid,config,database):
                        fcillumid)
         print(cmd)
         print()
-        print('BCL2FASTQ STARTED')
+        print('BCL2FASTQ STARTING')
         print()
+        os.system(cmd)
     else:
         print('BCL DIR EXISTS!')
         print("***************************")
