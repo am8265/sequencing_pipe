@@ -19,7 +19,7 @@ def submit(config,args,run_info_dict,database):
     address = '{}@cumc.columbia.edu'.format(get_user())
     python36_program = config.get('programs','python36_program')
     #scriptLoc = '/nfs/goldstein/software/sequencing_pipe/dev/'
-    scriptLoc = '/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe'
+    scriptLoc = config.get('locs','scr_dir')
     runFolder = run_info_dict['runFolder']
     machine = run_info_dict['machine']
     fcillumid=args.fcillumid
@@ -165,7 +165,7 @@ def main():
     machine = run_info_dict['machine'] # Ex A00123 + B = A00123B 
     setup_logging(machine,args.fcillumid,config.get('locs','logs_dir'))
     logger = logging.getLogger(__name__)
-    logger.info('Running GAF_Pipeline.py')
+    logger.info('Running bcl2fastq_pipeline_wrapper.py')
 
     check_flowcell_complete(args.fcillumid,config.get('locs','bcl_dir'),
                             run_info_dict['runFolder'],run_info_dict['type'],database)
