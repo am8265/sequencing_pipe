@@ -19,7 +19,6 @@ def main():
     if os.path.isabs(sample_path) == False:
         raise Exception("Location is not absolute path!")
     sample = sample_path.split('/')[-1]
-    print(sample_path)
     if os.path.isdir('{}/raw'.format(sample_path))== False:
         raise Exception("Raw fastq folder not found!")
     check_for_fastqs(sample_path)
@@ -111,45 +110,59 @@ def make_fcillumid_dir(fastq_dir,verbose):
             if e.errno != errno.EEXIST:
                     raise
 
+def check_fcillumid(rg_info):
+    tmp_fcillumid = rg_info[0]
+    if len(rg_info) == 10:
+        fcillumid = rg_info[2]
+    else:
+        search_obj = re.search('[CHD].*[XY]',tmp_fcillumid)
+        fcillumid = search_obj.group()
+    if len(fcillumid) != 9 and fcillumid[-1] in 'xyXY':
+        raise Exception('Check fcillumid: {}'.format(fcillumid))
+    else:
+        return fcillumid
+
 def get_rg_info(fastq,verbose):
     gz = gzip.open(fastq,'rt')
     fastq_read_header = gz.readline()
     rg_info = fastq_read_header.strip().split(':')
+    fcillumid = check_fcillumid(rg_info)
     gz.close()
     if verbose:
         print(fastq_read_header.strip())
     if len(rg_info) == 10:
-        """ Illumina read head example
+        """ IGM Illumina read head example
         @K00347:44:HL7K2BBXX:5:1101:13352:1384 1:N:0:NCTATCCT+NGGATAGG
         @Instrument:RunID:FlowCellID:Lane:Tile:X:Y:UMI ReadNum:FilterFlag:0:IndexSequence or SampleNumber"""
-        machine,run_number,fcillumid,lane,tile,X,read,control,something,adapter = rg_info
+        machine,run_number,fcillumid2,lane,tile,X,read,control,something,adapter = rg_info
 
         read = read.split(' ')[1]
     elif len(fastq_read_header.split(':')) == 7:
         """@HISEQ:549:C6PE0ANXX:2:2305:17233:17109/1
         @Instrument:RunID:FlowCellID:Lane:Tile:X:Y IndexSequence"""
-        machine,run_number,fcillumid,lane,tile,X,Y_and_read = rg_info
+        machine,run_number,fcillumid2,lane,tile,X,Y_and_read = rg_info
         read = Y_and_read.split('/')[1]
         adapter = 'AAAAAA'
     elif len(fastq_read_header.split(':')) == 5:
-        if re.search('[a-zA-Z]',rg_info[4]):
+        if re.search('[ACGNT]',rg_info[4]):
             """@FCHNYHLBCXX:1:1207:6982:25608#TGACCAAN/1"""
-            fcillumid,lane,tile,X,Y_and_read = rg_info
-            fcillumid = fcillumid[3:]
+            fcillumid2,lane,tile,X,Y_and_read = rg_info
+            fcillumid2 = fcillumid2[3:]
             tmp = Y_and_read.split('#')[1]
             adapter,read = tmp.split('/')
         else:
-            """@H7YNGADXY160912:1:1202:21282:28638/1"""
-            fcillumid,lane,tile,X,Y_and_read = rg_info
-            fcillumid = fcillumid[3:]
+            fcillumid2,lane,tile,X,Y_and_read = rg_info
+            fcillumid2 = fcillumid2[3:]
             read = Y_and_read.split('/')[1]
             adapter = 'AAAAAA'
     else:
 
         print(fastq_read_header)
         raise Exception('Incorrect read header format!')
+
     if read not in '123':
         raise Exception('read is not formatted correctly: {}!'.format(read))
+
     adapter = adapter.replace('+','-')
     if verbose:
         print(fcillumid,lane,read,adapter)
