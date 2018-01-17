@@ -128,7 +128,7 @@ def archiveFastqs(config,archive_tuples_list,fcillumid,verbose,database):
         origTotalFastqSize += fastqSize
 
         subprocess.check_call(['mkdir','-p',orig_dest_pair[1]])
-        fastqMoveCmd = ['rsync','--inplace','-aq',orig_dest_pair[0],orig_dest_pair[1]]
+        fastqMoveCmd = ['rsync','--inplace','-aq',orig_dest_pair[0] ,orig_dest_pair[1]]
         if verbose:
             print(' '.join(fastqMoveCmd))
         logger.info(fastqMoveCmd)
@@ -210,14 +210,18 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
             raise Exception('No fastqs were found!')
 
         for fastq in fastq_list:
+            fastq_path,fastq_filename = os.path.split(fastq)
             fastqSize = os.path.getsize(fastq)
             logger.info('{} original filesize: {}'.format(fastq,fastqSize))
             origTotalFastqSize += fastqSize
             sampleName = '_'.join(fastq.split('/')[6].split('_')[0:-4])
             seqtype = getSeqtype(fcillumid,sampleName,database)
             dest_drive = config.get('locs','bcl2fastq_scratch_drive')
-            gaf_bin = run_query(GET_GAFBIN_FROM_SAMPLE_NAME.format(CHGVID=sampleName),database)
-            sampleArchiveLoc = '/nfs/{}/{}/{}/{}'.format(archive_drive,seqtype,sampleName,fcillumid)
+            gaf_bin_query = GET_GAFBIN_FROM_SAMPLE_NAME.format(CHGVID=sampleName)
+            gaf_bin = run_query(gaf_bin_query,database)
+            sampleArchiveLoc = '/nfs/{}/{}/{}/{}/{}'.format(archive_drive,seqtype,
+                                                            sampleName,fcillumid,
+                                                            fastq_filename)
             scratchArchiveLoc = '/nfs/{}/{}/{}/{}'.format(dest_drive,seqtype,
                                                           sampleName,fcillumid)
             archive_tuples_list.append((scratchArchiveLoc,sampleArchiveLoc))
@@ -297,7 +301,7 @@ def processBcl2fastqLog(verbose,fcillumid,machine,archive_drive,UnalignedLoc):
     logger = logging.getLogger(__name__)
     bcl2fastqLogLoc = '{}/nohup.sge'.format(UnalignedLoc)
     zipLoc = '/nfs/{}/summary/bcl_nohup/{}_{}_bcl2fastqLog.zip'.format(archive_drive,fcillumid,machine)
-    zipCmd = ['zip',zipLoc,bcl2fastqLogLoc]
+    zipCmd = ['/usr/bin/zip',zipLoc,bcl2fastqLogLoc]
 
     if verbose:
         print(' '.join(zipCmd))
@@ -305,7 +309,7 @@ def processBcl2fastqLog(verbose,fcillumid,machine,archive_drive,UnalignedLoc):
     returnCode = subprocess.call(zipCmd)
     logger.info(returnCode)
 
-def updateStatus(verbose,FCID,noStatus,database):
+def updateStatus(verbose,fcillumid,noStatus,database):
     """sequenceDB Sample Update"""
     logger = logging.getLogger(__name__)
     userID = get_user_id(database)
@@ -317,7 +321,7 @@ def updateStatus(verbose,FCID,noStatus,database):
                 "FROM Flowcell f "
                 "JOIN Lane l on l.FCID=f.FCID "
                 "JOIN prepT pt on pt.prepID=l.prepID "
-                "WHERE FCillumid='{}'").format(userID,FCID)
+                "WHERE FCillumid='{}'").format(userID,fcillumid)
         prepT_status_update_query = """UPDATE prepT p
                                        JOIN Lane l ON p.PREPID=l.PREPID
                                        JOIN Flowcell f ON f.FCID=l.FCID
