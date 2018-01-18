@@ -36,8 +36,8 @@ def main():
 
     logger.info('Starting Storage script')
     # Josh Bridgers, Sophia Frantz, Brett Copeland
-    emailAddress = ['jb3816@cumc.columbia.edu','sif2110@cumc.columbia.edu','bc2675@cumc.columbia.edu']
-    emailAddressFail = ['jb3816@cumc.columbia.edu']
+    emailAddress = config.get('emails','storage_success')
+    emailAddressFail = config.get('emails','storage_failure')
 
     #completeCheck(bcl_drive,inputFolder)
     try:
@@ -60,7 +60,7 @@ def email(emailAddress,storageStatus,FCID):
     logger = logging.getLogger(__name__)
     logger.info('Starting email')
     emailCmd = ('echo "BCL move {} for {}"  | mail -s "IGM:BCL move {}" {}'
-        ).format(storageStatus,FCID,storageStatus,' '.join(emailAddress))
+        ).format(storageStatus,FCID,storageStatus,emailAddress)
     print(emailCmd)
     logger.info(emailCmd)
     os.system(emailCmd)
@@ -195,8 +195,8 @@ def updateLaneStatus(verbose,fcillumid,noStatus,database):
 
 def storage(machine,fcillumid,args,config,run_info_dict,database):
     logger = logging.getLogger(__name__)
-    bcl_drive = args.bcl_drive
-    archive_drive = args.archive_dir
+    bcl_drive = config.get('locs','bcl2fastq_scratch_drive')
+    archive_drive = config.get('locs','fastq_archive_drive')
     noStatus = args.noStatus
     verbose = args.verbose
     UnalignedLoc = '/nfs/{}/BCL/{}_{}_{}_Unaligned'.format(bcl_drive,run_info_dict['runDate'],
@@ -371,10 +371,6 @@ def parse_arguments():
                         help="Specify Illumina's Flowcell ID")
     parser.add_argument("-v", "--verbose", default=False, action="store_true",
                         help="Display verbose output")
-    parser.add_argument('-b','--bcl_drive', default='seqscratch_ssd', dest='bcl_drive',
-                        help="Specify scratch dir for bcl2fastq")
-    parser.add_argument('-a','--archive_dir', default='igmdata01', dest='archive_dir',
-                        help="Specify scratch dir for bcl2fastq")
     parser.add_argument('--rerun',default=False, action='store_true',
                         help="""Allows for re-archival of sample even after its been
                               moved to its scratch location""")

@@ -91,7 +91,7 @@ def add_sge_header(config,file,fcillumid,step,hold):
     file.write('#$ -e {}/{}_{}.err\n'.format(log_dir,fcillumid,step))
     file.write('#$ -V\n')
     file.write('#$ -N {}_{}\n'.format(step,fcillumid))
-    file.write('#$ -M jb3816@cumc.columbia.edu\n')
+    file.write('#$ -M {}@cumc.columbia.edu\n'.format(get_user())
     file.write('#$ -m bea\n')
     file.write('#\n')
     if hold == True:

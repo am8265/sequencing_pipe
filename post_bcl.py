@@ -1,8 +1,5 @@
 #!/usr/bin/python
 # post_bcl.py
-# Joshua Bridgers
-# 04/26/2012
-# jb3816@cumc.columbia.edu
 #
 # Updates SequenceDB after bcl completion
 

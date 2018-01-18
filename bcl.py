@@ -76,7 +76,7 @@ def add_sge_header_to_script(bcl_script,fcillumid):
     bcl_script.write("#$ -o nohup.sge\n")
     bcl_script.write("#$ -e error.sge\n")
     bcl_script.write("#$ -V\n")
-    bcl_script.write("#$ -M jb3816@cumc.columbia.edu\n")
+    bcl_script.write("#$ -M {}@cumc.columbia.edu".format(get_user())
     bcl_script.write("#$ -m bea\n")
     bcl_script.write("#$ -N bcl_{}\n".format(fcillumid))
 
@@ -130,7 +130,6 @@ def check_fcillumid(inputted_fcillumid,xml_fcillumid):
     if inputted_fcillumid != xml_fcillumid:
         update_pipeline_complete(fcillumid,'-2',database)
         raise Exception("FCIllumIDs don't match! {} != {}".format(inputted_fcillumid,xml_fcillumid))
-
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)

@@ -122,7 +122,7 @@ def write_sge_header(sample,step,script_loc):
     script.write("#$ -e {log_dir}/{sample_name}.{pseudo_prepid}.{step}.err\n".format(step=step,**sample.metadata))
     script.write("#$ -V\n")
     script.write("#$ -N {sample_name}.{pseudo_prepid}.{step}\n".format(step=step,**sample.metadata))
-    script.write("#$ -M jb3816@cumc.columbia.edu\n")
+    script.write("#$ -M {}@cumc.columbia.edu\n".format(get_user()))
     script.write("#$ -m ea\n")
     return script
 
@@ -384,9 +384,9 @@ def get_next_sample(pid,database,debug):
     return sample_info[0]['CHGVID'],sample_info[0]['SAMPLE_TYPE'],pid,sample_info[0]['EXOMEKIT']
 
 def email_failure():
-    emailAddresses = ['jb3816@cumc.columbia.edu']
+    emailAddresses = '{}@cumc.columbia.edu'.format(get_user())
     emailCmd = ('echo "Dragen Pipe failure" | mail -s "Dragen Pipe Failure" {}'
-               ).format(' '.join(emailAddresses))
+               ).format(emailAddresses)
     print(emailCmd)
     os.system(emailCmd)
 
