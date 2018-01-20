@@ -55,7 +55,7 @@ def submit(config,args,run_info_dict,database):
                                              run_info_dict['machine'],
                                              run_info_dict['FCIllumID'])
 
-        check_exist_bcl_dir(out_dir)
+        check_exist_bcl_dir(fcillumid,out_dir,database)
         os.system(BCLCmd) #bcl2fastq auto submits to cluster
         logger.info(BCLCmd)
         os.system(BCLMySQLCmd) #quick msyql updates.  
@@ -69,14 +69,12 @@ def submit(config,args,run_info_dict,database):
 
 def run_qsub_command(config,fcillumid,step,run_info_dict):
     logger = logging.getLogger(__name__)
-    qsub_cmd = ('{qsub_program} -N {machine}_{fcillumid}_{bcl2fastq_scratch_drive}_{step} '
-                '{bcl_dir}/{runFolder}/{machine}_{fcillumid}_{step}.sh'
+    qsub_cmd = ('{qsub_program} {bcl_dir}/{runFolder}/{machine}_{fcillumid}_{step}.sh'
                ).format(qsub_program=config.get('programs','qsub_program'),
                         machine=run_info_dict['machine'],
                         fcillumid=fcillumid,
                         bcl_dir=config.get('locs','bcl_dir'),
                         runFolder=run_info_dict['runFolder'],
-                        bcl2fastq_scratch_drive=config.get('locs','bcl2fastq_scratch_drive'),
                         step=step)
     print(qsub_cmd)
     logger.info(qsub_cmd)
@@ -91,7 +89,7 @@ def add_sge_header(config,file,fcillumid,step,hold):
     file.write('#$ -e {}/{}_{}.err\n'.format(log_dir,fcillumid,step))
     file.write('#$ -V\n')
     file.write('#$ -N {}_{}\n'.format(step,fcillumid))
-    file.write('#$ -M {}@cumc.columbia.edu\n'.format(get_user())
+    file.write('#$ -M {}@cumc.columbia.edu\n'.format(get_user()))
     file.write('#$ -m bea\n')
     file.write('#\n')
     if hold == True:
