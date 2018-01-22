@@ -91,13 +91,12 @@ def is_external_or_legacy_sample(prepid,database):
     else:
         IS_SAMPLE_EXTERNAL_FROM_PREPID = """
             SELECT CASE
-                WHEN FCILLUMID LIKE 'X%'
+                WHEN EXTERNALDATA = 1
                     THEN 1
                     ElSE 0
                 END AS IS_EXTERNAL
-            FROM Lane l
-            JOIN Flowcell f ON f.fcid=l.fcid
-            WHERE prepid = {prepid}
+            FROM prepT
+            WHERE PREPID = {prepid}
             """
         query = IS_SAMPLE_EXTERNAL_FROM_PREPID.format(prepid=prepid)
         is_external_sample = int(run_query(query,database)[0]['IS_EXTERNAL'])
@@ -320,6 +319,12 @@ def check_flowcell_complete(fcillumid,bcl_dir,run_folder_path,machine_type,datab
             raise Exception("Copy has not completed!")
         else:
             print("CopyComplete.txt check: OK!")
+        #run_complete_loc = bcl_dir + run_folder_path + '/RunComplete.txt'
+        #if os.path.isfile(run_complete_loc) == False:
+        #    update_pipeline_complete(fcillumid,'-8',database)
+        #    raise Exception("Run has not completed!")
+        #else:
+        #    print("RunComplete.txt check: OK!")
 
 def get_user():
     p = os.popen('echo $USER')
