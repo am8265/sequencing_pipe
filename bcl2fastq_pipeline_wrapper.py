@@ -133,7 +133,7 @@ def checkSeqsata(archive_dir):
 
 def arg_parser(config):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--fcillumid", dest='fcillumid', required=True,
+    parser.add_argument("-f", "--fcillumid", dest='fcillumid', required=True,
                         help="Specify Illumina's Flowcell ID")
     parser.add_argument("-v", "--verbose", default=False, action="store_true",
                         help="Display verbose output")

@@ -307,6 +307,7 @@ def check_exist_bcl_dir(fcillumid,BCLDrive,database):
 def check_bcl_complete(bcl2fastq_dir):
     bcl_complete_flag_loc = glob(bcl2fastq_dir + '/bcl_complete')
     if bcl_complete_flag_loc == []:
+        print(bcl2fastq_dir + '/bcl_complete')
         raise Exception('bcl_complete flag file not found! Check if BCL2Fastq completed successfully')
 
 def check_flowcell_complete(fcillumid,bcl_dir,run_folder_path,machine_type,database):
