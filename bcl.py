@@ -9,7 +9,7 @@ from glob import glob
 from interop import py_interop_run_metrics, py_interop_run, py_interop_summary
 from utilities import *
 
-def run_bcl2fastq(args,run_info_dict,config,sss_loc,database,verbose):
+def run_bcl2fastq(args,run_info_dict,config,database,verbose):
     fcillumid = args.fcillumid
     logger = logging.getLogger(__name__)
     script_dir = config.get('locs','scr_dir')
@@ -21,7 +21,14 @@ def run_bcl2fastq(args,run_info_dict,config,sss_loc,database,verbose):
                                              run_info_dict['FCIllumID'])
     script_loc = '{}/{}_{}_BCL.sh'.format(out_dir,run_info_dict['FCIllumID'],run_info_dict['machine'])
 
-    check_exist_bcl_dir(out_dir)
+    check_exist_bcl_dir(fcillumid,out_dir,database)
+    sss_loc = create_sss_from_database(args.fcillumid,run_info_dict['machine'],
+                                       run_info_dict,config,database)
+    cp_cmd= ('cp {} /nfs/{}/Sequencing_SampleSheets/'
+         ).format(sss_loc,config.get('locs','fastq_archive_drive')
+    os.system(cp_cmd)
+    logger.info("Using SSS: {}".format(sss_loc))
+
     bcl2fastq_cmd = build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,database)
     print(bcl2fastq_cmd)
     logger.info(bcl2fastq_cmd)
@@ -32,7 +39,7 @@ def run_bcl2fastq(args,run_info_dict,config,sss_loc,database,verbose):
         add_sge_header_to_script(bcl_script,fcillumid)
         add_libraries_to_script(bcl_script)
         bcl_script.write(bcl2fastq_cmd + '\n')
-
+        bcl_script.write(' if [ $? -eq 0 ] ; then touch {}/bcl_complete ; fi\n'.format(out_dir))
     qsub_loc = config.get('programs','qsub_program')
     qsub_cmd = ("cd {} ; {} -v PATH  {}"
                ).format(out_dir,qsub_loc,script_loc)
@@ -76,7 +83,7 @@ def add_sge_header_to_script(bcl_script,fcillumid):
     bcl_script.write("#$ -o nohup.sge\n")
     bcl_script.write("#$ -e error.sge\n")
     bcl_script.write("#$ -V\n")
-    bcl_script.write("#$ -M jb3816@cumc.columbia.edu\n")
+    bcl_script.write("#$ -M {}@cumc.columbia.edu".format(get_user()))
     bcl_script.write("#$ -m bea\n")
     bcl_script.write("#$ -N bcl_{}\n".format(fcillumid))
 
@@ -131,24 +138,17 @@ def check_fcillumid(inputted_fcillumid,xml_fcillumid):
         update_pipeline_complete(fcillumid,'-2',database)
         raise Exception("FCIllumIDs don't match! {} != {}".format(inputted_fcillumid,xml_fcillumid))
 
-
 def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-f", "--fcillumid", required=True,
                         help="Specify Illumina's Flowcell ID")
     parser.add_argument("-v", "--verbose", default=False, action="store_true",
                         help="Display verbose output")
-    parser.add_argument('-b','--bcl_drive', default='seqscratch_ssd',
-                        help="Specify scratch dir for bcl2fastq")
-    parser.add_argument('-a','--archive_dir', default='igmdata01',
-                        help="Specify scratch dir for bcl2fastq")
     parser.add_argument('--tiles',
                         help="Specify which tiles of the flowcell to convert")
     parser.add_argument('--use_bases_mask', dest='use_bases_mask',
                         help="""Specify any base positions to mask"
                              Ex: y150n,I8n,y150n""")
-    parser.add_argument('--sss',
-                        help="Specify your own sequencing sample sheet")
     parser.add_argument('--noStatus', action='store_true', default=False,
                         help="Do not update status")
     parser.add_argument("--test", default=False, action="store_true",
@@ -178,18 +178,8 @@ def main():
     check_flowcell_complete(args.fcillumid,config.get('locs','bcl_dir'),
                             run_info_dict['runFolder'],run_info_dict['type'],database)
     update_pipeline_complete(args.fcillumid,'-1',database)
-    if args.sss is None:
-        sss_loc = create_sss_from_database(args.fcillumid,run_info_dict['machine'],
-                                           run_info_dict,config,database)
-        cp_cmd= ('cp {} /nfs/igmdata01/Sequencing_SampleSheets/'
-             ).format(sss_loc)
-        os.system(cp_cmd)
-
-    else:
-        sss_loc = args.sss
-        print("Using SSS: {}".format(sss_loc))
     #check_sss(sss_loc)
-    run_bcl2fastq(args,run_info_dict,config,sss_loc,database,args.verbose)
+    run_bcl2fastq(args,run_info_dict,config,database,args.verbose)
     if args.noStatus == False:
         update_sample_status(database,args.fcillumid,args.verbose)
     logger.info("bcl2fastq successfully started")

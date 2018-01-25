@@ -294,18 +294,23 @@ def run_query(query,database):
 
 def get_config():
     config = configparser.ConfigParser()
-    config.read('/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/config.ini')
+    config.read('/nfs/goldstein/software/sequencing_pipe/storage/sequencing_pipe/config.ini')
     return config
 
-def check_exist_bcl_dir(BCLDrive):
+def check_exist_bcl_dir(fcillumid,BCLDrive,database):
     dir_path = glob(BCLDrive)
     if dir_path != []:
         update_pipeline_complete(fcillumid,'-7',database)
         raise Exception('BCL directory already exists: {}!'.format(BCLDrive))
 
+def check_bcl_complete(bcl2fastq_dir):
+    bcl_complete_flag_loc = glob(bcl2fastq_dir + '/bcl_complete')
+    if bcl_complete_flag_loc == []:
+        print(bcl2fastq_dir + '/bcl_complete')
+        raise Exception('bcl_complete flag file not found! Check if BCL2Fastq completed successfully')
+
 def check_flowcell_complete(fcillumid,bcl_dir,run_folder_path,machine_type,database):
     rta_complete_loc = bcl_dir + run_folder_path + '/RTAComplete.txt'
-    print(rta_complete_loc)
     if os.path.isfile(rta_complete_loc) == False:
         print(rta_complete_loc)
         update_pipeline_complete(fcillumid,'-4',database)

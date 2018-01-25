@@ -221,15 +221,11 @@ def parse_arguments():
                         help="Specify Illumina's Flowcell ID")
     parser.add_argument("-v", "--verbose", default=False, action="store_true",
                         help="Display verbose output")
-    parser.add_argument('-b','--bcl_drive', default='seqscratch_ssd', dest='bcl_drive',
-                        help="Specify scratch dir for bcl2fastq")
-    parser.add_argument('-a','--archive_dir', default='igmdata01', dest='archive_dir',
-                        help="Specify scratch dir for bcl2fastq")
     parser.add_argument("--test", default=False, action="store_true",
                         help="Query and updates to the database occur on the "
                         "test server")
     parser.add_argument('--version', action='version',
-                        version='%(prog)s v2.0')
+                        version='%(prog)s v3.0')
     args=parser.parse_args()
     return args
 
