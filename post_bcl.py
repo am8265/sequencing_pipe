@@ -20,6 +20,8 @@ def UpdateFC(fcillumid,fc_yield,unaligned_dir,run_info_dict,sample_info,verbose,
     '''Updates Flowcell total Yield, Casava version for FCIllumID'''
     logger = logging.getLogger(__name__)
     casavaCmd = ['grep','bcl2fastq','-m1','{}/nohup.sge'.format(unaligned_dir)]
+    if verbose:
+        print(' '.join(casavaCmd))
     proc = subprocess.Popen(casavaCmd, stdout=subprocess.PIPE)
     CasavaVer = proc.stdout.read().decode().split()[1].strip()
     sql = ("UPDATE Flowcell f "
@@ -53,7 +55,7 @@ def getHTML(unaligned_dir,fcillumid,verbose):
                 laneSummaryFlag = 1
     return laneBarcodeHTML
 
-def update_lane(config,machine,unaligned_dir,fcillumid,verbose,database):
+def update_email_lane(config,machine,unaligned_dir,fcillumid,verbose,test,database):
     '''Gets Actual Lane Fraction FROM laneBarcode.htm, Updates sample status'''
     logger = logging.getLogger(__name__)
     laneBarcodeHTML = getHTML(unaligned_dir,fcillumid,verbose)
@@ -112,7 +114,7 @@ def update_lane(config,machine,unaligned_dir,fcillumid,verbose,database):
                 email_highlight_pos = check_clustden_lnfrac(config,chgvid,
                     LnFrac,LnFracAct,fcillumid,lanenum,database)
                 sample_info[lanenum].append([chgvid,SeqType,LnFrac,LnFracAct,email_highlight_pos])
-    makeHTMLEmail(config,unaligned_dir,machine,fcillumid,sample_info,database)
+    makeHTMLEmail(config,unaligned_dir,machine,fcillumid,sample_info,test,database)
     return fc_yield,sample_info
 
 def check_clustden_lnfrac(config,chgvid,LnFrac,LnFractionAct,fcillumid,LaneNum,database):
@@ -159,7 +161,7 @@ def checkStatus(fcillumid,database):
             raise_exception_switch = 1
             logger.warn(msg)
             print(msg)
-        elif status != 'Storage' and SeqType == 'Genome':
+        elif (status != 'BCL' and status != 'Storage') and SeqType == 'Genome':
             raise_exception_switch = 1
             logger.warn(msg)
             print(msg)
@@ -196,13 +198,18 @@ def addHeader(email):
     email.write("</tr>\n")
     return email
 
-def send_email(config,fcillumid,Machine,unaligned_dir):
+def send_email(config,fcillumid,Machine,unaligned_dir,test):
     logger = logging.getLogger(__name__)
     if os.path.isfile('%s/EmailSent.txt' % unaligned_dir) == False:
-        address = config.get('emails','post_bcl_email') 
+        subject = '\"Problem with Lane Fractions for flowcell {} {}'.format(fcillumid,Machine)
+        if test == True:
+            subject += ' TEST EMAIL\"'
+        else:
+            subject += '\"'
+        address = config.get('emails','post_bcl_email')
         emailProgramLocation = '/nfs/goldstein/software/mutt-1.5.23/bin/mutt '
         emailCmd = emailProgramLocation + '-e "set content_type=text/html" '
-        emailCmd += '-s \"Problem with Lane Fractions for flowcell %s %s\" ' % (fcillumid,Machine)
+        emailCmd += '-s {} '.format(subject)
         emailCmd += address
         emailCmd += " < %s/LnFractionEmail.txt" % unaligned_dir
 
@@ -223,12 +230,13 @@ def getKapaPicoDBID(fcillumid,CHGVID,database):
                 pt.CHGVID='{}'".format(fcillumid,CHGVID),database)
     return kapaPicoDBID
 
-def makeHTMLEmail(config,unaligned_dir,machine,fcillumid,sample_info,database):
+def makeHTMLEmail(config,unaligned_dir,machine,fcillumid,sample_info,test,database):
     email = open('%s/LnFractionEmail.txt' % unaligned_dir,'w')
     email = addHeader(email)
     logger = logging.getLogger(__name__)
     for lane in sample_info.keys():
-        cluster_density = run_query(GET_CLUSTER_DENSITY_FOR_LANE.format(fcillumid=fcillumid,lanenum=lane),database)
+        query = GET_CLUSTER_DENSITY_FOR_LANE.format(fcillumid=fcillumid,lanenum=lane)
+        cluster_density = run_query(query,database)
         for samp in sample_info[lane]:
             if samp[0] == 'Undetermined':
                 logging.info("Lane %s's unmatched reads percent: %s" % (lane,samp[1]))
@@ -241,22 +249,27 @@ def makeHTMLEmail(config,unaligned_dir,machine,fcillumid,sample_info,database):
                 email.write('<tr><td colspan="7" align="center">&nbsp</td></tr>\n')
             else:
                 kapaPicoDBID = getKapaPicoDBID(fcillumid,samp[0],database)
-                poolName = run_query(GET_POOLID_FROM_DBID.format(DBID=kapaPicoDBID[0]['DBID']),database)
+                pool_query = GET_POOLID_FROM_DBID.format(DBID=kapaPicoDBID[0]['DBID'])
+                poolName = run_query(pool_query,database)
                 poolName= poolName[0]['CHGVID']
                 logging.info('%s\t%s\t%s\t%s\t%s\t%s\t%s' %
                         (samp[0],samp[1],samp[2],samp[3],cluster_density[0]['CLUSTDEN'],
                          poolName,kapaPicoDBID[0]['KAPA_CONC']))
 
                 email.write("<tr>\n")
-                for i,column in enumerate((samp[0],samp[1],samp[2],samp[3],cluster_density[0]['CLUSTDEN'],
-                               poolName,kapaPicoDBID[0]['KAPA_CONC'])):
+                for i,column in enumerate((samp[0],samp[1],samp[2],samp[3],
+                                        cluster_density[0]['CLUSTDEN'],poolName,
+                                        kapaPicoDBID[0]['KAPA_CONC'])):
                     if i in samp[4]:
-                        email.write('<td bgcolor="#FFFF00">%s</td>\n' % column)
+                        if float(samp[3]) < 0.05: #super low lane fract
+                            email.write('<td bgcolor="##FF4500">%s</td>\n' % column)
+                        else:
+                            email.write('<td bgcolor="#FFFF00">%s</td>\n' % column)
                     else:
                         email.write("<td>%s</td>\n" % column)
                 email.write("</tr>\n")
     email.close()
-    send_email(config,fcillumid,machine,unaligned_dir)
+    send_email(config,fcillumid,machine,unaligned_dir,test)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -294,7 +307,8 @@ def main():
                                              machine,fcillumid)
     check_bcl_complete(unaligned_dir)
     try:
-        fc_yield,sample_info = update_lane(config,machine,unaligned_dir,fcillumid,args.verbose,database)
+        fc_yield,sample_info = update_email_lane(config,machine,unaligned_dir,
+                fcillumid,args.verbose,args.test,database)
         if args.noStatusCheck == False:
             checkStatus(fcillumid,database)
         UpdateFC(fcillumid,fc_yield,unaligned_dir,run_info_dict,sample_info,args.verbose,database)

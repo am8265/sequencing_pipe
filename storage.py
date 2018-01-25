@@ -42,7 +42,7 @@ def main():
     #completeCheck(bcl_drive,inputFolder)
     try:
         storage(machine,fcillumid,args,config,run_info_dict,database)
-        email(emailAddress,'SUCCESS',fcillumid)
+        email(emailAddress,'SUCCESS',fcillumid,args.test)
         logger.info('Done')
         if args.verbose:
             print('Done')
@@ -50,17 +50,22 @@ def main():
     except Exception:
         logger.exception('Got exception')
         traceback.print_exc()
-        email(emailAddressFail,'FAILURE',fcillumid)
+        email(emailAddressFail,'FAILURE',fcillumid,args.test)
         logger.info('Storage Failure')
         print('Storage Failure')
         sys.exit(255)
 
 
-def email(emailAddress,storageStatus,FCID):
+def email(emailAddress,storageStatus,fcillumid,test):
     logger = logging.getLogger(__name__)
     logger.info('Starting email')
-    emailCmd = ('echo "BCL move {} for {}"  | mail -s "IGM:BCL move {}" {}'
-        ).format(storageStatus,FCID,storageStatus,emailAddress)
+    subject ='"IGM:BCL move {}'.format(storageStatus)
+    if test == True:
+        subject += ' TEST"'
+    else:
+        subject += '"'
+    emailCmd = ('echo "BCL move {} for {}"  | mail -s {} {}'
+        ).format(storageStatus,fcillumid,subject,emailAddress)
     print(emailCmd)
     logger.info(emailCmd)
     os.system(emailCmd)
@@ -171,6 +176,19 @@ def mv_rsync_fastq(archive_locs_list,UnalignedLoc,fcillumid,offset,verbose,datab
     if verbose:
         print(msg)
     mkdir_p(archive_locs_list[offset + 1],verbose)
+    gaf_bin_query = GET_GAFBIN_FROM_SAMPLE_NAME.format(CHGVID=archive_locs_list[3])
+    gaf_bin = run_query(gaf_bin_query,database)
+    reportLaneBarcodeLoc = ('{}/Reports/html/{}/{}/{}/all/laneBarcode.html'
+                       ).format(UnalignedLoc,fcillumid,gaf_bin[0]['GAFBIN'],
+                               archive_locs_list[3])
+
+    reportCpCmd = ['cp',reportLaneBarcodeLoc,archive_locs_list[offset+1]]
+
+    if verbose:
+        print(' '.join(reportCpCmd))
+    logger.info(reportCpCmd)
+    subprocess.call(reportCpCmd)
+
     for fastq in fastqs:
         fastq_filename=os.path.basename(fastq)
         fastqSize = os.path.getsize(fastq)
@@ -181,18 +199,6 @@ def mv_rsync_fastq(archive_locs_list,UnalignedLoc,fcillumid,offset,verbose,datab
         else:
             fastqMoveCmd = ['rsync','--inplace', '-aq', fastq ,archive_locs_list[offset + 1]]
 
-            gaf_bin_query = GET_GAFBIN_FROM_SAMPLE_NAME.format(CHGVID=archive_locs_list[3])
-            gaf_bin = run_query(gaf_bin_query,database)
-            reportLaneBarcodeLoc = ('{}/Reports/html/{}/{}/{}/all/laneBarcode.html'
-                               ).format(UnalignedLoc,fcillumid,gaf_bin[0]['GAFBIN'],
-                                       archive_locs_list[3])
-
-            reportCpCmd = ['cp',reportLaneBarcodeLoc,archive_locs_list[offset+1]]
-
-            if verbose:
-                print(' '.join(reportCpCmd))
-            logger.info(reportCpCmd)
-            subprocess.call(reportCpCmd)
         if verbose:
             print(' '.join(fastqMoveCmd))
         logger.info(fastqMoveCmd)

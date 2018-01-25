@@ -407,7 +407,7 @@ if __name__ == "__main__":
                         help="Query and updates to the database occur on the "
                         "test server")
     parser.add_argument('--version', '-v', action='version',
-                        version='%(prog)s v2.0')
+                        version='%(prog)s v3.0')
     args=parser.parse_args()
 
     if args.pseudo_prepid:

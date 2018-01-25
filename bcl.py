@@ -22,16 +22,12 @@ def run_bcl2fastq(args,run_info_dict,config,database,verbose):
     script_loc = '{}/{}_{}_BCL.sh'.format(out_dir,run_info_dict['FCIllumID'],run_info_dict['machine'])
 
     check_exist_bcl_dir(fcillumid,out_dir,database)
-    if args.sss is None:
-        sss_loc = create_sss_from_database(args.fcillumid,run_info_dict['machine'],
-                                           run_info_dict,config,database)
-        cp_cmd= ('cp {} /nfs/igmdata01/Sequencing_SampleSheets/'
-             ).format(sss_loc)
-        os.system(cp_cmd)
-
-    else:
-        sss_loc = args.sss
-        print("Using SSS: {}".format(sss_loc))
+    sss_loc = create_sss_from_database(args.fcillumid,run_info_dict['machine'],
+                                       run_info_dict,config,database)
+    cp_cmd= ('cp {} /nfs/{}/Sequencing_SampleSheets/'
+         ).format(sss_loc,config.get('locs','fastq_archive_drive')
+    os.system(cp_cmd)
+    logger.info("Using SSS: {}".format(sss_loc))
 
     bcl2fastq_cmd = build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,database)
     print(bcl2fastq_cmd)
@@ -153,8 +149,6 @@ def parse_arguments():
     parser.add_argument('--use_bases_mask', dest='use_bases_mask',
                         help="""Specify any base positions to mask"
                              Ex: y150n,I8n,y150n""")
-    parser.add_argument('--sss',
-                        help="Specify your own sequencing sample sheet")
     parser.add_argument('--noStatus', action='store_true', default=False,
                         help="Do not update status")
     parser.add_argument("--test", default=False, action="store_true",
