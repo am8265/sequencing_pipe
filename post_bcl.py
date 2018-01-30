@@ -96,7 +96,6 @@ def update_email_lane(config,machine,unaligned_dir,fcillumid,verbose,test,databa
                     results = run_query(LnFracQuery,database)
                     LnFrac = results[0]['LNFRACTION']
                     SeqType = results[0]['SAMPLE_TYPE']
-
                     sql = ("UPDATE Lane l "
                         "JOIN prepT pt ON l.prepID=pt.prepID "
                         "JOIN Flowcell f ON l.FCID=f.FCID "
@@ -110,7 +109,6 @@ def update_email_lane(config,machine,unaligned_dir,fcillumid,verbose,test,databa
                 else:
                     LnFrac = 0
                     SeqType = ''
-
                 email_highlight_pos = check_clustden_lnfrac(config,chgvid,
                     LnFrac,LnFracAct,fcillumid,lanenum,database)
                 sample_info[lanenum].append([chgvid,SeqType,LnFrac,LnFracAct,email_highlight_pos])
@@ -201,7 +199,7 @@ def addHeader(email):
 def send_email(config,fcillumid,Machine,unaligned_dir,test):
     logger = logging.getLogger(__name__)
     if os.path.isfile('%s/EmailSent.txt' % unaligned_dir) == False:
-        subject = '\"Problem with Lane Fractions for flowcell {} {}'.format(fcillumid,Machine)
+        subject = '\"Lane Fraction Report for Flowcell {} {}'.format(fcillumid,Machine)
         if test == True:
             subject += ' TEST EMAIL\"'
         else:
