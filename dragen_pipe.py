@@ -144,7 +144,7 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
             setup_first_read_RG(sample,rg_lane_num,rg_fcillumid,rg_prepid,debug)
             set_seqtime(rg_fcillumid,sample,database)
             create_align_config(sample,rg_lane_num,rg_fcillumid,rg_prepid)
-            if dontexecute == False:
+            if dontexecute == False: #For test purposes
                run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug)
             update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database)
 
@@ -241,9 +241,9 @@ def update_status(sample,status,database):
 
     userID = get_user_id(database)
     statusT_insert = """INSERT INTO statusT
-                        (CHGVID,status,status_time,DBID,prepID,userID)
+                        (CHGVID,status,status_time,DBID,prepID,userID,poolID,seqID,plateName)
                         VALUES ('{sample_name}','{status}',unix_timestamp(),
-                                {dbid},{prepid},{userID})
+                                {dbid},{prepid},{userID},0,0,'')
                      """.format(userID=userID,status=status,
                                 prepid=sample.metadata['prepid'][0],
                                 dbid=sample.metadata['dbid'],
