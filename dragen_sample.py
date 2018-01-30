@@ -46,8 +46,7 @@ def get_dbid(database,sample):
 
 def get_priority(database,sample):
     query = ("SELECT PRIORITY "
-            "FROM SampleT s "
-            "JOIN prepT p ON s.DBID=p.DBID "
+            "FROM prepT "
             "WHERE P_PREPID ={pseudo_prepid} "
             "ORDER BY PRIORITY DESC "
             "LIMIT 1"
@@ -91,28 +90,25 @@ def get_fastq_loc(database, sample):
     for prepid in sample["prepid"]:
         external_or_legacy_flag = is_external_or_legacy_sample(prepid,database)
         """For cases where there is not flowell information the sequeuncing
-        will have to found via brute force.  There will be three types of samples
+        will have to be found via brute force.  There will be three types of samples
         that under this catergory: Old Casava 1.8 sample (pre-seqDB),
         Casava 1.7 samples sequenced by the Illumina GAII and external samples.
 
-        For externally submitted sample they have a fake Flowcell entry
-        in the database.  The Flowcell.FCIllumID begins wt'X' always.
-        Typically when processing the external sample each read group is
+        Typically when processing the external sample previously each read group is
         enumerated 1,2,3...etc.
-        Secondly when external samples are archived sometimes the FCIllumID
-        is preserved otherwise its enumerated."""
-
-        potential_locs = ['/nfs/seqscratch_ssd/{}/'.format(corrected_sample_type),
-                          '/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
-                          '/nfs/seqscratch10/SRR/',
-                          '/nfs/seqscratch*/tx_temp/tx_*/',
-                          '/nfs/sequencing/tx_2390/CGND*/Project*/',
-                          '/nfs/fastq_temp/tx_temp/tx_2390/CGND*/Project*/',
-                          '/nfs/seqscratch*/tx_temp/tx_2390/CGND*/Project*/',
-                          '/nfs/stornext/seqfinal/casava1.8/whole_{}/'.format(corrected_sample_type),
-                          '/nfs/fastq1[568]/{}/'.format(corrected_sample_type),
-                          '/nfs/igmdata01/{}/'.format(corrected_sample_type),
-                          '/nfs/seqsata*/seqfinal/whole_genome/']
+        Now external samples are archived with the fcillumid."""
+        potential_locs = []
+        if corrected_sample_type != 'GENOME':
+            potential_locs = ['/nfs/seqscratch_ssd/{}/'.format(corrected_sample_type)]
+        potential_locs.extend(['/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
+            '/nfs/seqscratch*/tx_temp/tx_*/',
+            '/nfs/sequencing/tx_2390/CGND*/Project*/',
+            '/nfs/fastq_temp/tx_temp/tx_2390/CGND*/Project*/',
+            '/nfs/seqscratch*/tx_temp/tx_2390/CGND*/Project*/',
+            '/nfs/igmdata01/{}/'.format(corrected_sample_type),
+            '/nfs/stornext/seqfinal/casava1.8/whole_{}/'.format(corrected_sample_type),
+            '/nfs/fastq1[568]/{}/'.format(corrected_sample_type),
+            '/nfs/seqsata*/seqfinal/whole_genome/'])
 
         if external_or_legacy_flag == True:
             for potential_loc in potential_locs:
