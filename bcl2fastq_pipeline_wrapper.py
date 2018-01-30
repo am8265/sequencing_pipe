@@ -1,3 +1,4 @@
+#!/nfs/goldstein/software/python3.6.1-x86_64_shared/bin/python
 #from CHGV_mysql import getSequenceDB
 
 import argparse
@@ -17,23 +18,23 @@ def submit(config,args,run_info_dict,database):
     archive_dir = config.get('locs','fastq_archive_drive')
     logger = logging.getLogger(__name__)
     address = '{}@cumc.columbia.edu'.format(get_user())
-    python36_program = config.get('programs','python36_program')
+
     #scriptLoc = '/nfs/goldstein/software/sequencing_pipe/dev/'
-    scriptLoc = config.get('locs','scr_dir')
+    scriptLoc = os.path.dirname(os.path.realpath(__file__)) # config.get('locs','scr_dir')
+
     runFolder = run_info_dict['runFolder']
     machine = run_info_dict['machine']
     fcillumid=args.fcillumid
 
+    ##### please get ride of me!
+    python36_program = config.get('programs','python36_program')
     BCLCmd =         ("{} {}/bcl.py -f {}").format(python36_program,scriptLoc,fcillumid)
     BCLMySQLCmd =    ("{} {}/bcl_mysql.py -f {}").format(python36_program,scriptLoc,fcillumid)
     postBCLCmd =     ("{} {}/post_bcl.py -f {}").format(python36_program,scriptLoc,fcillumid)
     storageCmd =     ("{} {}/storage.py -f {}").format(python36_program,scriptLoc,fcillumid)
 
     if args.test == True:
-        BCLCmd += ' --test'
-        BCLMySQLCmd += ' --test'
-        postBCLCmd += ' --test'
-        storageCmd += ' --test'
+        BCLCmd += ' --test'; BCLMySQLCmd += ' --test'; postBCLCmd += ' --test'; storageCmd += ' --test'
 
     if args.run == False:
         #prints out all the commands to run manually
@@ -49,6 +50,7 @@ def submit(config,args,run_info_dict,database):
             ).format(logging.getLoggerClass().root.handlers[0].baseFilename))
 
     else:
+        ##### run BCLCmd, BCLMySQLCmd locally. submit 
         #run bcl2fastq
         out_dir = '{}/{}_{}_{}_Unaligned'.format(config.get('locs','bcl2fastq_scratch_dir'),
                                              run_info_dict['runDate'],
@@ -56,14 +58,19 @@ def submit(config,args,run_info_dict,database):
                                              run_info_dict['FCIllumID'])
 
         check_exist_bcl_dir(fcillumid,out_dir,database)
-        os.system(BCLCmd) #bcl2fastq auto submits to cluster
+        if os.system(BCLCmd) != 0: #bcl2fastq auto submits to cluster
+            raise Exception("\n\nreally? : '{}'".format(BCLCmd))
         logger.info(BCLCmd)
-        os.system(BCLMySQLCmd) #quick msyql updates.  
+
+        x=os.system(BCLMySQLCmd)
+        if x != 0: #quick msyql updates.  I
+            raise Exception("\n\nwooooooow, look, we have a return value '{}' from '{}'".format(x,BCLMySQLCmd))
         logger.info(BCLMySQLCmd)
 
         #run post_bcl2fastq
         create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,address,postBCLCmd)
         run_qsub_command(config,fcillumid,'post_bcl',run_info_dict)
+
         create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address,storageCmd)
         run_qsub_command(config,fcillumid,'storage',run_info_dict)
 
@@ -88,11 +95,13 @@ def add_sge_header(config,file,fcillumid,step,hold):
     file.write('#$ -o {}/{}_{}.out\n'.format(log_dir,fcillumid,step))
     file.write('#$ -e {}/{}_{}.err\n'.format(log_dir,fcillumid,step))
     file.write('#$ -V\n')
+    ###### perhaps this should have a useful name like perhaps post_bcl2fastq_FC?!?
     file.write('#$ -N {}_{}\n'.format(step,fcillumid))
     file.write('#$ -M {}@cumc.columbia.edu\n'.format(get_user()))
     file.write('#$ -m bea\n')
     file.write('#\n')
     if hold == True:
+        ##### this really 'should' be handled either via a shared function or by returning the job id...!?!
         file.write('#$ -hold_jid bcl_{}\n'.format(fcillumid))
     file.write('\n')
 
@@ -176,7 +185,7 @@ def main():
     """
 
     if args.run == True:
-        logger.info('GAF_Pipeline.py in automated mode')
+        logger.info('bcl2fastq_pipeline_wrapper.py in automated mode')
     submit(config,args,run_info_dict,database)
 
     #submit(run_info_dict['runFolder'],args.archive_dir,run_info_dict['runDate'],

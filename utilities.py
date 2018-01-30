@@ -33,7 +33,7 @@ def parse_run_parameters_xml(fcillumid,database):
             run_info_dict['RtaVersion'] = tree.findall('RtaVersion')[0].text
             run_info_dict['Side'] = tree.findall('Side')[0].text
             if run_info_dict['Side'] == 'None':
-                run_info_dict['Side'] = tree.findall('PreRunFolder')[0].text[-1] 
+                run_info_dict['Side'] = tree.findall('PreRunFolder')[0].text[-1]
             run_info_dict['experimentName'] = tree.findall('ExperimentName')[0].text
             run_info_dict['runFolder'] = tree.findall('RunId')[0].text
             run_info_dict['runDate'] = run_info_dict['runFolder'].split('_')[0]
@@ -63,20 +63,26 @@ def parse_run_parameters_xml(fcillumid,database):
 
 
 def get_connection(database):
+
     try:
         reader = configparser.RawConfigParser()
-        my_cnf = glob(os.path.expanduser('~/.my.cnf'))
-        reader.read(my_cnf[0])
-        db = 'client' + database
-        db_host = reader.get(db, 'host')
-        db_user = reader.get(db, 'user')
-        db_pass = reader.get(db,'password')
-        connection = pymysql.connect(host=db_host,
-                                     user=db_user,
-                                     password=db_pass,
-                                     db='sequenceDB',
-                                     cursorclass=pymysql.cursors.DictCursor)
+        my_cnf='/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/bcl_user.cnf'
+        if not os.path.exists(my_cnf):
+            raise Exception("\n\nSeriously?!? where's your '{}' for '{}' access".format(my_cnf,database))
+        # else:
+        #    print("using db config file '{}'".format(my_cnf))
+        # hilarious!?!
+        # my_cnf = glob(os.path.expanduser(conf))
+        # reader.read(my_cnf[0])
+        reader.read(my_cnf)
+        db = 'client' + database; db_host = reader.get(db, 'host'); 
+        db_user = reader.get(db, 'user'); db_pass = reader.get(db,'password')
+
+        connection = pymysql.connect( host=db_host, user=db_user, password=db_pass,
+          db='sequenceDB', cursorclass=pymysql.cursors.DictCursor )
+
         return connection
+
     except pymysql.err.OperationalError:
         traceback.print_exc()
         sys.exit("Wrong username/database or password found, please try again")
@@ -186,7 +192,7 @@ def getSSSLaneFraction(prepid,fcillumid,chem_version,lane_num,config,database):
 
 def update_pipeline_complete(fcillumid,code,database):
     query = UPDATE_PIPELINE_COMPLETE.format(fcillumid=fcillumid,code=code)
-    run_query(query,database)
+    return run_query(query,database)
 
 def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
     """Newer version of bcl2fastq v2 require a new sample sheet format
@@ -294,14 +300,23 @@ def run_query(query,database):
 
 def get_config():
     config = configparser.ConfigParser()
-    config.read('/nfs/goldstein/software/sequencing_pipe/storage/sequencing_pipe/config.ini')
+    config.read('/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/config.ini')
     return config
 
 def check_exist_bcl_dir(fcillumid,BCLDrive,database):
+    #### is this a joke? : os.path.isdir(path) : https://docs.python.org/2/library/os.path.html
     dir_path = glob(BCLDrive)
+
     if dir_path != []:
         update_pipeline_complete(fcillumid,'-7',database)
-        raise Exception('BCL directory already exists: {}!'.format(BCLDrive))
+        raise Exception('\n\nBCL directory already exists: {}. So, me thinks me should check to see if \
+there is a checkpoint file bcl_complete and if so re-run next step or complain and ask if \
+i should delete and re-run the whole thing. if there is not, then perhaps i should check.\
+that funky magic job name and see if it exists and if not we could safely assume it failed...\n\n\
+However, i really should not be using a very busy cluster when i have fancy dragen machines \
+who are very bored heating the marvelous state of NJ. Come to think of it, if we then mapped the \
+fastq RG immediately we could even only ever store bam and make the release step simply trigger \
+merging and not mapping cos we would already have that lovely, juicy bam!'.format(BCLDrive))
 
 def check_bcl_complete(bcl2fastq_dir):
     bcl_complete_flag_loc = glob(bcl2fastq_dir + '/bcl_complete')

@@ -116,10 +116,15 @@ def update_lane_fraction(database,fcillumid,run_folder,verbose):
     info = run_query(sql,database)
     #print(info)
 
-    sampleSheet = glob('{}/*{}*.csv'.format(run_folder,fcillumid))[0]
+    sampleSheet = glob('{}/*{}*.csv'.format(run_folder,fcillumid))
+    if len(sampleSheet) == 0:
+        raise IOError("No sample sheet found!")
+    elif len(sampleSheet) > 1:
+        raise IOError("too many sheets found!")
+
     sss_samples_info_dict = {}
     #print(sampleSheet)
-    with open(sampleSheet) as csvfile:
+    with open(sampleSheet[0]) as csvfile:
         skipped_ahead_sample_sheet = csvfile.readlines()[17:]
         reader = csv.DictReader(skipped_ahead_sample_sheet)
         for row in reader:
