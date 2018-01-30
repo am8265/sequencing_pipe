@@ -88,7 +88,7 @@ def generate_archive_tuples_list(rerun,config,run_info_dict,fcillumid,
             gaf_bin_query = (GET_GAFBIN_FROM_SAMPLE_NAME
                             ).format(CHGVID=sample['CHGVID'])
             gaf_bin = run_query(gaf_bin_query,database)
-            bcl_loc = UnalignedLoc + '/' + gaf_bin[0]['GAFBIN'].upper()
+            bcl_loc = UnalignedLoc + '/' + gaf_bin[0]['GAFBIN']
         scratchLoc = '/nfs/{}/{}/{}/{}'.format(config.get('locs','bcl2fastq_scratch_drive'),
                                                      sample['SAMPLE_TYPE'].upper(),
                                                      sample['CHGVID'],fcillumid)
@@ -135,8 +135,11 @@ def archiveFastqs(rerun,config,archive_tuples_list,UnalignedLoc,fcillumid,
     scratch_check_drive = config.get('locs','bcl2fastq_scratch_drive')
     logger.info('checking {}'.format(scratch_check_drive))
     distinct_seqtype = get_distinct_seqtype_on_flowcell(fcillumid,database)
-    scratch_fastqs = glob(('/nfs/{}/{}/*/{}/*.fastq.gz'
-                      ).format(scratch_check_drive,distinct_seqtype,fcillumid))
+    scratch_fastq_loc = ('/nfs/{}/{}/*/{}/*.fastq.gz'
+                        ).format(scratch_check_drive,distinct_seqtype,fcillumid))
+    logger.info('checking {} for fastqs'.format(scratch_fastq_loc)
+    print(scratch_fastq_loc)
+    scratch_fastqs = glob(scratch_fastq_loc)
     scratch_total_num_fastq = len(scratch_fastqs)
     scratch_total_fastq_size = 0
     for scratch_fastq in scratch_fastqs:
