@@ -5,7 +5,6 @@ import argparse
 import logging
 import os
 from datetime import datetime
-from glob import glob
 from interop import py_interop_run_metrics, py_interop_run, py_interop_summary
 from utilities import *
 
@@ -24,9 +23,19 @@ def run_bcl2fastq(args,run_info_dict,config,database,verbose):
     check_exist_bcl_dir(fcillumid,out_dir,database)
     sss_loc = create_sss_from_database(args.fcillumid,run_info_dict['machine'],
                                        run_info_dict,config,database)
-    cp_cmd= ('cp {} /nfs/{}/Sequencing_SampleSheets/'
-         ).format(sss_loc,config.get('locs','fastq_archive_drive')
-    os.system(cp_cmd)
+
+    if not os.path.exists(sss_loc):
+        raise("yo' punk. where's my sample sheet? : '{}".format(sss_loc))
+
+    print("we should have an sample sheet now? : '{}'".format(sss_loc))
+
+    cp_cmd= ( 'cp {} /nfs/{}/Sequencing_SampleSheets/' ).format(
+      sss_loc,config.get('locs','fastq_archive_drive') 
+    )
+
+    if os.system(cp_cmd) != 0:
+        print("i beg your pardon '{}'".format(cp_cmd))
+
     logger.info("Using SSS: {}".format(sss_loc))
 
     bcl2fastq_cmd = build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,database)
@@ -85,6 +94,7 @@ def add_sge_header_to_script(bcl_script,fcillumid):
     bcl_script.write("#$ -V\n")
     bcl_script.write("#$ -M {}@cumc.columbia.edu".format(get_user()))
     bcl_script.write("#$ -m bea\n")
+    ##### perhaps we should mention that this name is rather important for when we get to -hold_jid bcl_{} in the wrapper...?!?
     bcl_script.write("#$ -N bcl_{}\n".format(fcillumid))
 
 def add_libraries_to_script(bcl_script):
@@ -167,6 +177,7 @@ def main():
         database = 'testDB'
     else:
         database = 'sequenceDB'
+
     run_info_dict = parse_run_parameters_xml(args.fcillumid,database)
     setup_logging(run_info_dict['machine'],args.fcillumid,config.get('locs','logs_dir'))
     logger = logging.getLogger(__name__)
@@ -177,7 +188,10 @@ def main():
     check_machine(run_info_dict['machine'],args.fcillumid,database)
     check_flowcell_complete(args.fcillumid,config.get('locs','bcl_dir'),
                             run_info_dict['runFolder'],run_info_dict['type'],database)
-    update_pipeline_complete(args.fcillumid,'-1',database)
+
+    mofo=update_pipeline_complete(args.fcillumid,'-1',database)
+    print(mofo)
+
     #check_sss(sss_loc)
     run_bcl2fastq(args,run_info_dict,config,database,args.verbose)
     if args.noStatus == False:
