@@ -296,6 +296,7 @@ def update_queue(pseudo_prepid,database,debug):
     try:
         with connection.cursor() as cur:
             ###### clearly anything with this state is in an error state if we're running!?!
+            ###### also check for conf files etc. - i.e. really make sure not getting races?!?
             cur.execute("update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}".format( state+10, state ) )
             print("we marked {} problem samples".format(cur.rowcount))
             ###### use -99999 condition to attempt to force atomicity

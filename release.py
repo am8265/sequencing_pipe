@@ -106,6 +106,8 @@ def update_queues(sample_name,sample_type,capture_kit,ppid,priority,database):
     dragen_queue_query = queue_query.format(table=table,ppid=ppid)
     in_dragen_queue = run_query(dragen_queue_query,database)
 
+    ############################### just insert straight into dsm but set to -99999 and then have email for these and update to -99998 
+    ############################### and dragen machines pull those...?!?
     if not in_dragen_queue:
         print("Inserting sample into dragen_queue")
         insert_query = """INSERT INTO dragen_queue
