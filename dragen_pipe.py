@@ -15,6 +15,7 @@ from db_statements import *
 from dragen_sample import dragen_sample
 from glob import glob
 from utilities import *
+import socket
 
 def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
     config = get_config()
@@ -35,6 +36,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
         pseudo_prepid = 0
         sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,database,debug)
         while sample_name is not None:
+            print("running pp= {}".format(pseudo_prepid))
             sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
             try:
                 run_sample(sample,dontexecute,config,seqscratch_drive,database,debug)
@@ -128,6 +130,7 @@ def write_sge_header(sample,step,script_loc):
 
 
 def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
+
     check_Fastq_Total_Size(sample,debug)
     setup_dir(seqscratch_drive,sample,debug)
     existing_bams_check = False
@@ -135,8 +138,11 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
     pseudo_prepid = sample.metadata['pseudo_prepid']
     submit_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     existing_bams = glob("{}/*.bam".format(output_dir))
+
     if existing_bams == [] or existing_bams_check == False:
+
         update_queue(pseudo_prepid,database,debug)
+
         for laneFCID in sample.metadata['lane'][0]: #loop over read groups
             rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
             if debug:
@@ -149,11 +155,11 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
             update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database)
 
         component_bams = get_component_bams(sample,debug)
-        update_dragen_metadata_prepT_status(sample,component_bams,database,debug)
-        rm_query = "DELETE FROM {0} WHERE pseudo_prepid={1}".format("tmp_dragen",pseudo_prepid)
-        if debug:
-            print(rm_query)
-        run_query(rm_query,database)
+        update_dragen_metadata_prepT_status(sample,component_bams,database,pseudo_prepid,debug)
+        # rm_query = "DELETE FROM {0} WHERE pseudo_prepid={1}".format("tmp_dragen",pseudo_prepid)
+        # if debug:
+        #    print(rm_query)
+        # run_query(rm_query,database)
 
     else:
         print("Sample with bam files already exists!")
@@ -192,33 +198,38 @@ def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
     except:
         pass
 
-def update_dragen_metadata_prepT_status(sample,component_bams,database,debug):
+def update_dragen_metadata_prepT_status(sample,component_bams,database,pseudo_prepid,debug):
+
     seqscratch_drive = sample.metadata['output_dir'].split('/')[2]
-    get_dragen_metadata_query = ("SELECT * from dragen_sample_metadata "
-                                 "WHERE pseudo_prepid = {pseudo_prepid} "
-                                ).format(**sample.metadata)
+    get_dragen_metadata_query = ("SELECT * from dragen_sample_metadata WHERE pseudo_prepid = {} ").format(pseudo_prepid)
     dbInfo = run_query(get_dragen_metadata_query,database)
+
+    ###### since we don't actually check for consistency shouldn't it just use replace into?!?
+    ###### but more fundamentally, they really shouldn't already exist as ths 'should' be the only thing populating dsm?!?
     if dbInfo:
         print("Performing dragen_sample_metadata update")
-        query = ("UPDATE dragen_sample_metadata "
-                 "set sample_name='{sample_name}',pseudo_prepid={pseudo_prepid},"
-                 "sample_type='{sample_type}',capture_kit='{capture_kit}',"
-                 "priority={priority},seqscratch_drive='{seqscratch_drive}',"
-                 "is_merged=0,component_bams='{component_bams}' "
-                 "WHERE pseudo_prepid={pseudo_prepid}"
-                ).format(seqscratch_drive=seqscratch_drive,
-                         component_bams=component_bams,**sample.metadata)
+        ###### why on earth is it updating more than is_merged and component_bams?!?
+        query = ("UPDATE dragen_sample_metadata set "
+                 #" pseudo_prepid={pseudo_prepid},"
+                 # "sample_type='{sample_type}',capture_kit='{capture_kit}',"
+                 # "priority={priority},
+                 " sample_name='{sample_name}', "
+                 " seqscratch_drive='{seqscratch_drive}',"
+                 " is_merged=0,component_bams='{component_bams}' "
+                 " WHERE pseudo_prepid={pseudo_prepid}"
+                ).format(seqscratch_drive=seqscratch_drive,component_bams=component_bams,**sample.metadata)
     else:
-        print("Performing dragen_sample_metadata insert")
-        query = ("INSERT INTO dragen_sample_metadata "
-                       "(sample_name,pseudo_prepid,sample_type,"
-                       "capture_kit,priority,seqscratch_drive,"
-                       "is_merged,component_bams) "
-                       "VALUES ('{sample_name}',{pseudo_prepid},"
-                       "'{sample_type}','{capture_kit}',{priority},"
-                       "'{seqscratch_drive}',0,'{component_bams}'"
-                       ") "
-                      ).format(seqscratch_drive=seqscratch_drive,component_bams=component_bams,**sample.metadata)
+        raise ValueError("pseudo_prepid {} is missing from dragen_sample_metadata".format(pseudo_prepid));
+        # print("Performing dragen_sample_metadata insert")
+        # query = ("INSERT INTO dragen_sample_metadata "
+        #               "(sample_name,pseudo_prepid,sample_type,"
+        #               "capture_kit,priority,seqscratch_drive,"
+        #               "is_merged,component_bams) "
+        #               "VALUES ('{sample_name}',{pseudo_prepid},"
+        #               "'{sample_type}','{capture_kit}',{priority},"
+        #               "'{seqscratch_drive}',0,'{component_bams}'"
+        #               ") "
+        #              ).format(seqscratch_drive=seqscratch_drive,component_bams=component_bams,**sample.metadata)
     if debug:
         print(query)
     run_query(query,database)
@@ -241,7 +252,7 @@ def update_status(sample,status,database):
 
     userID = get_user_id(database)
     statusT_insert = """INSERT INTO statusT
-                        (CHGVID,status,status_time,DBID,prepID,userID,poolID,seqID,plateName)
+                        (CHGVID,STATUS,STATUS_TIME,DBID,PREPID,USERID,POOLID,SEQID,PLATENAME)
                         VALUES ('{sample_name}','{status}',unix_timestamp(),
                                 {dbid},{prepid},{userID},0,0,'')
                      """.format(userID=userID,status=status,
@@ -250,16 +261,56 @@ def update_status(sample,status,database):
                                 sample_name=sample.metadata['sample_name'])
     run_query(statusT_insert,database)
 
+########## should attempt to lock sample immediately at selection?!?
 def update_queue(pseudo_prepid,database,debug):
-    insert_query = ("INSERT INTO tmp_dragen "
-                    "SELECT * FROM dragen_queue WHERE pseudo_prepid={0}"
-                   ).format(pseudo_prepid)
-    rm_query = ("DELETE FROM {0} WHERE pseudo_prepid={1}").format("dragen_queue",pseudo_prepid)
-    if debug:
-        print(insert_query)
-        print(rm_query)
-    run_query(insert_query,database)
-    run_query(rm_query,database)
+
+    who=socket.gethostname()
+    state=0;
+    if who == "dragen1.igm.cumc.columbia.edu":
+        state=-99991
+    elif who == "dragen2.igm.cumc.columbia.edu":
+        state=-99992
+    else:
+        raise ValueError("{} is not allowed to run this".format(who))
+
+    ###### get rid of all of this entirely?!? just update is_merged to a machine specific value
+    # insert_query = ("INSERT INTO tmp_dragen SELECT * FROM dragen_queue WHERE pseudo_prepid={0}").format(pseudo_prepid)
+    # problem_runs = ("SELECT pseudo_prepid from dragen_sample_metadata WHERE is_merged = {}").format(state)
+    # dbInfo = run_query(problem_runs,database)
+
+    ############### transaction or version thing?!? #####################################
+    ####### this needs to be atomic - let's just double check is_merged status!?!
+    ####### simplest thing is to require is_merged - -99999 too so as to avoid races...!?!
+
+    # problem_runs = ("update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}").format( -99990, state )
+    ###### annoying as to re-run need to add back to dragen_queue
+
+######## we really don't need dragen_queue anymore either - i.e. 'should just make release write to dragen_sample_metadata directly
+######## but for now having deprecate_dragen_queue_tmp_dragen_and_eventually_dsm_as_part_of_prept.cpp populate dsm when dq gets entry 
+######## but also puts in external... make sure not getting races - but we should be in a state where can drop dq as soon as finish this
+######## can't do that till the P100 comes back up...
+
+    connection = get_connection(database)
+    print(" db= {} and pp= {}".format(database,pseudo_prepid))
+    ##### make sure dragen isn't actually running too!?!?
+    try:
+        with connection.cursor() as cur:
+            ###### clearly anything with this state is in an error state if we're running!?!
+            cur.execute("update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}".format( state+10, state ) )
+            print("we marked {} problem samples".format(cur.rowcount))
+            ###### use -99999 condition to attempt to force atomicity
+            cur.execute("update dragen_sample_metadata set is_merged = {} WHERE pseudo_prepid = {} and is_merged = -99999".format(state,pseudo_prepid) )
+            if cur.rowcount != 1:
+                raise ValueError("seems we couldn't get a lock on sample {}".format(pseudo_prepid));
+            else:
+               print("we likely have a lock")
+        connection.commit()
+    finally:
+        connection.close()
+
+    # rm_query = ("DELETE FROM dragen_queue WHERE pseudo_prepid={}").format(pseudo_prepid)
+    # print(rm_query)
+    # run_query(rm_query,database)
 
 def set_seqtime(rg_fcillumid,sample,database):
     query = ("SELECT FROM_UNIXTIME(Seqtime) AS SEQTIME "
@@ -323,28 +374,41 @@ def user_input_fastq_size(lg_or_gt,sample_type):
         raise Exception('Unhandled lg_or_gt variable')
 
 def check_Fastq_Total_Size(sample,debug):
+
+    gb=(1024*1024*1024);
     sample_type = sample.metadata['sample_type']
+    print("> have '{}'".format(sample_type))
     fastq_filesize_sum = 0
     for fastq_loc in sample.metadata['fastq_loc']:
+        print(" > checking location '{}'".format(fastq_loc))
         for fastq in glob(fastq_loc + '/*gz'):
             fastq_filesize = os.stat(os.path.realpath(fastq)).st_size
             fastq_filesize_sum += fastq_filesize
+            print("  > checking fastq '{}' ({}GB)".format(fastq,'%.2f'%(fastq_filesize/gb)))
     print("Sum of Fastq size: {}".format(fastq_filesize_sum))
     if sample_type == 'genome':
         if fastq_filesize_sum < 42949672960: # < 40GB
+            raise ValueError('\n\nnot sure this is necessary - changing to raise to get email and let it move on...')
             user_input_fastq_size('lt',sample.metadata['sample_type'])
     elif sample_type == 'exome':
-        if fastq_filesize_sum > 32212254720: # > 30GB
-            user_input_fastq_size('gt',sample.metadata['sample_type'])
+        #### why would it stall?!? at most it should register and warning and move on not block entire procedure for user input!?!
+        # if fastq_filesize_sum > 32212254720: # > 30GB
+        if fastq_filesize_sum > (150*gb): # > 30GB
+            # user_input_fastq_size('gt',sample.metadata['sample_type'])
+            raise ValueError('\n\nnot sure this is necessary but it is definitely triggered too easily for external data - are they genomes?!? ({}/{})'.format(90*gb,fastq_filesize_sum))
         elif fastq_filesize_sum < 1073741824: # < 1GB
+            raise ValueError('\n\nnot sure this is necessary - changing to raise to get email and let it move on...')
             user_input_fastq_size('lt',sample.metadata['sample_type'])
     elif sample_type == 'rnaseq':
         if fastq_filesize_sum > 32212254720: # > 30GB
+            raise ValueError('\n\nnot sure this is necessary - changing to raise to get email and let it move on...')
             user_input_fastq_size('gt',sample.metadata['sample_type'])
         elif fastq_filesize_sum < 1073741824: # < 1GB
+            raise ValueError('\n\nnot sure this is necessary - changing to raise to get email and let it move on...')
             user_input_fastq_size('lt',sample.metadata['sample_type'])
     elif sample_type == 'custom_capture':
         if fastq_filesize_sum > 10737418240: # > 10GB
+            raise ValueError('\n\nnot sure this is necessary - changing to raise to get email and let it move on...')
             user_input_fastq_size('gt',sample.metadata['sample_type'])
     else:
         raise Exception('Unhandled sample_type found: {}!'.format(sample_type))
@@ -365,22 +429,24 @@ def get_reads(sample,read_number,debug):
         return sorted(read)[0]
 
 def get_next_sample(pid,database,debug):
+
     if pid == 0:
-        pid_query = ("SELECT PSEUDO_PREPID "
-                     "FROM dragen_queue "
-                     "WHERE PRIORITY < 99 "
-                     "ORDER BY PRIORITY ASC LIMIT 1 ")
+        pid_query = (##### prep'ing to get rid of dragen_queue # "SELECT PSEUDO_PREPID FROM dragen_queue WHERE PRIORITY < 99 "
+                    "SELECT PSEUDO_PREPID FROM dragen_sample_metadata WHERE is_merged = -99999 " 
+                     "ORDER BY PSEUDO_PREPID desc LIMIT 1 ")
+                     # "ORDER BY PRIORITY ASC LIMIT 1 ")
         pid = run_query(pid_query,database)[0]['PSEUDO_PREPID']
 
-    prepT_query = ("SELECT CHGVID,SAMPLE_TYPE,EXOMEKIT "
-                   "FROM prepT "
-                   "WHERE P_PREPID={}"
-                  ).format(pid)
+    prepT_query = ("SELECT CHGVID,SAMPLE_TYPE,EXOMEKIT FROM prepT WHERE P_PREPID={}" ).format(pid)
+
     if debug:
         print(prepT_query)
+
     sample_info = run_query(prepT_query,database)
+
     if debug:
         print('Dragen_queue info: {0}'.format(sample_info,"PPID:",pid))
+
     return sample_info[0]['CHGVID'],sample_info[0]['SAMPLE_TYPE'],pid,sample_info[0]['EXOMEKIT']
 
 def email_failure():

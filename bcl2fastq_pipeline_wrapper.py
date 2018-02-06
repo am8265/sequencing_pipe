@@ -52,10 +52,7 @@ def submit(config,args,run_info_dict,database):
     else:
         ##### run BCLCmd, BCLMySQLCmd locally. submit 
         #run bcl2fastq
-        out_dir = '{}/{}_{}_{}_Unaligned'.format(config.get('locs','bcl2fastq_scratch_dir'),
-                                             run_info_dict['runDate'],
-                                             run_info_dict['machine'],
-                                             run_info_dict['FCIllumID'])
+        out_dir = run_info_dict['out_dir']
 
         check_exist_bcl_dir(fcillumid,out_dir,database)
         if os.system(BCLCmd) != 0: #bcl2fastq auto submits to cluster
@@ -100,6 +97,9 @@ def add_sge_header(config,file,fcillumid,step,hold):
     file.write('#$ -M {}@cumc.columbia.edu\n'.format(get_user()))
     file.write('#$ -m bea\n')
     file.write('#\n')
+    ########### we're going to get ride of this and make the invocation blocking such as to run it locally on dragen1/2...
+    ########### can add later add in additional stuff like running dragen immediately
+    ########### first-thing-first need to start tracking FCs!?!
     if hold == True:
         ##### this really 'should' be handled either via a shared function or by returning the job id...!?!
         file.write('#$ -hold_jid bcl_{}\n'.format(fcillumid))

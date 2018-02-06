@@ -20,6 +20,7 @@ def main(config):
             ORDER BY MIN(PRIORITY) ASC , FROM_UNIXTIME(SEQEND) ASC
             """
     #print(query)
+    # print("checking for flowcells")
     complete_flowcells = run_query(query,database)
     for fcillumid in complete_flowcells:
         fcillumid = fcillumid['FCILLUMID']
@@ -29,15 +30,12 @@ def main(config):
         pass
 
 def check_and_run_flowcell(fcillumid,config,database):
+    print("running {}".format(fcillumid))
     run_info_dict = parse_run_parameters_xml(fcillumid,database)
     bcl_dir = '{}/'.format(config.get('locs','bcl_dir'))
     check_flowcell_complete(fcillumid,bcl_dir,run_info_dict['runFolder'],
                             run_info_dict['type'],database)
-    out_dir = ('{}/{}_{}_{}_Unaligned'
-              ).format(config.get('locs','bcl2fastq_scratch_dir'),
-                                  run_info_dict['runDate'],
-                                  run_info_dict['machine'],
-                                  run_info_dict['FCIllumID'])
+    out_dir = run_info_dict['out_dir']
 
     if glob(out_dir) == []:
         src_dir=os.path.dirname(os.path.realpath(__file__))

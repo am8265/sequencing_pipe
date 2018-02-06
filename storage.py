@@ -110,12 +110,10 @@ def get_distinct_seqtype_on_flowcell(fcillumid,database):
     for entry in seqtypes_on_flowcell:
         distinct_seqtype.append(entry['SAMPLE_TYPE'].upper())
     distinct_seqtype = list(set(distinct_seqtype))
-    if len(distinct_seqtype) == 1:
-        return ','.join(distinct_seqtype)
-    elif len(distinct_seqtype) > 1:
-        return  '{' + ','.join(distinct_seqtype) + '}'
-    else:
+    if len(distinct_seqtype) < 1:
         raise Exception('No seqtypes were found!')
+    else:
+        return distinct_seqtype
 
 def archiveFastqs(rerun,config,archive_tuples_list,UnalignedLoc,fcillumid,
         verbose,database):
@@ -129,21 +127,19 @@ def archiveFastqs(rerun,config,archive_tuples_list,UnalignedLoc,fcillumid,
         for bcl_fastq in bcl_fastqs:
             bcl_total_fastq_size += os.path.getsize(bcl_fastq)
         for archive_locs_list in archive_tuples_list:
-            mv_rsync_fastq(archive_locs_list,UnalignedLoc,fcillumid,offset,
-                verbose,database)
-
+            mv_rsync_fastq(archive_locs_list,UnalignedLoc,fcillumid,offset,verbose,database)
     scratch_check_drive = config.get('locs','bcl2fastq_scratch_drive')
     logger.info('checking {}'.format(scratch_check_drive))
-    distinct_seqtype = get_distinct_seqtype_on_flowcell(fcillumid,database)
-    scratch_fastq_loc = ('/nfs/{}/{}/*/{}/*.fastq.gz'
-                        ).format(scratch_check_drive,distinct_seqtype,fcillumid))
-    logger.info('checking {} for fastqs'.format(scratch_fastq_loc)
-    print(scratch_fastq_loc)
-    scratch_fastqs = glob(scratch_fastq_loc)
-    scratch_total_num_fastq = len(scratch_fastqs)
+    distinct_seqtypes = get_distinct_seqtype_on_flowcell(fcillumid,database)
     scratch_total_fastq_size = 0
-    for scratch_fastq in scratch_fastqs:
-        scratch_total_fastq_size += os.path.getsize(scratch_fastq)
+    scratch_total_num_fastq = 0
+    for seqtype in distinct_seqtypes:
+        scratch_fastq_loc = ('/nfs/{}/{}/*/{}/*.fastq.gz').format(scratch_check_drive,seqtype,fcillumid)
+        logger.info('checking {} for {} fastqs'.format(scratch_fastq_loc,fcillumid))
+        scratch_fastqs = glob(scratch_fastq_loc)
+        scratch_total_num_fastq += len(scratch_fastqs)
+        for scratch_fastq in scratch_fastqs:
+            scratch_total_fastq_size += os.path.getsize(scratch_fastq)
 
     if rerun is False:
         check_orig_dest_transfer('scratch',bcl_total_num_fastq,
@@ -157,12 +153,17 @@ def archiveFastqs(rerun,config,archive_tuples_list,UnalignedLoc,fcillumid,
             verbose,database)
     archive_check_drive = config.get('locs','fastq_archive_drive')
     logger.info('checking {}'.format(archive_check_drive))
-    archive_fastqs = glob(('/nfs/{}/{}/*/{}/*.fastq.gz'
-                      ).format(archive_check_drive,distinct_seqtype,fcillumid))
-    archive_total_num_fastq = len(archive_fastqs)
     archive_total_fastq_size = 0
-    for archive_fastq in archive_fastqs:
-        archive_total_fastq_size += os.path.getsize(archive_fastq)
+    archive_total_num_fastq = 0
+    for seqtype in distinct_seqtypes:
+        archive_fastq_loc = ('/nfs/{}/{}/*/{}/*.fastq.gz'
+                            ).format(archive_check_drive,seqtype,fcillumid)
+        logger.info('checking {} for {} fastqs'.format(archive_fastq_loc,fcillumid))
+        archive_fastqs = glob(archive_fastq_loc)
+        archive_total_num_fastq += len(archive_fastqs)
+        for archive_fastq in archive_fastqs:
+            archive_total_fastq_size += os.path.getsize(archive_fastq)
+
     check_orig_dest_transfer('archive',scratch_total_num_fastq,scratch_total_fastq_size,
         archive_total_num_fastq,archive_total_fastq_size)
 
@@ -342,11 +343,12 @@ def updateStatus(verbose,fcillumid,noStatus,database):
     #Status update for entire flowcell
     if noStatus == False:
         query = ("INSERT INTO statusT "
-                "(CHGVID,status_time,status,DBID,prepID,userID) "
-                "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),'Storage',pt.DBID,pt.prepID,'{}' "
+                "(CHGVID,STATUS_TIME,STATUS,DBID,PREPID,USERID,POOLID,SEQID,PLATENAME) "
+                "SELECT DISTINCT(pt.CHGVID),UNIX_TIMESTAMP(),'Storage',pt.DBID,"
+                "pt.PREPID,'{}',0,0,' ' "
                 "FROM Flowcell f "
-                "JOIN Lane l on l.FCID=f.FCID "
-                "JOIN prepT pt on pt.prepID=l.prepID "
+                "JOIN Lane l ON l.FCID=f.FCID "
+                "JOIN prepT pt ON pt.prepID=l.prepID "
                 "WHERE FCillumid='{}'").format(userID,fcillumid)
         prepT_status_update_query = """UPDATE prepT p
                                        JOIN Lane l ON p.PREPID=l.PREPID

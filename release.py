@@ -78,45 +78,48 @@ def email(fcillumid,rejected_samples,config):
     #os.remove('release_email.txt')
 
 def update_queues(sample_name,sample_type,capture_kit,ppid,priority,database):
-    table = 'tmp_dragen'
-    queue_query = """SELECT *
-                     FROM {table}
-                     WHERE PSEUDO_PREPID = {ppid}
-                  """
-    tmp_dragen_query = queue_query.format(table=table,ppid=ppid)
-    in_tmp_dragen = run_query(tmp_dragen_query,database)
-    if in_tmp_dragen:
-        print("Moving sample to dragen_queue")
-        insert_query = "INSERT INTO dragen_queue " + tmp_dragen_query
-        run_query(insert_query,database)
-        ppid = int(ppid)
-        rm_query = """DELETE FROM {table}
-                      WHERE PSEUDO_PREPID = {ppid}
-                   """.format(table=table,ppid=ppid)
-        table = 'dragen_queue'
-        dragen_queue_query = queue_query.format(table=table,ppid=ppid)
-        in_dragen_queue = run_query(dragen_queue_query,database)
-        if in_dragen_queue:
-            print("Removing samples from tmp_dragen")
-            run_query(rm_query,database)
 
-    else:
-        table = 'dragen_queue'
-        dragen_queue_query = queue_query.format(table=table,ppid=ppid)
-        in_dragen_queue = run_query(dragen_queue_query,database)
-        if not in_dragen_queue:
-            print("Inserting sample into dragen_queue")
-            insert_query = """INSERT INTO dragen_queue
-                              (PSEUDO_PREPID,SAMPLE_NAME,SAMPLE_TYPE,
-                              CAPTURE_KIT,PRIORITY)
-                              VALUES ({ppid},'{sample_name}','{sample_type}',
-                              '{capture_kit}',{priority})
-                           """.format(sample_name=sample_name,
-                                      sample_type=sample_type,
-                                      capture_kit=capture_kit,
-                                      ppid=ppid,
-                                      priority=priority)
-            run_query(insert_query,database)
+    # table = 'tmp_dragen'
+    # queue_query = "SELECT * FROM {table} WHERE PSEUDO_PREPID = {ppid}"
+    #tmp_dragen_query = queue_query.format(table=table,ppid=ppid)
+    #in_tmp_dragen = run_query(tmp_dragen_query,database)
+
+    #if in_tmp_dragen:
+    #    print("Moving sample to dragen_queue")
+    #    insert_query = "INSERT INTO dragen_queue " + tmp_dragen_query
+    #    run_query(insert_query,database)
+    #    ppid = int(ppid)
+    #    rm_query = """DELETE FROM {table}
+    #                  WHERE PSEUDO_PREPID = {ppid}
+    #               """.format(table=table,ppid=ppid)
+    #    table = 'dragen_queue'
+    #    dragen_queue_query = queue_query.format(table=table,ppid=ppid)
+    #    in_dragen_queue = run_query(dragen_queue_query,database)
+    #    if in_dragen_queue:
+    #        print("Removing samples from tmp_dragen")
+    #        run_query(rm_query,database)
+
+    #else:
+    ####### why is this done like this?!?
+    queue_query = "SELECT * FROM {table} WHERE PSEUDO_PREPID = {ppid}"
+    table = 'dragen_queue'
+    dragen_queue_query = queue_query.format(table=table,ppid=ppid)
+    in_dragen_queue = run_query(dragen_queue_query,database)
+
+    if not in_dragen_queue:
+        print("Inserting sample into dragen_queue")
+        insert_query = """INSERT INTO dragen_queue
+                            (PSEUDO_PREPID,SAMPLE_NAME,SAMPLE_TYPE,
+                            CAPTURE_KIT,PRIORITY)
+                            VALUES ({ppid},'{sample_name}','{sample_type}',
+                            '{capture_kit}',{priority})
+                        """.format(sample_name=sample_name,
+                                    sample_type=sample_type,
+                                    capture_kit=capture_kit,
+                                    ppid=ppid,
+                                    priority=priority)
+        run_query(insert_query,database)
+
     print("Updating sample {} priority to {}".format(sample_name,priority))
     update_dragen_queue = """UPDATE dragen_queue
                              SET PRIORITY={priority}
@@ -145,42 +148,42 @@ def check_db_check_seqscratch(config,sample_name,sample_type,ppid,database):
     if sample_status[0]['PIPELINE_STEP_ID'] != None:
         raise Exception("Sample {} has already been run in GATK pipe.  Cleanup required first".format(sample_name))
 
-    dsm_query = """SELECT * FROM dragen_sample_metadata
-                   WHERE PSEUDO_PREPID={ppid} and
-                   IS_MERGED = 1
-                """.format(ppid=ppid)
-    dsm_status = run_query(dsm_query,database)
-    if dsm_status:
-        if dsm_status[0]['is_merged'] != 0:
-            raise Exception("Sample {} has an attempted merge already! Cleanup required first".format(sample_name))
-        if dsm_status[0]['component_bams']:
-            print(dsm_status[0]['component_bams'])
-            raise Exception("Sample {} already has component bams!".format(sample_name))
+    ###### this is a sanity check so really should be separated... also if it exists at all is pretty suspicious?!?
+    ###### but we prolly shouldn't be doing this here - it should be flagged downstream
+    # dsm_query = "SELECT * FROM dragen_sample_metadata WHERE PSEUDO_PREPID={ppid} and IS_MERGED = 1".format(ppid=ppid)
+    # dsm_status = run_query(dsm_query,database)
+    # if dsm_status:
+        ###### perhaps the is_merged = 1 above is an accident - or is this checking mysql?
+        # if dsm_status[0]['is_merged'] != 0:
+        #    raise Exception("Sample {} has an attempted merge already! Cleanup required first".format(sample_name))
+        # if dsm_status[0]['component_bams']:
+            # print(dsm_status[0]['component_bams'])
+            # raise Exception("Sample {} already has component bams!".format(sample_name))
 
 def run_sample(args,config,auto_release_flag,rejected_samples,verbose,database):
+
     sample_name = args.sample_name
     sample_type = args.sample_type
     capture_kit = args.capture_kit
-    ppid,pids = update_ppid(sample_name,sample_type,capture_kit,database)
-    sample = dragen_sample(sample_name,sample_type,ppid,
-                           capture_kit,database)
+
+    ppid, pids = update_ppid( sample_name, sample_type, capture_kit, database )
+    sample = dragen_sample( sample_name, sample_type,ppid, capture_kit, database )
+
     if args.priority is None:
         priority = sample.metadata['priority']
     else:
         priority = args.priority
 
+    #### this is uinsg dsm effectively only for checking for previous processing - that shoud really be here?!?
     check_db_check_seqscratch(config,sample_name,sample_type,ppid,database)
-    print("Starting sample release for sample: {}, {}, {}".format(sample_name,
-                                                                  sample_type,
-                                                                  capture_kit))
+    print("Starting sample release for sample: {}, {}, {}".format( sample_name, sample_type, capture_kit) )
 
     #every external sample should only have one pids
     if is_external_or_legacy_sample(pids[0],database) == True:
         pass
     else:
-        rejected_samples = check_yield(ppid,sample_type,
-                                       auto_release_flag,
-                                       rejected_samples,database)
+        rejected_samples = check_yield(ppid,sample_type, auto_release_flag, rejected_samples, database)
+
     update_queues(sample_name,sample_type,capture_kit,ppid,priority,database)
     update_sample_status(ppid,verbose,database)
 
@@ -196,13 +199,12 @@ def update_sample_status(ppid,verbose,database):
                                   "WHERE P_PREPID={}"
                                  ).format(status,userID,ppid)
 
-    prepT_status_update_query = ("UPDATE prepT "
-                                "SET STATUS='{}' "
-                                "WHERE P_PREPID={}"
-                                ).format(status,ppid)
+    prepT_status_update_query = ("UPDATE prepT SET STATUS='{}' WHERE P_PREPID={}").format(status,ppid)
+
     if verbose == True:
         print(sample_status_insert_query)
         print(prepT_status_update_query)
+
     run_query(sample_status_insert_query,database)
     run_query(prepT_status_update_query,database)
 

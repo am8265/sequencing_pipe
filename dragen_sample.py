@@ -111,8 +111,10 @@ def get_fastq_loc(database, sample):
             '/nfs/seqsata*/seqfinal/whole_genome/'])
 
         if external_or_legacy_flag == True:
+            print ("using globs for location")
             for potential_loc in potential_locs:
                 potential_path = '{}/{}/*[0-9xXyY]'.format(potential_loc,sample_name)
+                print("globbing for legacy {}, {}".format(potential_loc,sample_name))
                 #print('Checking {} for fastqs....'.format(potential_loc))
                 fastq_loc = glob(potential_path)
                 if fastq_loc != []:
@@ -123,6 +125,7 @@ def get_fastq_loc(database, sample):
             if fastq_loc == []:
                 raise FastqError('{} Fastq files not found'.format(sample_name))
         else:
+            print ("using query for location")
             query = ("SELECT DISTINCT SEQSATALOC,FCILLUMID FROM Flowcell f "
                 "JOIN Lane l ON f.FCID=l.FCID "
                 "JOIN prepT p ON l.prepID=p.prepID "
@@ -133,13 +136,14 @@ def get_fastq_loc(database, sample):
             seqsatalocs = run_query(query,database)
             print(seqsatalocs)
             for flowcell in seqsatalocs:
-                if flowcell['SEQSATALOC'] == '':
-                    msg = ('Sample {} on flowcell {} is missing seqsataloc!  Still sequencing?'
-                          ).format(sample_name,flowcell['FCILLUMID'])
 
+                if flowcell['SEQSATALOC'] == '':
+                    msg = ('Sample {} on flowcell {} is missing seqsataloc!  Still sequencing?' ).format(sample_name,flowcell['FCILLUMID'])
                     raise ValueError(msg)
+
                 for potential_loc in potential_locs:
                     potential_path = '{}/{}/{}'.format(potential_loc,sample_name,flowcell['FCILLUMID'])
+                    print("globbing for non-legacy {}".format(potential_path))
                     fastq_loc = glob(potential_path)
                     if fastq_loc != []:
                         print('FOUND: {}'.format(potential_path))

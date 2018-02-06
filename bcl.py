@@ -14,10 +14,7 @@ def run_bcl2fastq(args,run_info_dict,config,database,verbose):
     script_dir = config.get('locs','scr_dir')
     bcl2fastq_loc = config.get('programs','bcl2fastq_program')
     bcl_dir = '{}/{}'.format(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
-    out_dir = '{}/{}_{}_{}_Unaligned'.format(config.get('locs','bcl2fastq_scratch_dir'),
-                                             run_info_dict['runDate'],
-                                             run_info_dict['machine'],
-                                             run_info_dict['FCIllumID'])
+    out_dir = run_info_dict['out_dir'] 
     script_loc = '{}/{}_{}_BCL.sh'.format(out_dir,run_info_dict['FCIllumID'],run_info_dict['machine'])
 
     check_exist_bcl_dir(fcillumid,out_dir,database)
@@ -121,13 +118,13 @@ def update_sample_status(database,fcillumid,verbose):
     logger = logging.getLogger(__name__)
     userID = get_user_id(database)
     sample_status_insert_query = ("INSERT INTO statusT "
-                                  "(CHGVID,status_time,status,DBID,prepID,userID) "
+                                  "(CHGVID,STATUS_TIME,STATUS,DBID,PREPID,USERID,POOLID,SEQID,PLATENAME) "
                                   "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),"
-                                  "'BCL',pt.DBID,pt.prepID,{0} "
+                                  "'BCL',pt.DBID,pt.prepID,{},0,0,' ' "
                                   "FROM Flowcell f "
                                   "JOIN Lane l ON l.FCID=f.FCID "
                                   "JOIN prepT pt ON pt.prepID=l.prepID "
-                                  "WHERE FCillumid='{1}'"
+                                  "WHERE FCillumid='{}'"
                                  ).format(userID,fcillumid)
     prepT_status_update_query = """UPDATE prepT p
                                    JOIN Lane l ON p.PREPID=l.PREPID

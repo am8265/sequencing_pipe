@@ -15,10 +15,12 @@ def parse_run_parameters_xml(fcillumid,database):
     run_parameters_xml = glob('{}/runParameters.xml'.format(run_folder))
     if run_parameters_xml == []:
         xml_type = 'NovaSeq'
-        run_parameters_xml = glob('{}/RunParameters.xml'.format(run_folder))
+        run_parameters_xml_loc = '{}/RunParameters.xml'.format(run_folder)
+        run_parameters_xml = glob(run_parameters_xml_loc)
     if run_parameters_xml == []:
         update_pipeline_complete(fcillumid,'-404',database)
-        raise Exception("Could not find run parameters xml files!")
+        raise Exception(("Could not find run parameters xml files: {}!"
+                        ).format(run_parameters_xml_loc))
     if len(run_parameters_xml) != 1:
         update_pipeline_complete(fcillumid,'-6',database)
         raise Exception("Too many run folders found!")
@@ -59,6 +61,11 @@ def parse_run_parameters_xml(fcillumid,database):
         else:
             update_pipeline_complete(fcillumid,'-100',database)
             raise Exception("Undefined xml_type:{}!".format(xml_type))
+        run_info_dict['out_dir'] = '{}/{}_{}_{}_Unaligned'.format(config.get('locs','bcl2fastq_scratch_dir'),
+        run_info_dict['runDate'],
+        run_info_dict['machine'],
+        run_info_dict['FCIllumID'])
+
     return run_info_dict
 
 
