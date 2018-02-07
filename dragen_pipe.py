@@ -427,11 +427,16 @@ def get_reads(sample,read_number,debug):
 ######## need to make it change the value so that we don't end up in a permanent loop
 ######## need to make it change the value so that we don't end up in a permanent loop
 
+##################### is this doing anything but loop on the same samples forever?!?
+##################### is this doing anything but loop on the same samples forever?!?
+##################### is this doing anything but loop on the same samples forever?!?
+
 def get_next_sample(pid,database,debug):
 
     q="SELECT sample_name,sample_type,capture_kit,pseudo_prepid FROM dragen_sample_metadata "
 
     if pid == 0:
+        # q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID asc LIMIT 1 "
         q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID desc LIMIT 1 "
     else:
         q=q+("WHERE P_PREPID={}".format(pid))
