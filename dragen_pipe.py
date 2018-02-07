@@ -154,14 +154,19 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
         update_queue(pseudo_prepid,database,debug)
 
         for laneFCID in sample.metadata['lane'][0]: #loop over read groups
+
             rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
+
             if debug:
                 print("RG info: lane {}, fcillumd {}, prepid {}".format(rg_lane_num,rg_fcillumid,rg_prepid))
+
             setup_first_read_RG(sample,rg_lane_num,rg_fcillumid,rg_prepid,debug)
             set_seqtime(rg_fcillumid,sample,database)
             create_align_config(sample,rg_lane_num,rg_fcillumid,rg_prepid)
+
             if dontexecute == False: #For test purposes
                run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug)
+
             update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database)
 
         component_bams = get_component_bams(sample,debug)
@@ -247,6 +252,7 @@ def update_dragen_metadata_prepT_status(sample,component_bams,database,pseudo_pr
     update_status(sample,status,database)
 
 def update_status(sample,status,database):
+
     prepT_query = """UPDATE prepT
                      SET status='{status}'
                      WHERE p_prepid={pseudo_prepid}
@@ -295,10 +301,14 @@ def update_queue(pseudo_prepid,database,debug):
 
         ###### clearly anything with this state is in an error state if we're running!?!
         ###### also check for conf files etc. - i.e. really make sure not getting races?!?
-        cur.execute("update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}".format( state+10, state ) )
+        q="update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}".format( state+10, state )
+        print(q)
+        cur.execute(q)
         print("we marked {} problem samples".format(cur.rowcount))
 
-        cur.execute("update dragen_sample_metadata set is_merged = {} WHERE pseudo_prepid = {} and is_merged = 80010".format(state,pseudo_prepid) )
+        q="update dragen_sample_metadata set is_merged = {} WHERE pseudo_prepid = {} and is_merged = 80010".format(state,pseudo_prepid) 
+        print(q)
+        cur.execute(q)
         if cur.rowcount != 1:
             raise ValueError("seems we couldn't get a lock on sample {}".format(pseudo_prepid));
         else:
