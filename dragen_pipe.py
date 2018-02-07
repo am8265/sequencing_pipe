@@ -18,6 +18,9 @@ from utilities import *
 import socket
 
 def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
+
+    os.system("dragen_reset")
+
     config = get_config()
     if isinstance(run_type_flag,str) == True: #pseudo_prepid present
         pseudo_prepid = run_type_flag
@@ -33,11 +36,18 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
             email_failure()
 
     elif run_type_flag == True: #Automated run
+
         pseudo_prepid = 0
         sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,database,debug)
+
         while sample_name is not None:
+
             print("running pp= {}".format(pseudo_prepid))
+            ##### this is the silly, ott bit so lock first and update to avoid cycling forever with probs...?!?
+            ##### - in the end locked in get_next_sample
+
             sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
+
             try:
                 run_sample(sample,dontexecute,config,seqscratch_drive,database,debug)
             except:
@@ -264,50 +274,38 @@ def update_status(sample,status,database):
 ########## should attempt to lock sample immediately at selection?!?
 def update_queue(pseudo_prepid,database,debug):
 
+####################### need to make it change the value so that we don't end up in a permanent loop - i.e. in def get_next_sample(pid,database,debug):
+####################### need to make it change the value so that we don't end up in a permanent loop - i.e. in def get_next_sample(pid,database,debug):
+####################### need to make it change the value so that we don't end up in a permanent loop - i.e. in def get_next_sample(pid,database,debug):
+
     who=socket.gethostname()
     state=0;
     if who == "dragen1.igm.cumc.columbia.edu":
-        state=-99991
+        state=80021
     elif who == "dragen2.igm.cumc.columbia.edu":
-        state=-99992
+        state=80022
     else:
         raise ValueError("{} is not allowed to run this".format(who))
 
-    ###### get rid of all of this entirely?!? just update is_merged to a machine specific value
-    # insert_query = ("INSERT INTO tmp_dragen SELECT * FROM dragen_queue WHERE pseudo_prepid={0}").format(pseudo_prepid)
-    # problem_runs = ("SELECT pseudo_prepid from dragen_sample_metadata WHERE is_merged = {}").format(state)
-    # dbInfo = run_query(problem_runs,database)
-
-    ############### transaction or version thing?!? #####################################
-    ####### this needs to be atomic - let's just double check is_merged status!?!
-    ####### simplest thing is to require is_merged - -99999 too so as to avoid races...!?!
-
-    # problem_runs = ("update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}").format( -99990, state )
-    ###### annoying as to re-run need to add back to dragen_queue
-
-######## we really don't need dragen_queue anymore either - i.e. 'should just make release write to dragen_sample_metadata directly
-######## but for now having deprecate_dragen_queue_tmp_dragen_and_eventually_dsm_as_part_of_prept.cpp populate dsm when dq gets entry 
-######## but also puts in external... make sure not getting races - but we should be in a state where can drop dq as soon as finish this
-######## can't do that till the P100 comes back up...
-
     connection = get_connection(database)
     print(" db= {} and pp= {}".format(database,pseudo_prepid))
+
     ##### make sure dragen isn't actually running too!?!?
-    try:
-        with connection.cursor() as cur:
-            ###### clearly anything with this state is in an error state if we're running!?!
-            ###### also check for conf files etc. - i.e. really make sure not getting races?!?
-            cur.execute("update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}".format( state+10, state ) )
-            print("we marked {} problem samples".format(cur.rowcount))
-            ###### use -99999 condition to attempt to force atomicity
-            cur.execute("update dragen_sample_metadata set is_merged = {} WHERE pseudo_prepid = {} and is_merged = -99999".format(state,pseudo_prepid) )
-            if cur.rowcount != 1:
-                raise ValueError("seems we couldn't get a lock on sample {}".format(pseudo_prepid));
-            else:
-               print("we likely have a lock")
-        connection.commit()
-    finally:
-        connection.close()
+    with connection.cursor() as cur:
+
+        ###### clearly anything with this state is in an error state if we're running!?!
+        ###### also check for conf files etc. - i.e. really make sure not getting races?!?
+        cur.execute("update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}".format( state+10, state ) )
+        print("we marked {} problem samples".format(cur.rowcount))
+
+        cur.execute("update dragen_sample_metadata set is_merged = {} WHERE pseudo_prepid = {} and is_merged = 80010".format(state,pseudo_prepid) )
+        if cur.rowcount != 1:
+            raise ValueError("seems we couldn't get a lock on sample {}".format(pseudo_prepid));
+        else:
+            print("we likely have a lock")
+
+    connection.commit()
+    connection.close()
 
     # rm_query = ("DELETE FROM dragen_queue WHERE pseudo_prepid={}").format(pseudo_prepid)
     # print(rm_query)
@@ -429,26 +427,39 @@ def get_reads(sample,read_number,debug):
     else:
         return sorted(read)[0]
 
+######## need to make it change the value so that we don't end up in a permanent loop
+######## need to make it change the value so that we don't end up in a permanent loop
+######## need to make it change the value so that we don't end up in a permanent loop
+
 def get_next_sample(pid,database,debug):
 
+    q="SELECT sample_name,sample_type,capture_kit,pseudo_prepid FROM dragen_sample_metadata "
+
     if pid == 0:
-        pid_query = (##### prep'ing to get rid of dragen_queue # "SELECT PSEUDO_PREPID FROM dragen_queue WHERE PRIORITY < 99 "
-                    "SELECT PSEUDO_PREPID FROM dragen_sample_metadata WHERE is_merged = -99999 " 
-                     "ORDER BY PSEUDO_PREPID desc LIMIT 1 ")
-                     # "ORDER BY PRIORITY ASC LIMIT 1 ")
-        pid = run_query(pid_query,database)[0]['PSEUDO_PREPID']
+        q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID desc LIMIT 1 "
+    else:
+        q=q+("WHERE P_PREPID={}".format(pid))
 
-    prepT_query = ("SELECT CHGVID,SAMPLE_TYPE,EXOMEKIT FROM prepT WHERE P_PREPID={}" ).format(pid)
+    connection = get_connection(database)
 
-    if debug:
-        print(prepT_query)
+    with connection.cursor() as cur:
 
-    sample_info = run_query(prepT_query,database)
+        cur.execute(q)
+        if cur.rowcount != 1:
+            raise ValueError("couldn't get a sample")
 
-    if debug:
-        print('Dragen_queue info: {0}'.format(sample_info,"PPID:",pid))
+        sample=cur.fetchone()
 
-    return sample_info[0]['CHGVID'],sample_info[0]['SAMPLE_TYPE'],pid,sample_info[0]['EXOMEKIT']
+        cur.execute("update dragen_sample_metadata set is_merged = 80010 WHERE pseudo_prepid = {} and is_merged = 80000".format(sample['pseudo_prepid']) )
+        if cur.rowcount != 1:
+            raise ValueError("seems we couldn't get a lock on sample {}".format(pseudo_prepid));
+
+        connection.commit()
+        connection.close()
+
+        return sample['sample_name'], sample['sample_type'], sample['pseudo_prepid'], sample['capture_kit']
+
+
 
 def email_failure():
     emailAddresses = '{}@cumc.columbia.edu'.format(get_user())
