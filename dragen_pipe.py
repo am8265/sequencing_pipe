@@ -287,9 +287,9 @@ def update_queue(pseudo_prepid,database,debug):
     who=socket.gethostname()
     state=0;
     if who == "dragen1.igm.cumc.columbia.edu":
-        state=80021
+        state=80011
     elif who == "dragen2.igm.cumc.columbia.edu":
-        state=80022
+        state=80012
     else:
         raise ValueError("{} is not allowed to run this".format(who))
 
