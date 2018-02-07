@@ -223,11 +223,7 @@ def update_dragen_metadata_prepT_status(sample,component_bams,database,pseudo_pr
     ###### but more fundamentally, they really shouldn't already exist as ths 'should' be the only thing populating dsm?!?
     if dbInfo:
         print("Performing dragen_sample_metadata update")
-        ###### why on earth is it updating more than is_merged and component_bams?!?
         query = ("UPDATE dragen_sample_metadata set "
-                 #" pseudo_prepid={pseudo_prepid},"
-                 # "sample_type='{sample_type}',capture_kit='{capture_kit}',"
-                 # "priority={priority},
                  " sample_name='{sample_name}', "
                  " seqscratch_drive='{seqscratch_drive}',"
                  " is_merged=0,component_bams='{component_bams}' "
@@ -235,18 +231,8 @@ def update_dragen_metadata_prepT_status(sample,component_bams,database,pseudo_pr
                 ).format(seqscratch_drive=seqscratch_drive,component_bams=component_bams,**sample.metadata)
     else:
         raise ValueError("pseudo_prepid {} is missing from dragen_sample_metadata".format(pseudo_prepid));
-        # print("Performing dragen_sample_metadata insert")
-        # query = ("INSERT INTO dragen_sample_metadata "
-        #               "(sample_name,pseudo_prepid,sample_type,"
-        #               "capture_kit,priority,seqscratch_drive,"
-        #               "is_merged,component_bams) "
-        #               "VALUES ('{sample_name}',{pseudo_prepid},"
-        #               "'{sample_type}','{capture_kit}',{priority},"
-        #               "'{seqscratch_drive}',0,'{component_bams}'"
-        #               ") "
-        #              ).format(seqscratch_drive=seqscratch_drive,component_bams=component_bams,**sample.metadata)
-    if debug:
-        print(query)
+
+    print(query)
     run_query(query,database)
     status='Dragen Alignment Completed'
     update_status(sample,status,database)
