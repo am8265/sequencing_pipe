@@ -1,3 +1,4 @@
+#!/nfs/goldstein/software/python3.6.1-x86_64_shared/bin/python
 import argparse
 import configparser
 import logging
@@ -291,4 +292,6 @@ def parse_arguments():
         parser.error('--priority is not compatible with --flowcell')
     return args
 if __name__ == '__main__':
+    print("I don't work anymore.");
+    exit(1);
     main()

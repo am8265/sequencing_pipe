@@ -1,4 +1,4 @@
-#!/nfs/goldstein/software/python2.7/bin/python2.7.7
+#!/nfs/goldstein/software/python3.6.1-x86_64_shared/bin/python
 """
 Create a configuration file used by the Dragen system to processed IGM samples
 based on their priority level in the Dragen pipeline queue
@@ -447,7 +447,9 @@ def get_next_sample(pid,database,debug):
 
         cur.execute(q)
         if cur.rowcount != 1:
-            raise ValueError("couldn't get a sample")
+            print("there's nothing to do")
+            exit(0)
+            # raise ValueError("couldn't get a sample")
 
         sample=cur.fetchone()
 
