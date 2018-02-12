@@ -97,10 +97,15 @@ def get_fastq_loc(database, sample):
         Typically when processing the external sample previously each read group is
         enumerated 1,2,3...etc.
         Now external samples are archived with the fcillumid."""
+
+        ####### this is all an abomination!?!
         potential_locs = []
+
         if corrected_sample_type != 'GENOME':
             potential_locs = ['/nfs/seqscratch_ssd/{}/'.format(corrected_sample_type)]
-        potential_locs.extend(['/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
+
+        potential_locs.extend([
+            '/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
             '/nfs/seqscratch*/tx_temp/tx_*/',
             '/nfs/sequencing/tx_2390/CGND*/Project*/',
             '/nfs/fastq_temp/tx_temp/tx_2390/CGND*/Project*/',
@@ -108,11 +113,24 @@ def get_fastq_loc(database, sample):
             '/nfs/igmdata01/{}/'.format(corrected_sample_type),
             '/nfs/stornext/seqfinal/casava1.8/whole_{}/'.format(corrected_sample_type),
             '/nfs/fastq1[568]/{}/'.format(corrected_sample_type),
-            '/nfs/seqsata*/seqfinal/whole_genome/'])
+            '/nfs/seqsata*/seqfinal/whole_genome/'
+        ])
 
         if external_or_legacy_flag == True:
+
+            # if sample["prepid"][0]<22000:
+                # from pprint import pprint as pp
+                # pp(sample)
+                # print("avoid back contamination of older sequencing by newer")
+                # potential_locs = ['/nfs/stornext/seqfinal/casava1.8/whole_exome/'.format(corrected_sample_type)]
+                ##### fs isn't even mounted anymore so doing a copy
+                # potential_locs = ['/nfs/seqscratch_ssd/dsth/APPALING_ALS_ISSUE/'.format(corrected_sample_type)]
+
             print ("using globs for location")
             for potential_loc in potential_locs:
+
+                ###### use the above with sample name alone - i.e. need to make sure legacy and external samples are first AND visible...
+                ###### or we get the newer sapmle if sequence more than once - it doesn't use sample_type/capture_kit or anything!?!
                 potential_path = '{}/{}/*[0-9xXyY]'.format(potential_loc,sample_name)
                 print("globbing for legacy {}, {}".format(potential_loc,sample_name))
                 #print('Checking {} for fastqs....'.format(potential_loc))
@@ -122,9 +140,11 @@ def get_fastq_loc(database, sample):
                     for folder in fastq_loc:
                         found_locs.append(folder)
                     break
+
             if fastq_loc == []:
                 raise FastqError('{} Fastq files not found'.format(sample_name))
         else:
+
             print ("using query for location")
             query = ("SELECT DISTINCT SEQSATALOC,FCILLUMID FROM Flowcell f "
                 "JOIN Lane l ON f.FCID=l.FCID "
@@ -133,7 +153,9 @@ def get_fastq_loc(database, sample):
                 "AND l.prepID={0} AND f.fail=0 "
                 "GROUP BY f.fcid"
                 ).format(prepid)
+
             seqsatalocs = run_query(query,database)
+
             print(seqsatalocs)
             for flowcell in seqsatalocs:
 
@@ -142,14 +164,19 @@ def get_fastq_loc(database, sample):
                     raise ValueError(msg)
 
                 for potential_loc in potential_locs:
+
+                    ##### use the above along with sample name and flowcell id
                     potential_path = '{}/{}/{}'.format(potential_loc,sample_name,flowcell['FCILLUMID'])
                     print("globbing for non-legacy {}".format(potential_path))
                     fastq_loc = glob(potential_path)
                     if fastq_loc != []:
                         print('FOUND: {}'.format(potential_path))
+                        ##### do we only get the first one and not check for ambiguity?!?
                         for folder in fastq_loc:
                             found_locs.append(folder)
                         break
+
+                print('sample={} and loc'.format(sample_name,fastq_loc))
                 if fastq_loc == []:
                     raise FastqError('{} Fastq files not found'.format(sample_name))
 
@@ -231,6 +258,8 @@ class dragen_sample:
         self.metadata['sample_type'] = sample_type.lower()
         self.metadata['pseudo_prepid'] = pseudo_prepid
         if sample_type.lower() != 'genome':
+            if capture_kit == '':
+                raise ValueError("must supply valid capture kit")
             self.metadata['capture_kit'] = capture_kit
             self.metadata['bed_file_loc'] = get_bed_file_loc(database,self.metadata['capture_kit'])
         else:

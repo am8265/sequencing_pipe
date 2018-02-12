@@ -437,7 +437,10 @@ def get_next_sample(pid,database,debug):
 
     if pid == 0:
         # q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID asc LIMIT 1 "
-        q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID desc LIMIT 1 "
+        # q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID desc LIMIT 1 "
+        ###### need to pick up old als samples
+        q=q+"WHERE is_merged = 80000 ORDER BY priority asc, sample_type desc LIMIT 1 "
+        # q=q+"WHERE is_merged = 80000 and sample_type = 'Exome' order by pseudo_prepid desc LIMIT 1 "
     else:
         q=q+("WHERE P_PREPID={}".format(pid))
 
