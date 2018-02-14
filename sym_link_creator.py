@@ -110,60 +110,108 @@ def make_fcillumid_dir(fastq_dir,verbose):
             if e.errno != errno.EEXIST:
                     raise
 
-def check_fcillumid(rg_info):
-    tmp_fcillumid = rg_info[0]
-    if len(rg_info) == 10:
-        fcillumid = rg_info[2]
+def check_fcillumid(fcillumid):
+    # As of writing in this script all recent illumina flowcells should begin
+    # with C, D, or H and end with X or Y.  Also the fcillumid should only be
+    # 9 characters long.
+
+    search_obj = re.search('[CHD].*[xXyY]',fcillumid)
+    if search_obj is None:
+        raise Exception('Check fcillumid length: {}'.format(fcillumid))
     else:
-        search_obj = re.search('[CHD].*[XY]',tmp_fcillumid)
-        fcillumid = search_obj.group()
-    if len(fcillumid) != 9 and fcillumid[-1] in 'xyXY':
-        raise Exception('Check fcillumid: {}'.format(fcillumid))
+          fcillumid = search_obj.group()
+    if len(fcillumid) != 9:
+        raise Exception('Check fcillumid length: {}'.format(fcillumid))
     else:
         return fcillumid
+
+def check_values(machine,fcillumid,lane,tile,adapter,read):
+    #Sanity Checks for all values parsed from the read header
+
+    #FCILLUMID check
+    check_fcillumid(fcillumid)
+
+    #Tile Check
+    # Tiles are structured two ways:
+    #
+    # NovaSeqs/HiSeqs: [Surface][Swath][Section(1st digit)][Section(2nd digit)]
+    # NextSeqs:  [Lane][Surface][Swath][Section(1st digit)][Section(2nd digit)]
+    #
+    # However determining the machine type via machine name will be very 
+    # problematic and unrelible hence I just check the len of the tile
+    if tile.isdigit() == False:
+        raise Exception('tile is not numeric: {}!'.format(tile))
+    if len(tile) == 4: #HiSeq and NovaSeqs
+        tile_search_ojb = re.search('^[12][123][01][0-9]$',tile)
+    elif len(tile) == 5: #NextSeqs
+        tile_search_ojb = re.search('^[1-4][12][123][01][0-9]$',tile)
+    else:
+        raise Exception('Tile is too long!: {}'.format(machine))
+    if tile_search_ojb is None:
+        raise Exception('Tile is not formatted correctly: {}!'.format(tile))
+
+    #Lane Check
+    #Hiseqs should have no more than 2-8 lanes, NovaSeq has 2-4 lanes.
+    allowed_lanes =  [str(x) for x in range(1,9)]
+    if lane not in allowed_lanes:
+        raise Exception('Lane is not formatted correctly: {}!'.format(lane))
+
+    #adapter checks
+    allowed_index_bases = ['A','C','T','G','N']
+    for base in list(set(adapter)):
+        if base not in allowed_index_bases:
+            raise Exception('Adapter has illegal bases: {}!'.format(adapter))
+    if len(adapter) < 6:
+        raise Exception('Adapter is too short: {}!'.format(adapter))
+
+    #read check
+    allowed_reads = ['1','2','3']
+    if read not in allowed_reads:
+        raise Exception('read is not formatted correctly: {}!'.format(read))
 
 def get_rg_info(fastq,verbose):
     gz = gzip.open(fastq,'rt')
     fastq_read_header = gz.readline()
-    rg_info = fastq_read_header.strip().split(':')
-    fcillumid = check_fcillumid(rg_info)
     gz.close()
+    rg_info = fastq_read_header.strip().split(':')
+    print(rg_info)
     if verbose:
         print(fastq_read_header.strip())
     if len(rg_info) == 10:
         """ IGM Illumina read head example
         @K00347:44:HL7K2BBXX:5:1101:13352:1384 1:N:0:NCTATCCT+NGGATAGG
         @Instrument:RunID:FlowCellID:Lane:Tile:X:Y:UMI ReadNum:FilterFlag:0:IndexSequence or SampleNumber"""
-        machine,run_number,fcillumid2,lane,tile,X,read,control,something,adapter = rg_info
+        machine,run_number,fcillumid,lane,tile,X,read,control,something,adapter = rg_info
 
         read = read.split(' ')[1]
     elif len(fastq_read_header.split(':')) == 7:
         """@HISEQ:549:C6PE0ANXX:2:2305:17233:17109/1
         @Instrument:RunID:FlowCellID:Lane:Tile:X:Y IndexSequence"""
-        machine,run_number,fcillumid2,lane,tile,X,Y_and_read = rg_info
+        machine,run_number,fcillumid,lane,tile,X,Y_and_read = rg_info
         read = Y_and_read.split('/')[1]
         adapter = 'AAAAAA'
     elif len(fastq_read_header.split(':')) == 5:
         if re.search('[ACGNT]',rg_info[4]):
             """@FCHNYHLBCXX:1:1207:6982:25608#TGACCAAN/1"""
-            fcillumid2,lane,tile,X,Y_and_read = rg_info
-            fcillumid2 = fcillumid2[3:]
+            fcillumid,lane,tile,X,Y_and_read = rg_info
+            machine = None
+            fcillumid = fcillumid[3:]
             tmp = Y_and_read.split('#')[1]
             adapter,read = tmp.split('/')
         else:
-            fcillumid2,lane,tile,X,Y_and_read = rg_info
-            fcillumid2 = fcillumid2[3:]
+            fcillumid,lane,tile,X,Y_and_read = rg_info
+            fcillumid = fcillumid[3:]
+            machine = None
             read = Y_and_read.split('/')[1]
             adapter = 'AAAAAA'
     else:
 
         print(fastq_read_header)
         raise Exception('Incorrect read header format!')
-
-    if read not in '123':
-        raise Exception('read is not formatted correctly: {}!'.format(read))
-
     adapter = adapter.replace('+','-')
+    check_values(machine,fcillumid,lane,tile,adapter,read)
+
+
     if verbose:
         print(fcillumid,lane,read,adapter)
     #rg_info_sanity_check(fcillumid,lane,read,adapter)
