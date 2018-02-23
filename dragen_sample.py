@@ -89,6 +89,10 @@ def get_fastq_loc(database, sample):
     sample_name=sample['sample_name']
     for prepid in sample["prepid"]:
         external_or_legacy_flag = is_external_or_legacy_sample(prepid,database)
+
+        from pprint import pprint as pp
+        pp(sample)
+
         """For cases where there is not flowell information the sequeuncing
         will have to be found via brute force.  There will be three types of samples
         that under this catergory: Old Casava 1.8 sample (pre-seqDB),
@@ -104,7 +108,11 @@ def get_fastq_loc(database, sample):
         if corrected_sample_type != 'GENOME':
             potential_locs = ['/nfs/seqscratch_ssd/{}/'.format(corrected_sample_type)]
 
+        if sample['pseudo_prepid']<20000:
+            potential_locs.insert(0,'/nfs/seqscratch_ssd/dsth/APPALING_ALS_ISSUE/'.format(corrected_sample_type))
+
         potential_locs.extend([
+            '/nfs/fastq_temp2/{}_ssd/'.format(corrected_sample_type),       ##### truelly evil!?!
             '/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
             '/nfs/seqscratch*/tx_temp/tx_*/',
             '/nfs/sequencing/tx_2390/CGND*/Project*/',
@@ -113,18 +121,22 @@ def get_fastq_loc(database, sample):
             '/nfs/igmdata01/{}/'.format(corrected_sample_type),
             '/nfs/stornext/seqfinal/casava1.8/whole_{}/'.format(corrected_sample_type),
             '/nfs/fastq1[568]/{}/'.format(corrected_sample_type),
-            '/nfs/seqsata*/seqfinal/whole_genome/'
+            ###### this is causing so many issues that better to remove and add back later!?!
+            ###### i.e. just check ALL fastq error!?!
+            # '/nfs/seqsata*/seqfinal/whole_genome/'
         ])
 
         if external_or_legacy_flag == True:
 
-            # if sample["prepid"][0]<22000:
+            if sample["prepid"][0]<22000:
                 # from pprint import pprint as pp
                 # pp(sample)
                 # print("avoid back contamination of older sequencing by newer")
                 # potential_locs = ['/nfs/stornext/seqfinal/casava1.8/whole_exome/'.format(corrected_sample_type)]
                 ##### fs isn't even mounted anymore so doing a copy
                 # potential_locs = ['/nfs/seqscratch_ssd/dsth/APPALING_ALS_ISSUE/'.format(corrected_sample_type)]
+                ##### needs to be compatible with other old samples - why aren't they run?!?!
+                potential_locs.insert(0,'/nfs/seqscratch_ssd/dsth/APPALING_ALS_ISSUE/'.format(corrected_sample_type))
 
             print ("using globs for location")
             for potential_loc in potential_locs:

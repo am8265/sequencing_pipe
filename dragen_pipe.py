@@ -33,7 +33,8 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
             print(tb)
             status='Dragen Alignment Failure'
             update_status(sample,status,database)
-            email_failure()
+            # sick of all the emails!?!
+            # email_failure()
 
     elif run_type_flag == True: #Automated run
 
@@ -55,7 +56,8 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
                 print(tb)
                 status='Dragen Alignment Failure'
                 update_status(sample,status,database)
-                email_failure()
+                # sick of all the emails!?!
+                # email_failure()
                 sys.exit()
 
             try:
@@ -141,6 +143,7 @@ def write_sge_header(sample,step,script_loc):
 
 def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
 
+    ###### should really update these to fastq error!?!
     check_Fastq_Total_Size(sample,debug)
     setup_dir(seqscratch_drive,sample,debug)
     existing_bams_check = False
@@ -207,6 +210,8 @@ def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
     dragen_stdout.close()
     dragen_stderr.close()
     if rc != 0:
+        ##### this we do want an email about!?!
+        email_failure()
         raise Exception("Dragen alignment did not complete successfully!")
     try:
         subprocess.call(['chmod','-R','775','{}'.format(output_dir)])
@@ -433,13 +438,20 @@ def get_reads(sample,read_number,debug):
 
 def get_next_sample(pid,database,debug):
 
-    q="SELECT sample_name,sample_type,capture_kit,pseudo_prepid FROM dragen_sample_metadata "
+    q="SELECT d.sample_name,d.sample_type,d.capture_kit,d.pseudo_prepid FROM dragen_sample_metadata d "
+    q+=" join prepT p on p.p_prepid=d.pseudo_prepid "
 
     if pid == 0:
         # q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID asc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID desc LIMIT 1 "
         ###### need to pick up old als samples
-        q=q+"WHERE is_merged = 80000 ORDER BY priority asc, sample_type desc LIMIT 1 "
+        # q=q+"WHERE is_merged = 80000 ORDER BY priority asc, sample_type desc LIMIT 1 "
+        ####### really old, so far not run samples are actually rather high in terms of ppid...?!?
+        # q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid asc LIMIT 1 "
+        q=q+"WHERE is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
+        # q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid desc LIMIT 1 "
+        # q=q+"WHERE is_merged = 80000 and sample_type != 'Genome' ORDER BY pseudo_prepid desc LIMIT 1 "
+        # q=q+"WHERE is_merged = 80000 and sample_type != 'Genome' ORDER BY priority asc, sample_type desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and sample_type = 'Exome' order by pseudo_prepid desc LIMIT 1 "
     else:
         q=q+("WHERE P_PREPID={}".format(pid))

@@ -155,11 +155,11 @@ def checkStatus(fcillumid,database):
         # Sometimes multiple flowcells of Genomes finish bcl2fastq near the same time so its status =='storage'
         msg = ("{} does not have the correct status!  Current status: '{}'"
               ).format(status,status)
-        if status != 'BCL' and SeqType != 'Genome':
+        if status != 'BCL' and status != 'BCL Complete' and SeqType != 'Genome':
             raise_exception_switch = 1
             logger.warn(msg)
             print(msg)
-        elif (status != 'BCL' and status != 'Storage') and SeqType == 'Genome':
+        elif (status != 'BCL' and status != 'Storage' and status != 'BCL Complete') and SeqType == 'Genome':
             raise_exception_switch = 1
             logger.warn(msg)
             print(msg)
@@ -285,6 +285,31 @@ def parse_arguments():
     args=parser.parse_args()
     return args
 
+def bclStatus(fcillumid,database):
+
+    samples = run_query("SELECT DISTINCT prepID FROM Lane l "
+                        "JOIN Flowcell f on l.FCID=f.FCID "
+                        "WHERE f.FCillumID='{}'".format(fcillumid),database)
+    userID = get_user_id(database)
+    for prepID in samples:
+        status = run_query("SELECT status FROM prepT WHERE prepID={}".format(prepID['prepID']),database)
+        status = status[0]['status']
+        if status == 'BCL Started':
+            #update
+            run_query("UPDATE prepT p SET STATUS='BCL Complete',status_time=unix_timestamp() WHERE prepID={} AND STATUS='BCL Started'".format(prepID['prepID']),database) 
+    #insert into statusT
+    sample_status_insert_query = ("INSERT INTO statusT "
+                                  "(CHGVID,STATUS_TIME,STATUS,DBID,PREPID,USERID,POOLID,SEQID,PLATENAME) "
+                                  "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),"
+                                  "'BCL Complete',pt.DBID,pt.prepID,{},0,0,' ' "
+                                  "FROM Flowcell f "
+                                  "JOIN Lane l ON l.FCID=f.FCID "
+                                  "JOIN prepT pt ON pt.prepID=l.prepID "
+                                  "WHERE FCillumid='{}'").format(userID,fcillumid)
+    run_query(sample_status_insert_query,database)
+
+
+
 def main():
     config = get_config()
     args = parse_arguments()
@@ -304,6 +329,10 @@ def main():
                                              run_info_dict['runDate'],
                                              machine,fcillumid)
     check_bcl_complete(unaligned_dir)
+    bclStatus(fcillumid,database)
+    cmd="chmod -R 770 {0}".format(unaligned_dir)
+    os.system(cmd)
+
     try:
         fc_yield,sample_info = update_email_lane(config,machine,unaligned_dir,
                 fcillumid,args.verbose,args.test,database)

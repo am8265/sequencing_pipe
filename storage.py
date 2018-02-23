@@ -353,7 +353,7 @@ def updateStatus(verbose,fcillumid,noStatus,database):
         prepT_status_update_query = """UPDATE prepT p
                                        JOIN Lane l ON p.PREPID=l.PREPID
                                        JOIN Flowcell f ON f.FCID=l.FCID
-                                       SET STATUS='Storage'
+                                       SET STATUS='Storage', status_time=unix_timestamp()
                                        WHERE FCILLUMID='{}'
                                     """.format(fcillumid)
 
@@ -384,7 +384,7 @@ def mkdir_p(path,verbose):
             msg = "Creating dir:{}".format(path)
             print(msg)
             logger.debug(msg)
-        os.makedirs(path)
+        os.makedirs(path,0o770)
         #os.chmod(path,0775)
 
     except OSError as exc:  # Python >2.5

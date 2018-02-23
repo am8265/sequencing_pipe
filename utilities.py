@@ -283,6 +283,8 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
     outfile.close()
     #copies sequencing sample sheet to genotyping location
     print("Finish creating SSS: {}".format(sss_loc))
+    cmd="chmod -R 770 {0}".format(sss_loc)
+    os.system(cmd)
     return sss_loc
 
 def setup_logging(machine,fcillumid,logs_dir):

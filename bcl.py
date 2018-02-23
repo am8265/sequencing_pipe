@@ -20,7 +20,6 @@ def run_bcl2fastq(args,run_info_dict,config,database,verbose):
     check_exist_bcl_dir(fcillumid,out_dir,database)
     sss_loc = create_sss_from_database(args.fcillumid,run_info_dict['machine'],
                                        run_info_dict,config,database)
-
     if not os.path.exists(sss_loc):
         raise("yo' punk. where's my sample sheet? : '{}".format(sss_loc))
 
@@ -38,7 +37,7 @@ def run_bcl2fastq(args,run_info_dict,config,database,verbose):
     bcl2fastq_cmd = build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,database)
     print(bcl2fastq_cmd)
     logger.info(bcl2fastq_cmd)
-    os.mkdir(out_dir)
+    os.mkdir(out_dir,0o770)
 
     #Submit bcl job to the cluster
     with open(script_loc,'w') as bcl_script:
@@ -120,7 +119,7 @@ def update_sample_status(database,fcillumid,verbose):
     sample_status_insert_query = ("INSERT INTO statusT "
                                   "(CHGVID,STATUS_TIME,STATUS,DBID,PREPID,USERID,POOLID,SEQID,PLATENAME) "
                                   "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),"
-                                  "'BCL',pt.DBID,pt.prepID,{},0,0,' ' "
+                                  "'BCL Started',pt.DBID,pt.prepID,{},0,0,' ' "
                                   "FROM Flowcell f "
                                   "JOIN Lane l ON l.FCID=f.FCID "
                                   "JOIN prepT pt ON pt.prepID=l.prepID "
@@ -129,7 +128,7 @@ def update_sample_status(database,fcillumid,verbose):
     prepT_status_update_query = """UPDATE prepT p
                                    JOIN Lane l ON p.PREPID=l.PREPID
                                    JOIN Flowcell f ON f.FCID=l.FCID
-                                   SET STATUS='BCL'
+                                   SET STATUS='BCL Started', status_time=unix_timestamp()
                                    WHERE FCILLUMID='{}'
                                 """.format(fcillumid)
     if verbose == True:

@@ -112,12 +112,13 @@ def make_fcillumid_dir(fastq_dir,verbose):
 
 def check_fcillumid(fcillumid):
     # As of writing in this script all recent illumina flowcells should begin
-    # with C, D, or H and end with X or Y.  Also the fcillumid should only be
-    # 9 characters long.
-
-    search_obj = re.search('[CHD].*[xXyY]',fcillumid)
+    # with C, D, or H and end with X or Y or X2 (for NextSeq High output flowcell).
+    # Also the fcillumid should only be 9 characters long.
+    search_obj = re.search("^H[A-Z,0-9]{4}BGX2$",fcillumid) #for NextSeq High output
     if search_obj is None:
-        raise Exception('Check fcillumid length: {}'.format(fcillumid))
+        search_obj = re.search('[CHD].*[xXyY]',fcillumid)
+    if search_obj is None:
+        raise Exception('Check fcillumid: {}'.format(fcillumid))
     else:
           fcillumid = search_obj.group()
     if len(fcillumid) != 9:
@@ -135,7 +136,7 @@ def check_values(machine,fcillumid,lane,tile,adapter,read):
     # Tiles are structured two ways:
     #
     # NovaSeqs/HiSeqs: [Surface][Swath][Section(1st digit)][Section(2nd digit)]
-    # NextSeqs:  [Lane][Surface][Swath][Section(1st digit)][Section(2nd digit)]
+    # NextSeqs: [surface][swath][camera section][tile digit1][tile digit 2]
     #
     # However determining the machine type via machine name will be very 
     # problematic and unrelible hence I just check the len of the tile
@@ -143,8 +144,8 @@ def check_values(machine,fcillumid,lane,tile,adapter,read):
         raise Exception('tile is not numeric: {}!'.format(tile))
     if len(tile) == 4: #HiSeq and NovaSeqs
         tile_search_ojb = re.search('^[12][123][01][0-9]$',tile)
-    elif len(tile) == 5: #NextSeqs
-        tile_search_ojb = re.search('^[1-4][12][123][01][0-9]$',tile)
+    elif len(tile) == 5 and re.match("^@N[BS][0-9]{6}$",machine) is not None: #NextSeqs
+        tile_search_ojb = re.match('^[12][123][1-6](0[1-9]|1[0-2])$',tile)
     else:
         raise Exception('Tile is too long!: {}'.format(machine))
     if tile_search_ojb is None:
