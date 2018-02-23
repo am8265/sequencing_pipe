@@ -208,7 +208,7 @@ def check_fastq_locs(locs):
         if read2 != []:
             valid_locs.append(loc)
         else:
-            print('Did not find fastq mate pair for: {}!'.format(loc))
+            raise ValueError('Did not find fastq mate pair for: {}!'.format(loc))
     return valid_locs
 
 
