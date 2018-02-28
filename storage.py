@@ -123,11 +123,24 @@ def archiveFastqs(rerun,config,archive_tuples_list,UnalignedLoc,fcillumid,
     if rerun is False:
         bcl_fastqs = glob('{}/*/*fastq.gz'.format(UnalignedLoc))
         bcl_total_num_fastq = len(bcl_fastqs)
+        if bcl_total_num_fastq == 0:
+            raise Exception("no fastqs to move from {0}".format(UnalignedLoc))
         bcl_total_fastq_size = 0
         for bcl_fastq in bcl_fastqs:
             bcl_total_fastq_size += os.path.getsize(bcl_fastq)
+        if bcl_total_fastq_size == 0:
+            raise Exception("total fastq size = 0 in {0}".format(UnalignedLoc))
+
         for archive_locs_list in archive_tuples_list:
-            mv_rsync_fastq(archive_locs_list,UnalignedLoc,fcillumid,offset,verbose,database)
+            mv_rsync_fastq(
+              archive_locs_list,
+              UnalignedLoc,
+              fcillumid,
+              offset,
+              verbose,
+              database
+            )
+
     scratch_check_drive = config.get('locs','bcl2fastq_scratch_drive')
     logger.info('checking {}'.format(scratch_check_drive))
     distinct_seqtypes = get_distinct_seqtype_on_flowcell(fcillumid,database)
@@ -149,8 +162,15 @@ def archiveFastqs(rerun,config,archive_tuples_list,UnalignedLoc,fcillumid,
     offset = 1
 
     for archive_locs_list in archive_tuples_list:
-        mv_rsync_fastq(archive_locs_list,UnalignedLoc,fcillumid,offset,
-            verbose,database)
+        mv_rsync_fastq(
+          archive_locs_list,
+          UnalignedLoc,
+          fcillumid,
+          offset, 
+          verbose,
+          database
+        )
+
     archive_check_drive = config.get('locs','fastq_archive_drive')
     logger.info('checking {}'.format(archive_check_drive))
     archive_total_fastq_size = 0
@@ -168,13 +188,16 @@ def archiveFastqs(rerun,config,archive_tuples_list,UnalignedLoc,fcillumid,
         archive_total_num_fastq,archive_total_fastq_size)
 
 
-def mv_rsync_fastq(archive_locs_list,UnalignedLoc,fcillumid,offset,verbose,database):
+def mv_rsync_fastq( archive_locs_list, UnalignedLoc, fcillumid, offset, verbose, database ):
+
     logger = logging.getLogger(__name__)
+
     if offset == 0:
         fastqs = glob('{}/{}*fastq.gz'.format(archive_locs_list[offset],
                                              archive_locs_list[-1]))
     else:
         fastqs = glob('{}/*fastq.gz'.format(archive_locs_list[offset]))
+
     msg = 'Starting transfer of {}'.format(archive_locs_list[offset])
     logger.debug(msg)
     if verbose:
@@ -236,7 +259,8 @@ def check_orig_dest_transfer(dest_drive,origNumFastq,origTotalFastqSize,
 
     print(origNumFastq,mvNumFastq)
     print(origTotalFastqSize,mvTotalFastqSize)
-
+    if 0 in (origNumFastq,mvNumFastq,origTotalFastqSize,mvTotalFastqSize):
+        raise Exception("number or size of fastq is 0: {0} {1} {2} {3}".format(origNumFastq,mvNumFastq,origTotalFastqSize,mvTotalFastqSize)
     if origTotalFastqSize != mvTotalFastqSize:
         raise Exception('Total sum of files sizes after {} move do not match!!!'.format(dest_drive))
     if origNumFastq != mvNumFastq:

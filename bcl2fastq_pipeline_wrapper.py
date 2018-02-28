@@ -13,6 +13,8 @@ from collections import Counter
 from operator import itemgetter
 from utilities import *
 
+####### this rediculously runs bcl.py directly that submits to cluster and then submits post-bcl & storage as bcl job dependencies directly...
+
 def submit(config,args,run_info_dict,database):
     bcl2fastq_scratch_drive = config.get('locs','bcl2fastq_scratch_drive')
     archive_dir = config.get('locs','fastq_archive_drive')
@@ -192,4 +194,5 @@ def main():
     #       machine,args.fcillumid,config.get('locs','bcl2fastq_scratch_drive'))
 
 if __name__ == '__main__':
+    os.umask(int("002",8))
     main()

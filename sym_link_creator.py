@@ -143,7 +143,7 @@ def check_values(machine,fcillumid,lane,tile,adapter,read):
     if tile.isdigit() == False:
         raise Exception('tile is not numeric: {}!'.format(tile))
     if len(tile) == 4: #HiSeq and NovaSeqs
-        tile_search_ojb = re.search('^[12][123][01][0-9]$',tile)
+        tile_search_ojb = re.search('^[12][123][012][0-9]$',tile)
     elif len(tile) == 5 and re.match("^@N[BS][0-9]{6}$",machine) is not None: #NextSeqs
         tile_search_ojb = re.match('^[12][123][1-6](0[1-9]|1[0-2])$',tile)
     else:
@@ -209,7 +209,7 @@ def get_rg_info(fastq,verbose):
 
         print(fastq_read_header)
         raise Exception('Incorrect read header format!')
-    adapter = adapter.replace('+','-')
+    adapter = adapter.replace('+','')
     check_values(machine,fcillumid,lane,tile,adapter,read)
 
 

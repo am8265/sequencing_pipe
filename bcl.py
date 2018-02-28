@@ -196,4 +196,5 @@ def main():
     print("bcl2fastq successfully started")
 
 if __name__ == '__main__':
+    os.umask(int("002",8))
 	main()

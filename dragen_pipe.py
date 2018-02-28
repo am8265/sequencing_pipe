@@ -448,7 +448,11 @@ def get_next_sample(pid,database,debug):
         # q=q+"WHERE is_merged = 80000 ORDER BY priority asc, sample_type desc LIMIT 1 "
         ####### really old, so far not run samples are actually rather high in terms of ppid...?!?
         # q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid asc LIMIT 1 "
-        q=q+"WHERE is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
+        who=socket.gethostname()
+        if who == "dragen2.igm.cumc.columbia.edu":
+            q=q+"WHERE is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
+        else:
+            q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and sample_type != 'Genome' ORDER BY pseudo_prepid desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and sample_type != 'Genome' ORDER BY priority asc, sample_type desc LIMIT 1 "
