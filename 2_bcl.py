@@ -9,6 +9,7 @@ from interop import py_interop_run_metrics, py_interop_run, py_interop_summary
 from utilities import *
 
 def run_bcl2fastq(args,run_info_dict,config,database,verbose):
+
     fcillumid = args.fcillumid
     logger = logging.getLogger(__name__)
     script_dir = config.get('locs','scr_dir')
@@ -113,7 +114,7 @@ def add_libraries_to_script(bcl_script):
                      "/nfs/goldstein/software/gcc-4.9.3/lib64:"
                      "$LD_LIBRARY_PATH\n")
 
-def update_sample_status(database,fcillumid,verbose):
+def set_flowcell_samples_and_flowcell_status_to_bclstarted(database,fcillumid,verbose):
     logger = logging.getLogger(__name__)
     userID = get_user_id(database)
     sample_status_insert_query = ("INSERT INTO statusT "
@@ -138,11 +139,6 @@ def update_sample_status(database,fcillumid,verbose):
     logger.info(sample_status_insert_query)
     run_query(prepT_status_update_query,database)
     logger.info(prepT_status_update_query)
-
-def check_fcillumid(inputted_fcillumid,xml_fcillumid):
-    if inputted_fcillumid != xml_fcillumid:
-        update_pipeline_complete(fcillumid,'-2',database)
-        raise Exception("FCIllumIDs don't match! {} != {}".format(inputted_fcillumid,xml_fcillumid))
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -180,18 +176,31 @@ def main():
     logger.info("Starting bcl2fastq job creation for Flowcell: {}".format(args.fcillumid))
     print("Starting bcl2fastq job creation for Flowcell: {}".format(args.fcillumid))
 
-    check_fcillumid(args.fcillumid,run_info_dict['FCIllumID'])
-    check_machine(run_info_dict['machine'],args.fcillumid,database)
-    check_flowcell_complete(args.fcillumid,config.get('locs','bcl_dir'),
-                            run_info_dict['runFolder'],run_info_dict['type'],database)
+    # check_fcillumid(args.fcillumid,run_info_dict['FCIllumID'])
+    # def check_fcillumid(inputted_fcillumid,xml_fcillumid):
 
-    mofo=update_pipeline_complete(args.fcillumid,'-1',database)
+    ######## lock flowcell supplied doesn't match that of run dir flowcell
+    if args.fcillumid != run_info_dict['FCIllumID']:
+        update_pipelinecomplete( args.fcillumid, '-2', database )
+        raise Exception("FCIllumIDs don't match! {} != {}".format(args.fcillumid,run_info_dict['FCIllumID']))
+
+    check_machine(run_info_dict['machine'],args.fcillumid,database)
+
+    check_flowcell_complete(args.fcillumid,config.get('locs','bcl_dir'),run_info_dict['runFolder'],run_info_dict['type'],database)
+
+    ######## lock flowcell
+    mofo=update_pipelinecomplete( args.fcillumid, '-1', database )
+
     print(mofo)
 
     #check_sss(sss_loc)
+
+    ######## finally, we do something...
     run_bcl2fastq(args,run_info_dict,config,database,args.verbose)
+
     if args.noStatus == False:
-        update_sample_status(database,args.fcillumid,args.verbose)
+        set_flowcell_samples_and_flowcell_status_to_bclstarted(database,args.fcillumid,args.verbose)
+
     logger.info("bcl2fastq successfully started")
     print("bcl2fastq successfully started")
 

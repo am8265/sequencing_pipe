@@ -18,11 +18,11 @@ def parse_run_parameters_xml(fcillumid,database):
         run_parameters_xml_loc = '{}/RunParameters.xml'.format(run_folder)
         run_parameters_xml = glob(run_parameters_xml_loc)
     if run_parameters_xml == []:
-        update_pipeline_complete(fcillumid,'-404',database)
+        update_pipelinecomplete(fcillumid,'-404',database)
         raise Exception(("Could not find run parameters xml files: {}!"
                         ).format(run_parameters_xml_loc))
     if len(run_parameters_xml) != 1:
-        update_pipeline_complete(fcillumid,'-6',database)
+        update_pipelinecomplete(fcillumid,'-6',database)
         raise Exception("Too many run folders found!")
     else:
         run_parameters_xml = run_parameters_xml[0]
@@ -59,7 +59,7 @@ def parse_run_parameters_xml(fcillumid,database):
             run_info_dict['Side'] = tree.findall('Setup')[0].find('FCPosition').text
             run_info_dict['machine'] = run_info_dict['machineName'] + run_info_dict['Side'][0]
         else:
-            update_pipeline_complete(fcillumid,'-100',database)
+            update_pipelinecomplete(fcillumid,'-100',database)
             raise Exception("Undefined xml_type:{}!".format(xml_type))
         run_info_dict['out_dir'] = '{}/{}_{}_{}_Unaligned'.format(config.get('locs','bcl2fastq_scratch_dir'),
         run_info_dict['runDate'],
@@ -171,14 +171,14 @@ def check_machine(machine,fcillumid,database):
             fcillumid=fcillumid),database)
     check_number_query_results(machine_complete,1)
     if machine_complete[0]['COMPLETE'] != 1:
-        update_pipeline_complete(fcillumid,'-3',database)
+        update_pipelinecomplete(fcillumid,'-3',database)
         raise Exception("Flowcell {} has not yet been completed".format(fcillumid))
 
     machine_failed = run_query(
         GET_MACHINE_FAILED_STATUS_FROM_FCILLUMID_QUERY.format(
             fcillumid=fcillumid),database)
     if machine_failed[0]['FAIL'] == 1:
-        update_pipeline_complete(fcillumid,'-99',database)
+        update_pipelinecomplete(fcillumid,'-99',database)
         raise Exception("Flowcell {} has been failed".format(fcillumid))
 
 def getSSSLaneFraction(prepid,fcillumid,chem_version,lane_num,config,database):
@@ -197,8 +197,8 @@ def getSSSLaneFraction(prepid,fcillumid,chem_version,lane_num,config,database):
     else:
         raise Exception("Unhandled seqtype: {}!".format(seqtype))
 
-def update_pipeline_complete(fcillumid,code,database):
-    query = UPDATE_PIPELINE_COMPLETE.format(fcillumid=fcillumid,code=code)
+def update_pipelinecomplete(fcillumid,code,database):
+    query = update_pipelinecomplete.format(fcillumid=fcillumid,code=code)
     return run_query(query,database)
 
 def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
@@ -317,7 +317,7 @@ def check_exist_bcl_dir(fcillumid,BCLDrive,database):
     dir_path = glob(BCLDrive)
 
     if dir_path != []:
-        update_pipeline_complete(fcillumid,'-7',database)
+        update_pipelinecomplete(fcillumid,'-7',database)
         raise Exception('\n\nBCL directory already exists: {}. So, me thinks me should check to see if \
 there is a checkpoint file bcl_complete and if so re-run next step or complain and ask if \
 i should delete and re-run the whole thing. if there is not, then perhaps i should check.\
@@ -337,20 +337,20 @@ def check_flowcell_complete(fcillumid,bcl_dir,run_folder_path,machine_type,datab
     rta_complete_loc = bcl_dir + run_folder_path + '/RTAComplete.txt'
     if os.path.isfile(rta_complete_loc) == False:
         print(rta_complete_loc)
-        update_pipeline_complete(fcillumid,'-4',database)
+        update_pipelinecomplete(fcillumid,'-4',database)
         raise Exception("RTA has not completed!")
     else:
         print("RTAComplete.txt check: OK!")
     if machine_type == 'NovaSeq':
         storage_complete_loc = bcl_dir + run_folder_path + '/CopyComplete.txt'
         if os.path.isfile(storage_complete_loc) == False:
-            update_pipeline_complete(fcillumid,'-5',database)
+            update_pipelinecomplete(fcillumid,'-5',database)
             raise Exception("Copy has not completed!")
         else:
             print("CopyComplete.txt check: OK!")
         #run_complete_loc = bcl_dir + run_folder_path + '/RunComplete.txt'
         #if os.path.isfile(run_complete_loc) == False:
-        #    update_pipeline_complete(fcillumid,'-8',database)
+        #    update_pipelinecomplete(fcillumid,'-8',database)
         #    raise Exception("Run has not completed!")
         #else:
         #    print("RunComplete.txt check: OK!")

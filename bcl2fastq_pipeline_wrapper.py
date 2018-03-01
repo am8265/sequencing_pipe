@@ -21,38 +21,42 @@ def submit(config,args,run_info_dict,database):
     logger = logging.getLogger(__name__)
     address = '{}@cumc.columbia.edu'.format(get_user())
 
-    #scriptLoc = '/nfs/goldstein/software/sequencing_pipe/dev/'
-    scriptLoc = os.path.dirname(os.path.realpath(__file__)) # config.get('locs','scr_dir')
-
     runFolder = run_info_dict['runFolder']
     machine = run_info_dict['machine']
     fcillumid=args.fcillumid
 
     ##### please get ride of me!
     python36_program = config.get('programs','python36_program')
-    BCLCmd =         ("{} {}/bcl.py -f {}").format(python36_program,scriptLoc,fcillumid)
-    BCLMySQLCmd =    ("{} {}/bcl_mysql.py -f {}").format(python36_program,scriptLoc,fcillumid)
-    postBCLCmd =     ("{} {}/post_bcl.py -f {}").format(python36_program,scriptLoc,fcillumid)
-    storageCmd =     ("{} {}/storage.py -f {}").format(python36_program,scriptLoc,fcillumid)
+
+    #scriptLoc = '/nfs/goldstein/software/sequencing_pipe/dev/' # config.get('locs','scr_dir')
+    rarp = (python36_program, os.path.dirname(os.path.realpath(__file__)), fcillumid)
+
+    update_flowcell_metrics = "{} {}/1_update_flowcell_metrics.py -f {}".format( *rarp )
+
+    BCLCmd                  = "{} {}/2_bcl.py -f {}".format(      *rarp )
+    update_yields           = "{} {}/3a_update_yields_and_fractions.py -f {}".format( *rarp )
+    storageCmd              = "{} {}/3b_storage.py -f {}".format(  *rarp )
 
     if args.test == True:
-        BCLCmd += ' --test'; BCLMySQLCmd += ' --test'; postBCLCmd += ' --test'; storageCmd += ' --test'
+        BCLCmd += ' --test'; update_flowcell_metrics += ' --test'; update_yields += ' --test'; storageCmd += ' --test'
 
     if args.run == False:
         #prints out all the commands to run manually
         print
         print("="*35+'Scripts Commands'+"="*35)
+        print(update_flowcell_metrics)
+
         print(BCLCmd)
-        print(BCLMySQLCmd)
-        print(postBCLCmd)
+        print(update_yields)
         print(storageCmd)
+
         print("="*86)
         print
         print(('Log file: {}'
             ).format(logging.getLoggerClass().root.handlers[0].baseFilename))
 
     else:
-        ##### run BCLCmd, BCLMySQLCmd locally. submit 
+        ##### run BCLCmd, update_flowcell_metrics locally. submit 
         #run bcl2fastq
         out_dir = run_info_dict['out_dir']
 
@@ -61,13 +65,13 @@ def submit(config,args,run_info_dict,database):
             raise Exception("\n\nreally? : '{}'".format(BCLCmd))
         logger.info(BCLCmd)
 
-        x=os.system(BCLMySQLCmd)
+        x=os.system(update_flowcell_metrics)
         if x != 0: #quick msyql updates.  I
-            raise Exception("\n\nwooooooow, look, we have a return value '{}' from '{}'".format(x,BCLMySQLCmd))
-        logger.info(BCLMySQLCmd)
+            raise Exception("\n\nwooooooow, look, we have a return value '{}' from '{}'".format(x,update_flowcell_metrics))
+        logger.info(update_flowcell_metrics)
 
         #run post_bcl2fastq
-        create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,address,postBCLCmd)
+        create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,address,update_yields)
         run_qsub_command(config,fcillumid,'post_bcl',run_info_dict)
 
         create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address,storageCmd)
@@ -107,7 +111,7 @@ def add_sge_header(config,file,fcillumid,step,hold):
         file.write('#$ -hold_jid bcl_{}\n'.format(fcillumid))
     file.write('\n')
 
-def create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,address,postBCLCmd):
+def create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,address,update_yields):
     #writes out the stage 2 script
     logger = logging.getLogger(__name__)
     script_loc = ('/{bcl_dir}/{runFolder}/{machine}_{fcillumid}_post_bcl.sh'
@@ -119,7 +123,7 @@ def create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,addres
     add_sge_header(config,post_bcl_script,fcillumid,'post_bcl',True)
     post_bcl_script.write("export LD_LIBRARY_PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/lib:$LD_LIBRARY_PATH\n")
     post_bcl_script.write("export PATH=/nfs/goldstein/software/python3.6.1-x86_64_shared/bin:$PATH \n")
-    post_bcl_script.write(postBCLCmd + ' -v\n')
+    post_bcl_script.write(update_yields + ' -v\n')
     post_bcl_script.write('if [ $? -eq 0 ] \n')
     post_bcl_script.write('then echo "Post BCL completed successfully"\n')
     post_bcl_script.write('else echo "Post BCL failed"\n')

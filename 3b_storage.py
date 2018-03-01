@@ -33,8 +33,11 @@ def main():
     unaligned_dir = '{}/{}_{}_{}_Unaligned'.format(config.get('locs','bcl2fastq_scratch_dir'),
                                              run_info_dict['runDate'],
                                              machine,fcillumid)
+    ######## check for touchfile
     check_bcl_complete(unaligned_dir)
+
     logger.info('Starting Storage script')
+
     # Josh Bridgers, Sophia Frantz, Brett Copeland
     emailAddress = config.get('emails','storage_success')
     emailAddressFail = config.get('emails','storage_failure')
@@ -115,78 +118,81 @@ def get_distinct_seqtype_on_flowcell(fcillumid,database):
     else:
         return distinct_seqtype
 
-def archiveFastqs(rerun,config,archive_tuples_list,UnalignedLoc,fcillumid,
-        verbose,database):
-    logger = logging.getLogger(__name__)
-    offset = 0
+def archiveFastqs(offset,rerun,config,archive_tuples_list,UnalignedLoc,fcillumid,verbose,database):
 
-    if rerun is False:
-        bcl_fastqs = glob('{}/*/*fastq.gz'.format(UnalignedLoc))
-        bcl_total_num_fastq = len(bcl_fastqs)
-        if bcl_total_num_fastq == 0:
-            raise Exception("no fastqs to move from {0}".format(UnalignedLoc))
-        bcl_total_fastq_size = 0
-        for bcl_fastq in bcl_fastqs:
-            bcl_total_fastq_size += os.path.getsize(bcl_fastq)
-        if bcl_total_fastq_size == 0:
-            raise Exception("total fastq size = 0 in {0}".format(UnalignedLoc))
+    logger = logging.getLogger(__name__)
+
+    if offset==0: # offset = 0
+
+        if rerun is False:
+            bcl_fastqs = glob('{}/*/*fastq.gz'.format(UnalignedLoc))
+            bcl_total_num_fastq = len(bcl_fastqs)
+            if bcl_total_num_fastq == 0:
+                raise Exception("no fastqs to move from {0}".format(UnalignedLoc))
+            bcl_total_fastq_size = 0
+            for bcl_fastq in bcl_fastqs:
+                bcl_total_fastq_size += os.path.getsize(bcl_fastq)
+            if bcl_total_fastq_size == 0:
+                raise Exception("total fastq size = 0 in {0}".format(UnalignedLoc))
+
+            for archive_locs_list in archive_tuples_list:
+                mv_rsync_fastq(
+                archive_locs_list,
+                UnalignedLoc,
+                fcillumid,
+                offset,
+                verbose,
+                database
+                )
+
+        scratch_check_drive = config.get('locs','bcl2fastq_scratch_drive')
+        logger.info('checking {}'.format(scratch_check_drive))
+        distinct_seqtypes = get_distinct_seqtype_on_flowcell(fcillumid,database)
+        scratch_total_fastq_size = 0
+        scratch_total_num_fastq = 0
+        for seqtype in distinct_seqtypes:
+            scratch_fastq_loc = ('/nfs/{}/{}/*/{}/*.fastq.gz').format(scratch_check_drive,seqtype,fcillumid)
+            logger.info('checking {} for {} fastqs'.format(scratch_fastq_loc,fcillumid))
+            scratch_fastqs = glob(scratch_fastq_loc)
+            scratch_total_num_fastq += len(scratch_fastqs)
+            for scratch_fastq in scratch_fastqs:
+                scratch_total_fastq_size += os.path.getsize(scratch_fastq)
+
+        if rerun is False:
+            check_orig_dest_transfer('scratch',bcl_total_num_fastq,
+                bcl_total_fastq_size,scratch_total_num_fastq,
+                scratch_total_fastq_size)
+
+    elif offset==1:
 
         for archive_locs_list in archive_tuples_list:
             mv_rsync_fastq(
-              archive_locs_list,
-              UnalignedLoc,
-              fcillumid,
-              offset,
-              verbose,
-              database
+            archive_locs_list,
+            UnalignedLoc,
+            fcillumid,
+            offset, 
+            verbose,
+            database
             )
 
-    scratch_check_drive = config.get('locs','bcl2fastq_scratch_drive')
-    logger.info('checking {}'.format(scratch_check_drive))
-    distinct_seqtypes = get_distinct_seqtype_on_flowcell(fcillumid,database)
-    scratch_total_fastq_size = 0
-    scratch_total_num_fastq = 0
-    for seqtype in distinct_seqtypes:
-        scratch_fastq_loc = ('/nfs/{}/{}/*/{}/*.fastq.gz').format(scratch_check_drive,seqtype,fcillumid)
-        logger.info('checking {} for {} fastqs'.format(scratch_fastq_loc,fcillumid))
-        scratch_fastqs = glob(scratch_fastq_loc)
-        scratch_total_num_fastq += len(scratch_fastqs)
-        for scratch_fastq in scratch_fastqs:
-            scratch_total_fastq_size += os.path.getsize(scratch_fastq)
+        archive_check_drive = config.get('locs','fastq_archive_drive')
+        logger.info('checking {}'.format(archive_check_drive))
+        archive_total_fastq_size = 0
+        archive_total_num_fastq = 0
+        for seqtype in distinct_seqtypes:
+            archive_fastq_loc = ('/nfs/{}/{}/*/{}/*.fastq.gz'
+                                ).format(archive_check_drive,seqtype,fcillumid)
+            logger.info('checking {} for {} fastqs'.format(archive_fastq_loc,fcillumid))
+            archive_fastqs = glob(archive_fastq_loc)
+            archive_total_num_fastq += len(archive_fastqs)
+            for archive_fastq in archive_fastqs:
+                archive_total_fastq_size += os.path.getsize(archive_fastq)
 
-    if rerun is False:
-        check_orig_dest_transfer('scratch',bcl_total_num_fastq,
-            bcl_total_fastq_size,scratch_total_num_fastq,
-            scratch_total_fastq_size)
+        check_orig_dest_transfer('archive',scratch_total_num_fastq,scratch_total_fastq_size,
+            archive_total_num_fastq,archive_total_fastq_size)
 
-    offset = 1
-
-    for archive_locs_list in archive_tuples_list:
-        mv_rsync_fastq(
-          archive_locs_list,
-          UnalignedLoc,
-          fcillumid,
-          offset, 
-          verbose,
-          database
-        )
-
-    archive_check_drive = config.get('locs','fastq_archive_drive')
-    logger.info('checking {}'.format(archive_check_drive))
-    archive_total_fastq_size = 0
-    archive_total_num_fastq = 0
-    for seqtype in distinct_seqtypes:
-        archive_fastq_loc = ('/nfs/{}/{}/*/{}/*.fastq.gz'
-                            ).format(archive_check_drive,seqtype,fcillumid)
-        logger.info('checking {} for {} fastqs'.format(archive_fastq_loc,fcillumid))
-        archive_fastqs = glob(archive_fastq_loc)
-        archive_total_num_fastq += len(archive_fastqs)
-        for archive_fastq in archive_fastqs:
-            archive_total_fastq_size += os.path.getsize(archive_fastq)
-
-    check_orig_dest_transfer('archive',scratch_total_num_fastq,scratch_total_fastq_size,
-        archive_total_num_fastq,archive_total_fastq_size)
-
+    else:
+        raise ValueError("Like, WTF.?!?")
 
 def mv_rsync_fastq( archive_locs_list, UnalignedLoc, fcillumid, offset, verbose, database ):
 
@@ -266,15 +272,15 @@ def check_orig_dest_transfer(dest_drive,origNumFastq,origTotalFastqSize,
     if origNumFastq != mvNumFastq:
         raise Exception('Total number of files after {} move do not match!!!'.format(dest_drive))
 
-def updateLaneStatus(verbose,fcillumid,noStatus,database):
+def update_rg_aka_lane_table_to_in_storage(WHAT,WHAT_rg,verbose,fcillumid,noStatus,database):
     logger = logging.getLogger(__name__)
     if noStatus == False:
 
         update_lane_step_status_query = ("UPDATE Lane l "
                                          "JOIN Flowcell f ON l.fcid=f.fcid "
-                                         "SET step_status='in storage' "
+                                         "SET step_status='{}', rg_status='{}' "
                                          "WHERE FCILLUMID = '{}'"
-                                        ).format(fcillumid)
+                                        ).format(WHAT,WHAT_rg,fcillumid)
         if verbose:
             print(update_lane_step_status_query)
         logger.info(update_lane_step_status_query)
@@ -293,14 +299,26 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
 
     archive_tuples_list = generate_archive_tuples_list(args.rerun,config,
             run_info_dict,fcillumid,UnalignedLoc,archive_drive,database)
-    archiveFastqs(rerun,config,archive_tuples_list,UnalignedLoc,fcillumid,
-            verbose,database)
+
+    ####################################################################################
+    archiveFastqs(0, rerun, config, archive_tuples_list, UnalignedLoc, fcillumid, verbose, database )
+
+    query = ("UPDATE Flowcell SET DateStor=CURRENT_TIMESTAMP(), SeqsataLoc='{}', PIPELINECOMPLETE=1 WHERE FCIllumid='{}'").format(archive_drive,fcillumid)
+    logger.info(query)
+    run_query(query,database)
+
+    update_rg_aka_lane_table_to_in_storage('in storage','fastq_ready',verbose,fcillumid,noStatus,database)
+    update_status_to_storage('Archiving',verbose,fcillumid,noStatus,database)
+
+    ####################################################################################
+    archiveFastqs(1, rerun, config, archive_tuples_list, UnalignedLoc, fcillumid, verbose, database )
+
     processSAV(verbose,fcillumid,machine,run_info_dict,config,archive_drive)
     processBcl2fastqLog(verbose,fcillumid,machine,archive_drive,UnalignedLoc)
-    updateLaneStatus(verbose,fcillumid,noStatus,database)
-    updateStatus(verbose,fcillumid,noStatus,database)
-    updateFlowcell(verbose,fcillumid,archive_drive,database)
-    createStorageCompleteFlag(verbose,config,run_info_dict)
+
+    update_rg_aka_lane_table_to_in_storage('in storage','fastq_copied',verbose,fcillumid,noStatus,database)
+    update_status_to_storage('Storage',verbose,fcillumid,noStatus,database)
+    create_checkpoint_file(verbose,config,run_info_dict)
 
 def getSeqtype(fcillumid,sampleName,database):
     logger = logging.getLogger(__name__)
@@ -316,7 +334,7 @@ def getSeqtype(fcillumid,sampleName,database):
     seqtype = seqtype[0]['SAMPLE_TYPE'].upper().replace(' ','_')
     return seqtype
 
-def createStorageCompleteFlag(verbose,config,run_info_dict):
+def create_checkpoint_file(verbose,config,run_info_dict):
     raw_sequencing_folder_loc = '{}/{}'.format(config.get('locs','bcl_dir'),
                                               run_info_dict['runFolder'])
     flagloc = '{}/StorageComplete'.format(raw_sequencing_folder_loc)
@@ -360,7 +378,7 @@ def processBcl2fastqLog(verbose,fcillumid,machine,archive_drive,UnalignedLoc):
     returnCode = subprocess.call(zipCmd)
     logger.info(returnCode)
 
-def updateStatus(verbose,fcillumid,noStatus,database):
+def update_status_to_storage(WHAT,verbose,fcillumid,noStatus,database):
     """sequenceDB Sample Update"""
     logger = logging.getLogger(__name__)
     userID = get_user_id(database)
@@ -368,18 +386,18 @@ def updateStatus(verbose,fcillumid,noStatus,database):
     if noStatus == False:
         query = ("INSERT INTO statusT "
                 "(CHGVID,STATUS_TIME,STATUS,DBID,PREPID,USERID,POOLID,SEQID,PLATENAME) "
-                "SELECT DISTINCT(pt.CHGVID),UNIX_TIMESTAMP(),'Storage',pt.DBID,"
+                "SELECT DISTINCT(pt.CHGVID),UNIX_TIMESTAMP(),'{}',pt.DBID,"
                 "pt.PREPID,'{}',0,0,' ' "
                 "FROM Flowcell f "
                 "JOIN Lane l ON l.FCID=f.FCID "
                 "JOIN prepT pt ON pt.prepID=l.prepID "
-                "WHERE FCillumid='{}'").format(userID,fcillumid)
+                "WHERE FCillumid='{}'").format(WHAT,userID,fcillumid)
         prepT_status_update_query = """UPDATE prepT p
                                        JOIN Lane l ON p.PREPID=l.PREPID
                                        JOIN Flowcell f ON f.FCID=l.FCID
-                                       SET STATUS='Storage', status_time=unix_timestamp()
+                                       SET STATUS='{}', status_time=unix_timestamp()
                                        WHERE FCILLUMID='{}'
-                                    """.format(fcillumid)
+                                    """.format(WHAT,fcillumid)
 
         if verbose == True:
             print(query)
@@ -388,18 +406,6 @@ def updateStatus(verbose,fcillumid,noStatus,database):
         logger.info(prepT_status_update_query)
         run_query(query,database)
         logger.info(query)
-
-def updateFlowcell(verbose,fcillumid,archive_drive,database):
-    logger = logging.getLogger(__name__)
-    query = ("UPDATE Flowcell "
-             "SET DateStor=CURRENT_TIMESTAMP(), "
-             "SeqsataLoc='{}',"
-             "PIPELINECOMPLETE=1 "
-             "WHERE FCIllumid='{}'").format(archive_drive,fcillumid)
-    if verbose:
-        print(query)
-    logger.info(query)
-    run_query(query,database)
 
 def mkdir_p(path,verbose):
     logger = logging.getLogger(__name__)

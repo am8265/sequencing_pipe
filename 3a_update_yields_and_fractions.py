@@ -16,7 +16,7 @@ from datetime import datetime
 from utilities import *
 from xml.etree.ElementTree import fromstring
 
-def UpdateFC(fcillumid,fc_yield,unaligned_dir,run_info_dict,sample_info,verbose,database):
+def update_flowcell_yield_and_casava_verision(fcillumid,fc_yield,unaligned_dir,run_info_dict,sample_info,verbose,database):
     '''Updates Flowcell total Yield, Casava version for FCIllumID'''
     logger = logging.getLogger(__name__)
     casavaCmd = ['grep','bcl2fastq','-m1','{}/nohup.sge'.format(unaligned_dir)]
@@ -55,7 +55,7 @@ def getHTML(unaligned_dir,fcillumid,verbose):
                 laneSummaryFlag = 1
     return laneBarcodeHTML
 
-def update_email_lane(config,machine,unaligned_dir,fcillumid,verbose,test,database):
+def update_per_rg_aka_lane_table_yield_and_fractions_by_flowcell(config,machine,unaligned_dir,fcillumid,verbose,test,database):
     '''Gets Actual Lane Fraction FROM laneBarcode.htm, Updates sample status'''
     logger = logging.getLogger(__name__)
     laneBarcodeHTML = getHTML(unaligned_dir,fcillumid,verbose)
@@ -135,7 +135,7 @@ def check_clustden_lnfrac(config,chgvid,LnFrac,LnFractionAct,fcillumid,LaneNum,d
 
     return email_highlight_pos
 
-def checkStatus(fcillumid,database):
+def check_db_status_or_exit(fcillumid,database):
     """Check Status of all samples on the flowcell before the status update"""
     logger = logging.getLogger(__name__)
     samples = run_query("SELECT DISTINCT prepID "
@@ -159,7 +159,7 @@ def checkStatus(fcillumid,database):
             raise_exception_switch = 1
             logger.warn(msg)
             print(msg)
-        elif (status != 'BCL' and status != 'Storage' and status != 'BCL Complete') and SeqType == 'Genome':
+        elif (status != 'BCL' and status != 'Storage' and status != 'BCL Complete' and status != 'Archiving') and SeqType == 'Genome':
             raise_exception_switch = 1
             logger.warn(msg)
             print(msg)
@@ -285,7 +285,7 @@ def parse_arguments():
     args=parser.parse_args()
     return args
 
-def bclStatus(fcillumid,database):
+def set_bcl_complete(fcillumid,database):
 
     samples = run_query("SELECT DISTINCT prepID FROM Lane l "
                         "JOIN Flowcell f on l.FCID=f.FCID "
@@ -318,7 +318,9 @@ def main():
         database = 'testDB'
     else:
         database = 'sequenceDB'
+
     run_info_dict = parse_run_parameters_xml(args.fcillumid,database)
+
     setup_logging(run_info_dict['machine'],args.fcillumid,config.get('locs','logs_dir'))
     logger = logging.getLogger(__name__)
     logger.info('Starting post BCL script')
@@ -328,21 +330,32 @@ def main():
     unaligned_dir = '{}/{}_{}_{}_Unaligned'.format(config.get('locs','bcl2fastq_scratch_dir'),
                                              run_info_dict['runDate'],
                                              machine,fcillumid)
+
+    ###### check for post-bcl2fastq proper exit checkpoint touch file
     check_bcl_complete(unaligned_dir)
-    bclStatus(fcillumid,database)
+
+    set_bcl_complete(fcillumid,database)
+
     cmd="chmod -R 770 {0}".format(unaligned_dir)
     os.system(cmd)
 
     try:
-        fc_yield,sample_info = update_email_lane(config,machine,unaligned_dir,
-                fcillumid,args.verbose,args.test,database)
+
+        fc_yield,sample_info = update_per_rg_aka_lane_table_yield_and_fractions_by_flowcell(
+          config, machine, unaligned_dir, fcillumid,
+          args.verbose, args.test, database
+        )
+
         if args.noStatusCheck == False:
-            checkStatus(fcillumid,database)
-        UpdateFC(fcillumid,fc_yield,unaligned_dir,run_info_dict,sample_info,args.verbose,database)
+            check_db_status_or_exit(fcillumid,database)
+
+        update_flowcell_yield_and_casava_verision(fcillumid,fc_yield,unaligned_dir,run_info_dict,sample_info,args.verbose,database)
 
         logger.info('Done')
         print('Done')
+
     except:
+
         traceback.print_exc()
         logger.info('Post BCL Failure')
         print('Post BCL Failure')

@@ -32,7 +32,7 @@ def get_read1_date(run_folder):
     Read1Date = tmp[5] + ' ' + tmp[6].split('.')[0]
     return Read1Date
 
-def update_fc(database,fcillumid,run_info_dict,config,run_folder,verbose):
+def fill_in_some_flowcell_table_info(database,fcillumid,run_info_dict,config,run_folder,verbose):
     logger = logging.getLogger(__name__)
     fastq_archive_loc = config.get('locs','fastq_archive_drive')
     rta_ver = run_info_dict['RtaVersion']
@@ -54,7 +54,7 @@ def update_fc(database,fcillumid,run_info_dict,config,run_folder,verbose):
     logger.info(sql)
 
 
-def update_lane(database,fcillumid,Machine,run_folder,run_summary,verbose):
+def update_per_sample_illumina_metrics(database,fcillumid,Machine,run_folder,run_summary,verbose):
     """Updates ClusterDensity for Lane Entries"""
     logger = logging.getLogger(__name__)
     logger.debug('Running updateLane')
@@ -85,7 +85,7 @@ def update_lane(database,fcillumid,Machine,run_folder,run_summary,verbose):
 
     totalNumLanes = totalLanesCheck(sss_lanes,fcillumid)
     qmets(database,run_folder,totalNumLanes,Machine,fcillumid,run_summary,verbose)
-    update_lane_fraction(database,fcillumid,run_folder,verbose)
+    update_per_sample_illumina_metrics_fraction(database,fcillumid,run_folder,verbose)
 
 def totalLanesCheck(sss_lanes,fcillumid):
     """Check if # of lanes in generated sequencing sample sheet matches actual
@@ -104,9 +104,9 @@ def totalLanesCheck(sss_lanes,fcillumid):
     if match == 0 :
         raise Exception( 'Number of lanes in SSS is incorrect!')
 
-def update_lane_fraction(database,fcillumid,run_folder,verbose):
+def update_per_sample_illumina_metrics_fraction(database,fcillumid,run_folder,verbose):
     logger = logging.getLogger(__name__)
-    logger.debug('Running update_lane_fraction')
+    logger.debug('Running update_per_sample_illumina_metrics_fraction')
     sql = ("SELECT l.DBID,CHGVID,l.FCID,l.lanenum,FCillumID "
         "FROM Lane l "
         "JOIN Flowcell f on l.FCID=f.FCID "
@@ -203,7 +203,7 @@ def qmets(database,run_folder,total_lanes,machine,fcillumid,run_summary,verbose)
         run_query(sql,database)
         logger.info(sql)
 
-def getMetricsSummary(run_folder):
+def parse_illumina_metrics_from_run_dir(run_folder):
     #run_folder is suppose to be a raw string literal
     run_folder = run_folder.replace("\\", "\\\\")
     run_metrics = py_interop_run_metrics.run_metrics()
@@ -249,13 +249,16 @@ def main():
     print('BCL MySQL updates started')
     logger.info('BCL MySQL updates started')
     try:
+
         bcl_dir = config.get('locs','bcl_dir')
+
         run_folder = bcl_dir + run_info_dict['runFolder']
-        update_fc(database,args.fcillumid,run_info_dict,
-                  config,run_folder,args.verbose)
-        run_summary = getMetricsSummary(run_folder)
-        update_lane(database,args.fcillumid,run_info_dict['machine'],
-                    run_folder,run_summary,args.verbose)
+
+        fill_in_some_flowcell_table_info(database,args.fcillumid,run_info_dict, config,run_folder,args.verbose)
+
+        run_summary = parse_illumina_metrics_from_run_dir(run_folder)
+
+        update_per_sample_illumina_metrics(database,args.fcillumid,run_info_dict['machine'], run_folder,run_summary,args.verbose)
 
         #mysql updates happen now on BCL
         logger.info('BCL MySQL updates completed')
