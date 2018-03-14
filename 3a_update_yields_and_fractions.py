@@ -155,7 +155,7 @@ def check_db_status_or_exit(fcillumid,database):
         # Sometimes multiple flowcells of Genomes finish bcl2fastq near the same time so its status =='storage'
         msg = ("{} does not have the correct status!  Current status: '{}'"
               ).format(status,status)
-        if status != 'BCL' and status != 'BCL Complete' and SeqType != 'Genome':
+        if status != 'BCL' and status != 'BCL Complete' and status != 'Archiving' and SeqType != 'Genome':
             raise_exception_switch = 1
             logger.warn(msg)
             print(msg)
@@ -213,20 +213,26 @@ def send_email(config,fcillumid,Machine,unaligned_dir,test):
 
         logger.info(emailCmd)
         print(emailCmd)
-        os.system(emailCmd)
-        os.system("touch %s/EmailSent.txt" % unaligned_dir)
+        op = os.system(emailCmd)
+        if op != 0:
+            raise Exception("{} gave incorrect return value: {}".format(emailCmd,op))
+        op = os.system("touch %s/EmailSent.txt" % unaligned_dir)
+        if op != 0:
+            raise Exception("touch {}/EmailSent.txt gave incorrect return value: {}".format(unaligned_dir,op))
+    else:
+        raise Exception("Lane fraction email has already been sent")
 
-def getKapaPicoDBID(fcillumid,CHGVID,database):
-    kapaPicoDBID = run_query("SELECT KAPA_CONC,s2r.dbid as DBID \
-            FROM Lane l JOIN Flowcell f ON f.FCID=l.FCID \
-            JOIN prepT pt ON l.prepID=pt.prepID \
-            JOIN samplesTOrun s2r ON s2r.seqID=l.seqID \
-            JOIN SampleT s ON s.DBID=pt.DBID \
-            LEFT JOIN poolMembers pm ON \
-                (pm.DBID=pt.DBID AND pm.poolID=l.poolID) \
-            WHERE FCIllumID='{}' and\
-                pt.CHGVID='{}'".format(fcillumid,CHGVID),database)
-    return kapaPicoDBID
+def getKapaPicoPoolName(fcillumid,CHGVID,database):
+    logger = logging.getLogger(__name__)
+    cmd = "SELECT DISTINCT KAPA_CONC, pool.name as PoolName \
+            FROM Flowcell f JOIN Lane l ON f.fcid=l.fcid JOIN prepT pt ON pt.prepid = l.prepid \
+            JOIN samplesTOrun s2r ON s2r.seqid=l.seqid JOIN pool ON pool.id = pt.poolID \
+            WHERE pt.chgvid='{}' and f.fcillumid='{}'".format(CHGVID,fcillumid)
+    logger.info(cmd)
+    kapaPicoPoolName = run_query(cmd,database)
+    if len(kapaPicoPoolName) != 1:
+        raise Exception("get_kapa_conc query gave incorrect number of results: {}".format(str(len(kapaPicoPoolName))))
+    return kapaPicoPoolName
 
 def makeHTMLEmail(config,unaligned_dir,machine,fcillumid,sample_info,test,database):
     email = open('%s/LnFractionEmail.txt' % unaligned_dir,'w')
@@ -246,18 +252,18 @@ def makeHTMLEmail(config,unaligned_dir,machine,fcillumid,sample_info,test,databa
                         (lane,samp[3]))
                 email.write('<tr><td colspan="7" align="center">&nbsp</td></tr>\n')
             else:
-                kapaPicoDBID = getKapaPicoDBID(fcillumid,samp[0],database)
-                pool_query = GET_POOLID_FROM_DBID.format(DBID=kapaPicoDBID[0]['DBID'])
-                poolName = run_query(pool_query,database)
-                poolName= poolName[0]['CHGVID']
+                kapaPicoPoolName = getKapaPicoPoolName(fcillumid,samp[0],database)
+                #pool_query = GET_POOLID_FROM_DBID.format(DBID=kapaPicoDBID[0]['DBID'])
+                #poolName = run_query(pool_query,database)
+                #poolName= poolName[0]['CHGVID']
                 logging.info('%s\t%s\t%s\t%s\t%s\t%s\t%s' %
                         (samp[0],samp[1],samp[2],samp[3],cluster_density[0]['CLUSTDEN'],
-                         poolName,kapaPicoDBID[0]['KAPA_CONC']))
+                         kapaPicoPoolName[0]['PoolName'],kapaPicoPoolName[0]['KAPA_CONC']))
 
                 email.write("<tr>\n")
                 for i,column in enumerate((samp[0],samp[1],samp[2],samp[3],
-                                        cluster_density[0]['CLUSTDEN'],poolName,
-                                        kapaPicoDBID[0]['KAPA_CONC'])):
+                                        cluster_density[0]['CLUSTDEN'],kapaPicoPoolName[0]['PoolName'],
+                                        kapaPicoPoolName[0]['KAPA_CONC'])):
                     if i in samp[4]:
                         if float(samp[3]) < 0.05: #super low lane fract
                             email.write('<td bgcolor="##FF4500">%s</td>\n' % column)
@@ -336,9 +342,11 @@ def main():
 
     set_bcl_complete(fcillumid,database)
 
-    cmd="chmod -R 770 {0}".format(unaligned_dir)
-    os.system(cmd)
-
+    #cmd="chmod -R 770 {0}".format(unaligned_dir)
+    #op = os.system(cmd)
+    #if op != 0:
+    #    raise Exception("{} cmd incorrectly returned {}".format(cmd,op))
+    
     try:
 
         fc_yield,sample_info = update_per_rg_aka_lane_table_yield_and_fractions_by_flowcell(

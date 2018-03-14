@@ -36,10 +36,16 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
             # sick of all the emails!?!
             # email_failure()
 
+#############################################################################
     elif run_type_flag == True: #Automated run
+#############################################################################
 
         pseudo_prepid = 0
         sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,database,debug)
+
+        if sample_type == "Genome":
+            print("UPDATING DIR FOR GENOMES!?!")
+            seqscratch_drive = "fastq_temp"
 
         while sample_name is not None:
 
@@ -65,6 +71,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
             except:
                 print("No more samples in the queue")
                 sys.exit()
+#############################################################################
 
 def update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database):
     #read_group_insert = ("UPDATE Lane l "
@@ -245,7 +252,7 @@ def update_dragen_metadata_prepT_status(sample,component_bams,database,pseudo_pr
 def update_status(sample,status,database):
 
     prepT_query = """UPDATE prepT
-                     SET status='{status}'
+                     SET status='{status}',status_time=unix_timestamp()
                      WHERE p_prepid={pseudo_prepid}
                   """.format(status=status,**sample.metadata)
     run_query(prepT_query,database)
@@ -452,7 +459,8 @@ def get_next_sample(pid,database,debug):
         if who == "dragen2.igm.cumc.columbia.edu":
             q=q+"WHERE is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
         else:
-            q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid desc LIMIT 1 "
+            q=q+"WHERE is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
+            # q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and sample_type != 'Genome' ORDER BY pseudo_prepid desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and sample_type != 'Genome' ORDER BY priority asc, sample_type desc LIMIT 1 "

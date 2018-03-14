@@ -71,7 +71,9 @@ def email(emailAddress,storageStatus,fcillumid,test):
         ).format(storageStatus,fcillumid,subject,emailAddress)
     print(emailCmd)
     logger.info(emailCmd)
-    os.system(emailCmd)
+    op = os.system(emailCmd)
+    if op != 0:
+        raise Exception("{} incorrectly returned {}".format(emailCmd,op))
 
 def generate_archive_tuples_list(rerun,config,run_info_dict,fcillumid,
         UnalignedLoc,archive_drive,database):
@@ -121,9 +123,8 @@ def get_distinct_seqtype_on_flowcell(fcillumid,database):
 def archiveFastqs(offset,rerun,config,archive_tuples_list,UnalignedLoc,fcillumid,verbose,database):
 
     logger = logging.getLogger(__name__)
-
+    distinct_seqtypes = get_distinct_seqtype_on_flowcell(fcillumid,database)
     if offset==0: # offset = 0
-
         if rerun is False:
             bcl_fastqs = glob('{}/*/*fastq.gz'.format(UnalignedLoc))
             bcl_total_num_fastq = len(bcl_fastqs)
@@ -144,37 +145,16 @@ def archiveFastqs(offset,rerun,config,archive_tuples_list,UnalignedLoc,fcillumid
                 verbose,
                 database
                 )
-
-        scratch_check_drive = config.get('locs','bcl2fastq_scratch_drive')
-        logger.info('checking {}'.format(scratch_check_drive))
-        distinct_seqtypes = get_distinct_seqtype_on_flowcell(fcillumid,database)
-        scratch_total_fastq_size = 0
-        scratch_total_num_fastq = 0
-        for seqtype in distinct_seqtypes:
-            scratch_fastq_loc = ('/nfs/{}/{}/*/{}/*.fastq.gz').format(scratch_check_drive,seqtype,fcillumid)
-            logger.info('checking {} for {} fastqs'.format(scratch_fastq_loc,fcillumid))
-            scratch_fastqs = glob(scratch_fastq_loc)
-            scratch_total_num_fastq += len(scratch_fastqs)
-            for scratch_fastq in scratch_fastqs:
-                scratch_total_fastq_size += os.path.getsize(scratch_fastq)
-
-        if rerun is False:
-            check_orig_dest_transfer('scratch',bcl_total_num_fastq,
-                bcl_total_fastq_size,scratch_total_num_fastq,
-                scratch_total_fastq_size)
-
     elif offset==1:
-
         for archive_locs_list in archive_tuples_list:
             mv_rsync_fastq(
             archive_locs_list,
             UnalignedLoc,
             fcillumid,
-            offset, 
+            offset,
             verbose,
             database
             )
-
         archive_check_drive = config.get('locs','fastq_archive_drive')
         logger.info('checking {}'.format(archive_check_drive))
         archive_total_fastq_size = 0
@@ -184,22 +164,44 @@ def archiveFastqs(offset,rerun,config,archive_tuples_list,UnalignedLoc,fcillumid
                                 ).format(archive_check_drive,seqtype,fcillumid)
             logger.info('checking {} for {} fastqs'.format(archive_fastq_loc,fcillumid))
             archive_fastqs = glob(archive_fastq_loc)
+            if len(archive_fastqs) == 0:
+                raise Exception("no fastqs of flowcell {} of type {} in {}".format(fcillumid,seqtype,archive_fastq_loc))
             archive_total_num_fastq += len(archive_fastqs)
             for archive_fastq in archive_fastqs:
-                archive_total_fastq_size += os.path.getsize(archive_fastq)
-
-        check_orig_dest_transfer('archive',scratch_total_num_fastq,scratch_total_fastq_size,
-            archive_total_num_fastq,archive_total_fastq_size)
-
+                sz_archive_fastq = os.path.getsize(archive_fastq)
+                if sz_archive_fastq == 0:
+                    raise Exception("{} is empty. What's happening here?".format(archive_fastq))
+                archive_total_fastq_size += sz_archive_fastq
     else:
         raise ValueError("Like, WTF.?!?")
+
+    scratch_check_drive = config.get('locs','bcl2fastq_scratch_drive')
+    logger.info('checking {}'.format(scratch_check_drive))
+    scratch_total_fastq_size = 0
+    scratch_total_num_fastq = 0
+    for seqtype in distinct_seqtypes:
+            scratch_fastq_loc = ('/nfs/{}/{}/*/{}/*.fastq.gz').format(scratch_check_drive,seqtype,fcillumid)
+            logger.info('checking {} for {} fastqs'.format(scratch_fastq_loc,fcillumid))
+            scratch_fastqs = glob(scratch_fastq_loc)
+            scratch_total_num_fastq += len(scratch_fastqs)
+            for scratch_fastq in scratch_fastqs:
+                sz_scratch_fastq = os.path.getsize(scratch_fastq)
+                if sz_scratch_fastq == 0:
+                    raise Exception("{} is empty. What's happening here?".format(scratch_fastq))
+                scratch_total_fastq_size += sz_scratch_fastq
+    if offset == 0 and rerun is False:
+        check_orig_dest_transfer('scratch',bcl_total_num_fastq,bcl_total_fastq_size,scratch_total_num_fastq,scratch_total_fastq_size)
+    if offset == 1:
+        check_orig_dest_transfer('archive',scratch_total_num_fastq,scratch_total_fastq_size,archive_total_num_fastq,archive_total_fastq_size)
+
+
 
 def mv_rsync_fastq( archive_locs_list, UnalignedLoc, fcillumid, offset, verbose, database ):
 
     logger = logging.getLogger(__name__)
 
     if offset == 0:
-        fastqs = glob('{}/{}*fastq.gz'.format(archive_locs_list[offset],
+        fastqs = glob('{}/{}_*fastq.gz'.format(archive_locs_list[offset],
                                              archive_locs_list[-1]))
     else:
         fastqs = glob('{}/*fastq.gz'.format(archive_locs_list[offset]))
@@ -220,8 +222,9 @@ def mv_rsync_fastq( archive_locs_list, UnalignedLoc, fcillumid, offset, verbose,
     if verbose:
         print(' '.join(reportCpCmd))
     logger.info(reportCpCmd)
-    subprocess.call(reportCpCmd)
-
+    op = subprocess.call(reportCpCmd)
+    if op != 0:
+        raise Exception("{} exited incorrectly: {}".format(reportCpCmd,op))
     for fastq in fastqs:
         fastq_filename=os.path.basename(fastq)
         fastqSize = os.path.getsize(fastq)
@@ -266,7 +269,7 @@ def check_orig_dest_transfer(dest_drive,origNumFastq,origTotalFastqSize,
     print(origNumFastq,mvNumFastq)
     print(origTotalFastqSize,mvTotalFastqSize)
     if 0 in (origNumFastq,mvNumFastq,origTotalFastqSize,mvTotalFastqSize):
-        raise Exception("number or size of fastq is 0: {0} {1} {2} {3}".format(origNumFastq,mvNumFastq,origTotalFastqSize,mvTotalFastqSize)
+        raise Exception("number or size of fastq is 0: {0} {1} {2} {3}".format(origNumFastq,mvNumFastq,origTotalFastqSize,mvTotalFastqSize))
     if origTotalFastqSize != mvTotalFastqSize:
         raise Exception('Total sum of files sizes after {} move do not match!!!'.format(dest_drive))
     if origNumFastq != mvNumFastq:
@@ -357,26 +360,41 @@ def processSAV(verbose,fcillumid,machine,run_info_dict,config,archive_drive):
     runParaLoc= glob('{}/{}'.format(raw_sequencing_folder_loc,runParametersFile))[0]
     InteropsLoc = glob('{}/InterOp'.format(raw_sequencing_folder_loc))[0]
     SAVLoc = '/nfs/{}/summary/SAV/{}_{}_SAV.tar.gz'.format(archive_drive,fcillumid,machine)
+    if not os.path.isdir('/nfs/{}/summary/SAV'.format(archive_drive)):
+        raise Exception("/nfs/{}/summary/SAV does not exist. Create it before tarring SAV".format(archive_drive))
     tarCmd = ['tar','czf',SAVLoc,RunInfoLoc,runParaLoc,InteropsLoc]
-
     if verbose:
         print(' '.join(tarCmd))
     logger.info(tarCmd)
-    returnCode = subprocess.call(tarCmd)
-    logger.info(returnCode)
+    try:
+        returnCode = subprocess.check_output(tarCmd)
+        logger.info(returnCode)
+    except subprocess.CalledProcessError as e:
+        sys.exit("'%s' failed, returned code %d" % (tarCmd,e.returncode))
+    except OSError as e:
+        sys.exit("failed to execute program '%s': '%s'" % (tarCmd, str(e)))
 
 def processBcl2fastqLog(verbose,fcillumid,machine,archive_drive,UnalignedLoc):
     logger = logging.getLogger(__name__)
     bcl2fastqLogLoc = '{}/nohup.sge'.format(UnalignedLoc)
     zipLoc = '/nfs/{}/summary/bcl_nohup/{}_{}_bcl2fastqLog.zip'.format(archive_drive,
                                                                       fcillumid,machine)
+    if not os.path.isdir('/nfs/{}/summary/bcl_nohup'.format(archive_drive)):
+        raise Exception("/nfs/{}/summary/bcl_nohup does not exist. Create it before zipping log".format(archive_drive))
+
     zipCmd = ['/usr/bin/zip',zipLoc,bcl2fastqLogLoc]
 
     if verbose:
         print(' '.join(zipCmd))
     logger.info(zipCmd)
-    returnCode = subprocess.call(zipCmd)
-    logger.info(returnCode)
+    try:
+        returnCode = subprocess.check_output(zipCmd)
+        logger.info(returnCode)
+    except subprocess.CalledProcessError as e:
+        sys.exit("'%s' failed, returned code %d" % (zipCmd,e.returncode))
+    except OSError as e:
+        sys.exit("failed to execute program '%s': '%s'" % (zipCmd, str(e)))
+
 
 def update_status_to_storage(WHAT,verbose,fcillumid,noStatus,database):
     """sequenceDB Sample Update"""

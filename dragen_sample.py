@@ -112,6 +112,7 @@ def get_fastq_loc(database, sample):
             potential_locs.insert(0,'/nfs/seqscratch_ssd/dsth/APPALING_ALS_ISSUE/'.format(corrected_sample_type))
 
         potential_locs.extend([
+            '/nfs/fastq_temp5/tx_temp/tx_3036/',
             '/nfs/fastq_temp2/{}_ssd/'.format(corrected_sample_type),       ##### truelly evil!?!
             '/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
             '/nfs/seqscratch*/tx_temp/tx_*/',

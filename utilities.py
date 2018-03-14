@@ -73,7 +73,7 @@ def get_connection(database):
 
     try:
         reader = configparser.RawConfigParser()
-        my_cnf='/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/bcl_user.cnf'
+        my_cnf='{}/bcl_user.cnf'.format(os.path.dirname(os.path.realpath(__file__)))
         if not os.path.exists(my_cnf):
             raise Exception("\n\nSeriously?!? where's your '{}' for '{}' access".format(my_cnf,database))
         # else:
@@ -198,7 +198,7 @@ def getSSSLaneFraction(prepid,fcillumid,chem_version,lane_num,config,database):
         raise Exception("Unhandled seqtype: {}!".format(seqtype))
 
 def update_pipelinecomplete(fcillumid,code,database):
-    query = update_pipelinecomplete.format(fcillumid=fcillumid,code=code)
+    query = UPDATE_PIPELINE_COMPLETE.format(fcillumid=fcillumid,code=code)
     return run_query(query,database)
 
 def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
@@ -256,10 +256,7 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
                 '',\
                 (case \
                     WHEN f.recipe=2 THEN '' \
-                    WHEN SAMPLE_TYPE='Exome' THEN pm.adapterlet \
-                    WHEN SAMPLE_TYPE='RNAseq' THEN s2r.adapterlet \
-                    WHEN SAMPLE_TYPE='Genome' THEN s2r.adapterlet \
-                    WHEN SAMPLE_TYPE='Custom Capture' THEN pm.adapterlet \
+                    ELSE pt.adapterLet \
                 END) 'Index',\
                 replace(s.GAFbin,' ','') Project, \
                 CONCAT(round('{0}',4),'_',round(s2r.picomoles,1),'pM') Description \
@@ -268,8 +265,6 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
                     JOIN prepT pt ON l.prepID=pt.prepID \
                     JOIN samplesTOrun s2r ON s2r.seqID=l.seqID \
                     JOIN SampleT s ON s.DBID=pt.DBID \
-                    LEFT JOIN poolMembers pm ON \
-                        (pm.DBID=pt.DBID AND pm.poolID=l.poolID) \
                 WHERE \
                     l.prepid='{1}' AND \
                     f.FCillumID='{2}' AND \
@@ -284,7 +279,8 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
     #copies sequencing sample sheet to genotyping location
     print("Finish creating SSS: {}".format(sss_loc))
     cmd="chmod -R 770 {0}".format(sss_loc)
-    os.system(cmd)
+    if os.system(cmd) != 0:
+        raise Exception("error occured in {}".format(cmd))
     return sss_loc
 
 def setup_logging(machine,fcillumid,logs_dir):
@@ -309,7 +305,7 @@ def run_query(query,database):
 
 def get_config():
     config = configparser.ConfigParser()
-    config.read('/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/config.ini')
+    config.read('{}/config.ini'.format(os.path.dirname(os.path.realpath(__file__))))
     return config
 
 def check_exist_bcl_dir(fcillumid,BCLDrive,database):

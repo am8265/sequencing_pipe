@@ -88,7 +88,9 @@ def run_qsub_command(config,fcillumid,step,run_info_dict):
                         step=step)
     print(qsub_cmd)
     logger.info(qsub_cmd)
-    os.system(qsub_cmd)
+    op = os.system(qsub_cmd)
+    if op != 0:
+        raise Exception("{} didn't execute".format(qsub_cmd))
 
 def add_sge_header(config,file,fcillumid,step,hold):
     log_dir = config.get('locs','logs_dir')
@@ -127,7 +129,7 @@ def create_post_bcl_script(config,archive_dir,runFolder,machine,fcillumid,addres
     post_bcl_script.write('if [ $? -eq 0 ] \n')
     post_bcl_script.write('then echo "Post BCL completed successfully"\n')
     post_bcl_script.write('else echo "Post BCL failed"\n')
-    post_bcl_script.write('/nfs/goldstein/software/mutt-1.5.23 -s "Post_BCL failure: %s %s" %s < /dev/null; exit 1; fi\n' % (machine,fcillumid,address))
+    post_bcl_script.write('/nfs/goldstein/software/mutt-1.5.23/bin/mutt -s "Post_BCL failure: %s %s" %s < /dev/null; exit 1; fi\n' % (machine,fcillumid,address))
 
 def create_storage_script(config,archive_dir,runFolder,machine,fcillumid,address,storageCmd):
     script_loc = ('/{bcl_dir}/{runFolder}/{machine}_{fcillumid}_storage.sh'

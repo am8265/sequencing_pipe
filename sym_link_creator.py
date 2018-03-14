@@ -114,7 +114,7 @@ def check_fcillumid(fcillumid):
     # As of writing in this script all recent illumina flowcells should begin
     # with C, D, or H and end with X or Y or X2 (for NextSeq High output flowcell).
     # Also the fcillumid should only be 9 characters long.
-    search_obj = re.search("^H[A-Z,0-9]{4}BGX2$",fcillumid) #for NextSeq High output
+    search_obj = re.search("^H[A-Z,0-9]{4}B[CG]X2$",fcillumid) #for NextSeq High output
     if search_obj is None:
         search_obj = re.search('[CHD].*[xXyY]',fcillumid)
     if search_obj is None:

@@ -7,12 +7,14 @@ import os
 from datetime import datetime
 from interop import py_interop_run_metrics, py_interop_run, py_interop_summary
 from utilities import *
+import warnings
+
 
 def run_bcl2fastq(args,run_info_dict,config,database,verbose):
 
     fcillumid = args.fcillumid
     logger = logging.getLogger(__name__)
-    script_dir = config.get('locs','scr_dir')
+    #script_dir = config.get('locs','scr_dir')
     bcl2fastq_loc = config.get('programs','bcl2fastq_program')
     bcl_dir = '{}/{}'.format(config.get('locs','bcl_dir'),run_info_dict['runFolder'])
     out_dir = run_info_dict['out_dir'] 
@@ -25,7 +27,8 @@ def run_bcl2fastq(args,run_info_dict,config,database,verbose):
         raise("yo' punk. where's my sample sheet? : '{}".format(sss_loc))
 
     print("we should have an sample sheet now? : '{}'".format(sss_loc))
-
+    
+    
     cp_cmd= ( 'cp {} /nfs/{}/Sequencing_SampleSheets/' ).format(
       sss_loc,config.get('locs','fastq_archive_drive') 
     )
@@ -38,7 +41,13 @@ def run_bcl2fastq(args,run_info_dict,config,database,verbose):
     bcl2fastq_cmd = build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,database)
     print(bcl2fastq_cmd)
     logger.info(bcl2fastq_cmd)
-    os.mkdir(out_dir,0o770)
+    try:
+        os.mkdir(out_dir,0o770)
+    except OSError as exc:
+        if exc.errno != errno.EEXIST:
+            raise Exception("error creating {}".format(out_dir))
+        else:
+            warnings.warn("directory {} already exists".format(out_dir))
 
     #Submit bcl job to the cluster
     with open(script_loc,'w') as bcl_script:
@@ -53,6 +62,8 @@ def run_bcl2fastq(args,run_info_dict,config,database,verbose):
         print(qsub_cmd)
     logger.info(qsub_cmd)
     pid = os.system(qsub_cmd)
+    if pid != 0:
+        raise Exception("{} didnt execute correctly. return value is {}".format(qsub_cmd,pid))
     logger.info(pid)
 
 def build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,database):
@@ -206,4 +217,4 @@ def main():
 
 if __name__ == '__main__':
     os.umask(int("002",8))
-	main()
+    main()
