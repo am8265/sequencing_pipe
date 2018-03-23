@@ -321,7 +321,7 @@ def storage(machine,fcillumid,args,config,run_info_dict,database):
 
     update_rg_aka_lane_table_to_in_storage('in storage','fastq_copied',verbose,fcillumid,noStatus,database)
     update_status_to_storage('Storage',verbose,fcillumid,noStatus,database)
-    create_checkpoint_file(verbose,config,run_info_dict)
+    create_checkpoint_file(verbose,config,run_info_dict,UnalignedLoc)
 
 def getSeqtype(fcillumid,sampleName,database):
     logger = logging.getLogger(__name__)
@@ -337,15 +337,16 @@ def getSeqtype(fcillumid,sampleName,database):
     seqtype = seqtype[0]['SAMPLE_TYPE'].upper().replace(' ','_')
     return seqtype
 
-def create_checkpoint_file(verbose,config,run_info_dict):
+def create_checkpoint_file(verbose,config,run_info_dict,UnalignedLoc):
     raw_sequencing_folder_loc = '{}/{}'.format(config.get('locs','bcl_dir'),
                                               run_info_dict['runFolder'])
     flagloc = '{}/StorageComplete'.format(raw_sequencing_folder_loc)
-
+    flagloc_ar = '{}/StorageComplete'.format(UnalignedLoc)
     touchCmd = ['touch',flagloc]
     if verbose:
         print(' '.join(touchCmd))
     subprocess.check_call(touchCmd)
+    subprocess.check_call(['touch',flagloc_ar])
 
 def processSAV(verbose,fcillumid,machine,run_info_dict,config,archive_drive):
     logger = logging.getLogger(__name__)

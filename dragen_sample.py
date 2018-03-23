@@ -122,6 +122,7 @@ def get_fastq_loc(database, sample):
             '/nfs/igmdata01/{}/'.format(corrected_sample_type),
             '/nfs/stornext/seqfinal/casava1.8/whole_{}/'.format(corrected_sample_type),
             '/nfs/fastq1[568]/{}/'.format(corrected_sample_type),
+            '/nfs/fastq_temp5/tx_2995/Project_CGND_12737_B01_GRM_WGS.fastq.2017-08-29/'
             ###### this is causing so many issues that better to remove and add back later!?!
             ###### i.e. just check ALL fastq error!?!
             # '/nfs/seqsata*/seqfinal/whole_genome/'

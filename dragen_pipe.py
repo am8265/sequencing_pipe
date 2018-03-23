@@ -16,6 +16,27 @@ from dragen_sample import dragen_sample
 from glob import glob
 from utilities import *
 import socket
+import smtplib,email,email.encoders,email.mime.text,email.mime.base
+from email.mime.multipart import MIMEMultipart as MM
+import pprint 
+
+def emailit(rarp,arse):
+    smtpserver = 'localhost'
+    fromAddr = 'dh2880@cumc.columbia.edu'
+    emailMsg = MM('alternative') #email.MIMEMultipart.MIMEMultipart('alternative')
+    emailMsg['Subject'] = rarp
+    emailMsg['From'] = fromAddr
+    to=['dsth@cantab.net','dh2880@cumc.columbia.edu']
+    emailMsg['To'] = ', '.join(to)
+    body='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
+    body +='"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">'
+    body +='<body style="font-size:12px;font-family:Verdana"><PRE>'
+    body += arse
+    body += '</PRE></body></html>'
+    emailMsg.attach(email.mime.text.MIMEText(body,'html'))
+    server = smtplib.SMTP(smtpserver)
+    server.sendmail(fromAddr,to,emailMsg.as_string())
+    server.quit()
 
 def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
 
@@ -33,6 +54,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
             print(tb)
             status='Dragen Alignment Failure'
             update_status(sample,status,database)
+            emailit('alignment issue:2 ' + sample_name,pprint.pformat(vars(sample)))
             # sick of all the emails!?!
             # email_failure()
 
@@ -43,9 +65,15 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
         pseudo_prepid = 0
         sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,database,debug)
 
-        if sample_type == "Genome":
-            print("UPDATING DIR FOR GENOMES!?!")
-            seqscratch_drive = "fastq_temp"
+###### USE STADNARD PYTHON EMAIL!?!?!
+###### USE STADNARD PYTHON EMAIL!?!?!
+###### USE STADNARD PYTHON EMAIL!?!?!
+
+        # should set up seqscratch but atm fastq_temp & fastq_temp2 are set up
+        # if sample_type == "Genome":
+            # print("UPDATING DIR FOR GENOMES!?!")
+            # seqscratch_drive = "fastq_temp"
+            # seqscratch_drive = "fastq_temp2"
 
         while sample_name is not None:
 
@@ -63,6 +91,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
                 status='Dragen Alignment Failure'
                 update_status(sample,status,database)
                 # sick of all the emails!?!
+                emailit('alignment issue:1 ' + sample_name,pprint.pformat(vars(sample)))
                 # email_failure()
                 sys.exit()
 
@@ -218,7 +247,8 @@ def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
     dragen_stderr.close()
     if rc != 0:
         ##### this we do want an email about!?!
-        email_failure()
+        email_failure(dragen_cmd)
+        emailit('alignment issue ' + stderr_file_loc,dragen_cmd)
         raise Exception("Dragen alignment did not complete successfully!")
     try:
         subprocess.call(['chmod','-R','775','{}'.format(output_dir)])
@@ -289,6 +319,7 @@ def update_queue(pseudo_prepid,database,debug):
     elif who == "dragen2.igm.cumc.columbia.edu":
         state=80012
     else:
+        emailit('alignment issue','wrong server')
         raise ValueError("{} is not allowed to run this".format(who))
 
     connection = get_connection(database)
@@ -491,10 +522,10 @@ def get_next_sample(pid,database,debug):
 
 
 
-def email_failure():
+def email_failure(stuff):
     emailAddresses = '{}@cumc.columbia.edu'.format(get_user())
-    emailCmd = ('echo "Dragen Pipe failure" | mail -s "Dragen Pipe Failure" {}'
-               ).format(emailAddresses)
+    emailCmd = ('echo "Dragen Pipe failure" | mail -s "Dragen Pipe Failure" {} <<< {}'
+               ).format(emailAddresses,stuff)
     print(emailCmd)
     os.system(emailCmd)
 
@@ -532,5 +563,6 @@ if __name__ == "__main__":
     except Exception:
         tb = traceback.format_exc()
         print(tb)
-        email_failure()
+        email_failure(tb)
+        emailit('alignment issue',tb)
 
