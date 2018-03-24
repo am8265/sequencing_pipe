@@ -11,20 +11,19 @@ import glob
 
 #checjs that all samples on flowcell are archived to seqsata location. Also rsync with --remvoe-source so fastqs from scratch are removed
 #code assumes max of 8 lanes
-#code parses config in master/sequencing_pipe
-#ignore_flowcells = ['H5V2WDMXX','H5V2JDMXX']
 
-def setup_logging(fcillumid,logloc):
+def setup_logging(logloc):
+    time_stamp='{date:%Y%m%d%H%M%S}'.format( date=datetime.now() )
     logging.basicConfig(level=logging.INFO,
         format='%(asctime)s: %(name)s: [%(levelname)s] - %(message)s',
         datefmt='%m/%d/%Y %I:%M:%S %p',
-        filename=('{}/{}_rsync_del.log').format(logloc,fcillumid))
+        filename=('{}/{}_rsync_del.log').format(logloc,time_stamp))
     logger = logging.getLogger(__name__)
 
 def get_connection_mml(database):
     try:
         reader = configparser.RawConfigParser()
-        reader.read('/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/bcl_user.cnf')
+        reader.read('{}/bcl_user.cnf'.format(os.path.dirname(os.path.realpath(__file__))))
         db = 'client' + database
         db_host = reader.get(db, 'host')
         db_user = reader.get(db, 'user')
@@ -49,7 +48,7 @@ def run_query_mml(query,connection):
 def main():
     #get loc from config file
     config = configparser.ConfigParser()
-    config.read('/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/config.ini')
+    config.read('{}/config.ini'.format(os.path.dirname(os.path.realpath(__file__))))
     loc_config = config.get('locs','bcl2fastq_scratch_drive')
     loc = '/nfs/{}'.format(loc_config)
     logs_dir = config.get('locs','logs_dir')
@@ -59,7 +58,7 @@ def main():
     for flo in flowcells:
         flo_name = flo.split('_')[2]
         print(flo_name)
-        setup_logging(flo_name,logs_dir)
+        setup_logging(logs_dir)
         logger = logging.getLogger(flo_name)
         #if flo_name in ignore_flowcells:
         #    logger.info("WARNING!!!!!!! ignoring this flowcell as instructed".format(flo_name))
@@ -134,21 +133,17 @@ def clean_unaligned_dir(loc,flo,seqsataloc):
     if os.path.exists("/nfs/{}/summary/Reports".format(seqsataloc[0])) is False:
         out = subprocess_exec("mkdir /nfs/{}/summary/Reports".format(seqsataloc[0]))
     
-    files_to_zip_def = ['{}/BCL/{}/Reports/html/{}/default/all/all/laneBarcode.html'.format(loc,flo,flo_name),
+    files_to_zip_rep = ['{}/BCL/{}/Reports/html/{}/default/all/all/laneBarcode.html'.format(loc,flo,flo_name),
             '{}/BCL/{}/Reports/html/{}/default/all/all/lane.html'.format(loc,flo,flo_name)]
-    files_to_zip_def = ' '.join(files_to_zip_def)
-    cmd="zip -vmT /nfs/{}/summary/Reports/{}_{}_default_html.zip {}".format(seqsataloc[0],flo_name,seqsataloc[1],files_to_zip_def)
-    print(cmd)
-    #out = subprocess_exec(cmd)
    
     for gaf in next(os.walk('.'))[1]:
         if gaf not in ['Reports','Stats']:
-            gaf_bin_rep = '{}/BCL/{}/Reports/html/{}/{}/all/all'.format(loc,flo,flo_name,gaf)
-            cmd="zip -vmT /nfs/{0}/summary/Reports/{1}_{2}_{3}_html.zip {4}/laneBarcode.html {4}/lane.html".format(seqsataloc[0],flo_name,seqsataloc[1],gaf,gaf_bin_rep)
-            print(cmd)
+             files_to_zip_rep.append('{}/BCL/{}/Reports/html/{}/{}/all/all'.format(loc,flo,flo_name,gaf))
             #out = subprocess_exec(cmd)
     rep_all = '{}/BCL/{}/Reports/html/{}/all/all/all'.format(loc,flo,flo_name)
-    cmd="zip -vmT /nfs/{0}/summary/Reports/{1}_{2}_all_html.zip {3}/laneBarcode.html {3}/lane.html".format(seqsataloc[0],flo_name,seqsataloc[1],rep_all)
+    files_to_zip_rep.extend(['{}/laneBarcode.html'.format(rep_all),'{}/lane.html'.format(rep_all)])
+    files_to_zip_rep = ' '.join(files_to_zip_rep)
+    cmd="zip -vmT /nfs/{0}/summary/Reports/{1}_{2}_all_html.zip {3}".format(seqsataloc[0],flo_name,seqsataloc[1],rep_all)
     print(cmd)
     #out = subprocess_exec(cmd)
 
@@ -237,7 +232,7 @@ def subprocess_exec(cmd):
 def check_fastqs(flo,connection,loc):
     flo_name=flo.split('_')[2]
     logger = logging.getLogger(__name__)
-    cmd=("SELECT distinct upper(p.sample_type), p.chgvid,lanenum,seqsataloc,status,rg_status,step_status,p.prepid,failR1,failR2,p_prepid,l.fcid,l.seqid,l.dbid,l.poolid,s.GAFbin,p.adapterLet "
+    cmd=("SELECT distinct upper(p.sample_type), p.chgvid,lanenum,seqsataloc,status,rg_status,step_status,p.prepid,failR1,failR2,p_prepid,l.fcid,l.seqid,l.dbid,l.poolid,s.GAFbin,p.adapterLet,p.is_released "
          "FROM prepT p, Lane l, Flowcell f, SampleT s "
          "WHERE f.fcid=l.fcid and l.prepid=p.prepid and f.fcillumid='{}' and s.dbid=p.dbid").format(flo_name) 
     logger.info(cmd)
@@ -355,10 +350,16 @@ def check_fastqs(flo,connection,loc):
         if aff_rows > 1:
             raise Exception("cmd {} returned {} rows".format(cmd,aff_rows))
         
-        if len(is_merged) == 0 or int(is_merged[0][0]) <= 1 or  int(is_merged[0][0]) >= 80000:
+        if item[0] == 'RNASEQ' and item[17] < 3:
+            logger.info("Not completed dragen alignment")
+            logger.info("{}\t{}\t{}\t/nfs/{}/{}/{}/{}\t{}/{}/{}/{}\tis_released:{}\n".format(item[0],item[1],item[4],item[3],item[0],item[1],flo_name,loc,item[0],item[1],flo_name,item[1],item[17]))
+            continue
+        elif len(is_merged) == 0 or is_merged[0][0] <= 1 or  (is_merged[0][0] >= 80000 and is_merged[0][0] <= 80100):
             logger.info("Not completed dragen alignment")
             logger.info("{}\t{}\t{}\t/nfs/{}/{}/{}/{}\t{}/{}/{}/{}\n".format(item[0],item[1],item[4],item[3],item[0],item[1],flo_name,loc,item[0],item[1],flo_name,item[1]))
             continue
+        else:
+            pass
         
         cmd="rsync -azpvv --remove-source-files --dry-run -L --no-owner --no-perms {} {}".format(f1[0],f1_a[0])
         cmd2="rsync -azpvv --remove-source-files --dry-run -L --no-owner --no-perms {} {}".format(f2[0],f2_a[0])
@@ -373,7 +374,8 @@ def check_fastqs(flo,connection,loc):
         if  num_fastqs_a[item][0] != num_fastqs_db[item]:
             logger.info("WARNING!!! incorrect number of fastqs archive:{} according to DB:{} for {}. Problem with DB data or with fastqs in folders?".format(num_fastqs_a[item][0],num_fastqs_db[item],item))
         cmd="rmdir -v {}/{}/{}/{}".format(loc,num_fastqs_a[item][1],item,flo_name)
-        out = subprocess_exec(cmd)
+        print(cmd)
+        #out = subprocess_exec(cmd)
 
     logger.info("{} fastqs were rsynced out of {}".format(num_fastqs_rsynced,len(fastq_names))) 
     logger.info('\n'.join(fastq_names))    

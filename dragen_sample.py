@@ -169,12 +169,16 @@ def get_fastq_loc(database, sample):
                 ).format(prepid)
 
             seqsatalocs = run_query(query,database)
+            if len(seqsatalocs)==0:
+                raise ValueError("no db registered fastq locations")
+
+            print('we have the following locations from db to check : {}'.format(seqsatalocs))
 
             print(seqsatalocs)
             for flowcell in seqsatalocs:
 
                 if flowcell['SEQSATALOC'] == '':
-                    msg = ('Sample {} on flowcell {} is missing seqsataloc!  Still sequencing?' ).format(sample_name,flowcell['FCILLUMID'])
+                    msg = ('Sample {} on flowcell {} is missing seqsataloc! Still sequencing?' ).format(sample_name,flowcell['FCILLUMID'])
                     raise ValueError(msg)
 
                 for potential_loc in potential_locs:

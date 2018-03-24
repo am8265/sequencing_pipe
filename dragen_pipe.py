@@ -19,6 +19,7 @@ import socket
 import smtplib,email,email.encoders,email.mime.text,email.mime.base
 from email.mime.multipart import MIMEMultipart as MM
 import pprint 
+import pymysql
 
 def emailit(rarp,arse):
     smtpserver = 'localhost'
@@ -26,7 +27,7 @@ def emailit(rarp,arse):
     emailMsg = MM('alternative') #email.MIMEMultipart.MIMEMultipart('alternative')
     emailMsg['Subject'] = rarp
     emailMsg['From'] = fromAddr
-    to=['dsth@cantab.net','dh2880@cumc.columbia.edu']
+    to=['dsth@cantab.net','dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
     emailMsg['To'] = ', '.join(to)
     body='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
     body +='"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">'
@@ -46,15 +47,17 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
     if isinstance(run_type_flag,str) == True: #pseudo_prepid present
         pseudo_prepid = run_type_flag
         sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,database,debug)
-        sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
+        try:
+            sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
+        except Exception as e:
+            raise Exception("unable to construct dragen sample for '{}' : '{}'".format(sample_name,e))
         try:
             run_sample(sample,dontexecute,config,seqscratch_drive,database,debug)
         except:
-            tb = traceback.format_exc()
-            print(tb)
             status='Dragen Alignment Failure'
             update_status(sample,status,database)
-            emailit('alignment issue:2 ' + sample_name,pprint.pformat(vars(sample)))
+            raise Exception("unable to run dragen for {} : {}".format(sample_name,e))
+            # emailit('alignment issue:2 ' + sample_name,pprint.pformat(vars(sample)))
             # sick of all the emails!?!
             # email_failure()
 
@@ -62,44 +65,61 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
     elif run_type_flag == True: #Automated run
 #############################################################################
 
-        pseudo_prepid = 0
-        sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,database,debug)
+        try:
 
-###### USE STADNARD PYTHON EMAIL!?!?!
-###### USE STADNARD PYTHON EMAIL!?!?!
-###### USE STADNARD PYTHON EMAIL!?!?!
+            pseudo_prepid = 0
+            sample_name, sample_type, pseudo_prepid, capture_kit = get_next_sample(pseudo_prepid,database,debug)
 
-        # should set up seqscratch but atm fastq_temp & fastq_temp2 are set up
-        # if sample_type == "Genome":
-            # print("UPDATING DIR FOR GENOMES!?!")
-            # seqscratch_drive = "fastq_temp"
-            # seqscratch_drive = "fastq_temp2"
+            # should set up seqscratch but atm fastq_temp & fastq_temp2 are set up
+            # if sample_type == "Genome":
+                # print("UPDATING DIR FOR GENOMES!?!")
+                # seqscratch_drive = "fastq_temp"
+                # seqscratch_drive = "fastq_temp2"
 
-        while sample_name is not None:
+            while sample_name is not None:
 
-            print("running pp= {}".format(pseudo_prepid))
-            ##### this is the silly, ott bit so lock first and update to avoid cycling forever with probs...?!?
-            ##### - in the end locked in get_next_sample
+                print("running pp= {}".format(pseudo_prepid))
+                ##### this is the silly, ott bit so lock first and update to avoid cycling forever with probs...?!?
+                ##### - in the end locked in get_next_sample
 
-            sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
+                try:
+                    sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
+                except Exception as e:
+                    raise Exception("unable to construct dragen sample for {} : {}".format(sample_name,e))
 
-            try:
-                run_sample(sample,dontexecute,config,seqscratch_drive,database,debug)
-            except:
-                tb = traceback.format_exc()
-                print(tb)
-                status='Dragen Alignment Failure'
-                update_status(sample,status,database)
-                # sick of all the emails!?!
-                emailit('alignment issue:1 ' + sample_name,pprint.pformat(vars(sample)))
-                # email_failure()
-                sys.exit()
+                try:
+                    run_sample(sample,dontexecute,config,seqscratch_drive,database,debug)
+                except Exception as e:
+                    status='Dragen Alignment Failure'
+                    update_status(sample,status,database)
+                    raise Exception("unable to run dragen for {} : {}".format(sample_name,e))
+                    # email_failure()
+                    # stops it getting caught below?!?
+                    # sys.exit(1)
 
-            try:
-                sample_name, sample_type, pseudo_prepid, capture_kit  = get_next_sample(0,database,debug)
-            except:
-                print("No more samples in the queue")
-                sys.exit()
+                try:
+                    sample_name, sample_type, pseudo_prepid, capture_kit  = get_next_sample(0,database,debug)
+                except:
+                    print("No more samples in the queue")
+                    sys.exit(0)
+
+        except Exception as e:
+            msg="Fastq error ({})".format(str(e).replace('\n',' ').replace('  ',' ').lstrip(' '))
+            tb = traceback.format_exc()
+            print("sending email with '{}'\n\nand '{}'".format(msg,tb))
+            emailit(msg,tb)
+            print(sample_name+", "+sample_type+", "+str(pseudo_prepid)+", "+capture_kit);
+
+            connection = get_connection(database)
+            with connection.cursor() as cursor:
+                cursor.execute("update prepT set is_released = 0, status = %s where p_prepid = %s and chgvid = %s",(msg,pseudo_prepid,sample_name))
+                cursor.execute("delete from dragen_sample_metadata where pseudo_prepid = %s and sample_name = %s",(pseudo_prepid,sample_name))
+                connection.commit()
+
+            raise Exception("\n\n> "+msg)
+
+            exit(1)
+
 #############################################################################
 
 def update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database):
@@ -188,6 +208,8 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
     submit_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     existing_bams = glob("{}/*.bam".format(output_dir))
 
+    debug = True 
+
     if existing_bams == [] or existing_bams_check == False:
 
         update_queue(pseudo_prepid,database,debug)
@@ -196,28 +218,29 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
 
             rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
 
-            if debug:
-                print("RG info: lane {}, fcillumd {}, prepid {}".format(rg_lane_num,rg_fcillumid,rg_prepid))
+            print("> RG info: lane {}, fcillumd {}, prepid {}".format(rg_lane_num,rg_fcillumid,rg_prepid))
 
             setup_first_read_RG(sample,rg_lane_num,rg_fcillumid,rg_prepid,debug)
             set_seqtime(rg_fcillumid,sample,database)
             create_align_config(sample,rg_lane_num,rg_fcillumid,rg_prepid)
 
-            if dontexecute == False: #For test purposes
-               run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug)
+            if not debug:
+            # if dontexecute == False: #For test purposes
+                run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug)
 
-            update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database)
+                update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database)
 
-        component_bams = get_component_bams(sample,debug)
-        update_dragen_metadata_prepT_status(sample,component_bams,database,pseudo_prepid,debug)
+        if not debug:
+
+            component_bams = get_component_bams(sample,debug)
+            update_dragen_metadata_prepT_status(sample,component_bams,database,pseudo_prepid,debug)
         # rm_query = "DELETE FROM {0} WHERE pseudo_prepid={1}".format("tmp_dragen",pseudo_prepid)
         # if debug:
         #    print(rm_query)
         # run_query(rm_query,database)
 
     else:
-        print("Sample with bam files already exists!")
-        sys.exit(1)
+        raise Exception("Sample with bam files already exists!")
 
 def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
     output_dir = sample.metadata['output_dir']
@@ -247,8 +270,8 @@ def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
     dragen_stderr.close()
     if rc != 0:
         ##### this we do want an email about!?!
-        email_failure(dragen_cmd)
-        emailit('alignment issue ' + stderr_file_loc,dragen_cmd)
+        # email_failure(dragen_cmd)
+        # emailit('alignment issue ' + stderr_file_loc,dragen_cmd)
         raise Exception("Dragen alignment did not complete successfully!")
     try:
         subprocess.call(['chmod','-R','775','{}'.format(output_dir)])
@@ -319,7 +342,7 @@ def update_queue(pseudo_prepid,database,debug):
     elif who == "dragen2.igm.cumc.columbia.edu":
         state=80012
     else:
-        emailit('alignment issue','wrong server')
+        # emailit('alignment issue','wrong server')
         raise ValueError("{} is not allowed to run this".format(who))
 
     connection = get_connection(database)
@@ -330,11 +353,14 @@ def update_queue(pseudo_prepid,database,debug):
 
         ###### clearly anything with this state is in an error state if we're running!?!
         ###### also check for conf files etc. - i.e. really make sure not getting races?!?
+
+        ########### clear previous errors - shouldn't be there!?!
         q="update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}".format( state+10, state )
         print(q)
         cur.execute(q)
         print("we marked {} problem samples".format(cur.rowcount))
 
+        ########### get lock on current sample!?!
         q="update dragen_sample_metadata set is_merged = {} WHERE pseudo_prepid = {} and is_merged = 80010".format(state,pseudo_prepid) 
         print(q)
         cur.execute(q)
@@ -381,22 +407,30 @@ def setup_dir(seqscratch_drive,sample,debug):
     subprocess.call(mkdir_cmd)
 
 def setup_first_read_RG(sample,rg_lane_num,rg_fcillumid,rg_prepid,debug):
-    first_read1,first_read2 = get_first_read(sample,rg_lane_num,rg_fcillumid,debug)
+    first_read1,first_read2 = get_first_read(sample,rg_lane_num,rg_fcillumid)
     sample.set('first_fastq1',first_read1)
     sample.set('first_fastq2',first_read2)
 
-def get_first_read(sample,rg_lane_num,rg_fcillumid,debug):
+def get_first_read(sample,rg_lane_num,rg_fcillumid):
     #Using first fastq as template for all fastq.gz
     for fastqLoc in sample.metadata['fastq_loc']:
         if rg_fcillumid in fastqLoc.split('/')[-1]:
             RGfastqStr ='{0}/*L00{1}_R1_*.fastq.gz'.format(fastqLoc,rg_lane_num)
-            if debug:
-                print(RGfastqStr)
+            print(RGfastqStr)
             RGfastqs = glob(RGfastqStr)
+            if len(RGfastqs)==0:
+                raise Exception("read1 of pair missing '{}'".format(RGfastqStr))
+            else:
+                print("read1 of pair found '{}'".format(RGfastqStr))
+            print("have RGfastqs = '{}'".format(RGfastqs))
 
-    #The fastqs might still be on the quantum tapes
     first_read = sorted(RGfastqs)[0]
     second_read = first_read.replace('_R1_','_R2_')
+    if not os.path.isfile(second_read): 
+        print("read2 of pair missing '{}'".format(RGfastqStr))
+        raise Exception("read2 of pair missing '{}'".format(RGfastqStr))
+    else:
+        print("read2 of pair found '{}'".format(RGfastqStr))
     return first_read,second_read
 
 def user_input_fastq_size(lg_or_gt,sample_type):
@@ -420,33 +454,36 @@ def check_Fastq_Total_Size(sample,debug):
     for fastq_loc in sample.metadata['fastq_loc']:
         print(" > checking location '{}'".format(fastq_loc))
         for fastq in glob(fastq_loc + '/*gz'):
+            if not os.path.isfile(fastq):
+                raise Exception("file seems to have gone AWOL!?! : '{}'".format(fastq))
             fastq_filesize = os.stat(os.path.realpath(fastq)).st_size
             fastq_filesize_sum += fastq_filesize
             print("  > checking fastq '{}' ({}GB)".format(fastq,'%.2f'%(fastq_filesize/gb)))
     print("Sum of Fastq size: {}".format(fastq_filesize_sum))
     if sample_type == 'genome':
         if fastq_filesize_sum < 42949672960: # < 40GB
-            raise ValueError('\n\nnot sure this is necessary - changing to raise to get email and let it move on...')
+            raise ValueError('genome fastq sum seems a bit small : {}'.format(fastq_filesize_sum))
             user_input_fastq_size('lt',sample.metadata['sample_type'])
     elif sample_type == 'exome':
         #### why would it stall?!? at most it should register and warning and move on not block entire procedure for user input!?!
         # if fastq_filesize_sum > 32212254720: # > 30GB
         if fastq_filesize_sum > (150*gb): # > 30GB
             # user_input_fastq_size('gt',sample.metadata['sample_type'])
-            raise ValueError('\n\nnot sure this is necessary but it is definitely triggered too easily for external data - are they genomes?!? ({}/{})'.format(90*gb,fastq_filesize_sum))
+            raise ValueError('not sure this is necessary but it is definitely triggered too easily for external data - are they genomes?!? ({}/{})'.format(90*gb,fastq_filesize_sum))
+        # elif fastq_filesize_sum < 573741824: # < 1GB
         elif fastq_filesize_sum < 1073741824: # < 1GB
-            raise ValueError('\n\nnot sure this is necessary - changing to raise to get email and let it move on...')
+            raise ValueError('exome fastq file sum is rather small : {}'.format(fastq_filesize_sum) )
             user_input_fastq_size('lt',sample.metadata['sample_type'])
     elif sample_type == 'rnaseq':
         if fastq_filesize_sum > 32212254720: # > 30GB
-            raise ValueError('\n\nnot sure this is necessary - changing to raise to get email and let it move on...')
+            raise ValueError('not sure this is necessary - changing to raise to get email and let it move on...')
             user_input_fastq_size('gt',sample.metadata['sample_type'])
         elif fastq_filesize_sum < 1073741824: # < 1GB
-            raise ValueError('\n\nnot sure this is necessary - changing to raise to get email and let it move on...')
+            raise ValueError('not sure this is necessary - changing to raise to get email and let it move on...')
             user_input_fastq_size('lt',sample.metadata['sample_type'])
     elif sample_type == 'custom_capture':
         if fastq_filesize_sum > 10737418240: # > 10GB
-            raise ValueError('\n\nnot sure this is necessary - changing to raise to get email and let it move on...')
+            raise ValueError('not sure this is necessary - changing to raise to get email and let it move on...')
             user_input_fastq_size('gt',sample.metadata['sample_type'])
     else:
         raise Exception('Unhandled sample_type found: {}!'.format(sample_type))
@@ -506,14 +543,14 @@ def get_next_sample(pid,database,debug):
         cur.execute(q)
         if cur.rowcount != 1:
             print("there's nothing to do")
-            exit(0)
+            sys.exit(0)
             # raise ValueError("couldn't get a sample")
 
         sample=cur.fetchone()
 
         cur.execute("update dragen_sample_metadata set is_merged = 80010 WHERE pseudo_prepid = {} and is_merged = 80000".format(sample['pseudo_prepid']) )
         if cur.rowcount != 1:
-            raise ValueError("seems we couldn't get a lock on sample {}".format(pseudo_prepid));
+            raise ValueError("seems we couldn't get a lock on sample {}".format(sample['pseudo_prepid']));
 
         connection.commit()
         connection.close()
@@ -558,11 +595,4 @@ if __name__ == "__main__":
     else:
         database="sequenceDB"
 
-    try:
-        main(run_type_flag, args.debug, args.dontexecute, database, args.seqscratch_drive)
-    except Exception:
-        tb = traceback.format_exc()
-        print(tb)
-        email_failure(tb)
-        emailit('alignment issue',tb)
-
+    main(run_type_flag, args.debug, args.dontexecute, database, args.seqscratch_drive)
