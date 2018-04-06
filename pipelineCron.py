@@ -14,7 +14,7 @@ def main(config):
     query = """SELECT FCILLUMID
             FROM Flowcell f
             JOIN Lane l ON f.fcid=l.fcid
-            JOIN prepT p ON p.dbid=l.dbid
+            JOIN prepT p ON p.sample_id=l.sample_id
             WHERE (PIPELINECOMPLETE = 0 AND COMPLETE = 1 AND FAIL != 1)
             GROUP BY l.FCID
             ORDER BY MIN(PRIORITY) ASC , FROM_UNIXTIME(SEQEND) ASC

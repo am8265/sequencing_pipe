@@ -37,12 +37,12 @@ def get_prepid(database,sample):
     prepids = [x['prepid'] for x in prepids]
     return prepids
 
-def get_dbid(database,sample):
-    query = """SELECT DBID FROM prepT WHERE p_prepid={}
+def get_sample_id(database,sample):
+    query = """SELECT sample_id FROM prepT WHERE p_prepid={}
             """.format(sample['pseudo_prepid'])
     results = run_query(query,database)
     check_number_query_results(results,1)
-    return results[0]['DBID']
+    return results[0]['sample_id']
 
 def get_priority(database,sample):
     query = ("SELECT PRIORITY "
@@ -112,6 +112,7 @@ def get_fastq_loc(database, sample):
             potential_locs.insert(0,'/nfs/seqscratch_ssd/dsth/APPALING_ALS_ISSUE/'.format(corrected_sample_type))
 
         potential_locs.extend([
+            '/nfs/fastq_temp/{}/'.format(corrected_sample_type),
             '/nfs/fastq_temp5/tx_temp/tx_3036/',
             '/nfs/fastq_temp2/{}_ssd/'.format(corrected_sample_type),       ##### truelly evil!?!
             '/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
@@ -130,7 +131,8 @@ def get_fastq_loc(database, sample):
 
         if external_or_legacy_flag == True:
 
-            if sample["prepid"][0]<22000:
+            if sample["prepid"][0]<50000:
+            # if sample["prepid"][0]<22000:
                 # from pprint import pprint as pp
                 # pp(sample)
                 # print("avoid back contamination of older sequencing by newer")
@@ -283,7 +285,7 @@ class dragen_sample:
         else:
             self.metadata['capture_kit'] = ''
             self.metadata['bed_file_loc'] = '/nfs/goldsteindata/refDB/captured_regions/Build37/65MB_build37/SeqCap_EZ_Exome_v3_capture.bed'
-        self.metadata['dbid'] = get_dbid(database,self.metadata)
+        self.metadata['sample_id'] = get_sample_id(database,self.metadata)
         self.metadata['prepid'] = get_prepid(database,self.metadata)
         self.metadata['priority'] = get_priority(database,self.metadata)
         self.metadata['fastq_loc'] = get_fastq_loc(database,self.metadata)

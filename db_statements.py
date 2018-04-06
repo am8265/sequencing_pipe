@@ -71,13 +71,13 @@ GET_FLOWCELL_RECIPE = """
 GET_POOLID_FROM_DBID = """
     SELECT CHGVID
     FROM SampleT
-    WHERE DBID = "{DBID}"
+    WHERE sample_id = "{sample_id}"
     """
 
 GET_FLOWCELL_PROJECTS = """
     SELECT DISTINCT(REPLACE(s.GAFBIN,' ','')) AS GAFBIN
     FROM SampleT s
-    JOIN Lane l ON s.DBID=l.DBID
+    JOIN Lane l ON s.sample_id=l.sample_id
     JOIN Flowcell f ON f.FCID=l.FCID
     WHERE FCILLUMID = "{fcillumid}"
     """
@@ -132,14 +132,14 @@ GET_PREPID_ON_LANE = """
     JOIN Flowcell f
     ON l.FCID=f.FCID
     WHERE FCILLUMID="{fcillumid}" AND l.laneNum="{lane_num}"
-    ORDER BY DBID
+    ORDER BY sample_id
     """
 
 GET_DBID_ON_LANE = """
-    SELECT DBID
+    SELECT sample_id
     FROM Lane l
     JOIN Flowcell f
     ON l.FCID=f.FCID
     WHERE FCILLUMID="{fcillumid}" AND l.laneNum="{lane_num}"
-    ORDER BY DBID
+    ORDER BY sample_id
     """

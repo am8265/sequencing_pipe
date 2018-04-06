@@ -64,7 +64,7 @@ die if(!-e $base.'1kbBlocks.bed' || !-e $base.'1kbBlocksIds.txt');
 system("mv ${base}1kbBlocks.bed /nfs/seqscratch09/dsth/BedPatch/1KB_ConsolidatedBed_OrionPurge/") && die;
 system("mv ${base}1kbBlocksIds.txt /nfs/seqscratch09/dsth/BedPatch/1KB_ConsolidatedBed_OrionPurge/") && die;
 # seems there's a new table!?!
-print qq{e.g. insert into blocks_by_kit values ('IDTERPv1mtDNA','/nfs/seqscratch09/dsth/BedPatch/1KB_ConsolidatedBed_OrionPurge/IDTERPv1mtDNA_IDTERPv1mtDNA_all_1kbBlocksIds.txt'\n};
-&ARGH::mq("insert into blocks_by_kit values ('$n','/nfs/seqscratch09/dsth/BedPatch/1KB_ConsolidatedBed_OrionPurge/${base}1kbBlocksIds.txt");
+# print qq{e.g. insert into blocks_by_kit values ('IDTERPv1mtDNA','/nfs/seqscratch09/dsth/BedPatch/1KB_ConsolidatedBed_OrionPurge/IDTERPv1mtDNA_IDTERPv1mtDNA_all_1kbBlocksIds.txt'\n};
+&ARGH::mq("replace into blocks_by_kit values ('$n','/nfs/seqscratch09/dsth/BedPatch/1KB_ConsolidatedBed_OrionPurge/${base}1kbBlocksIds.txt')");
 print qq{bye\n};
 

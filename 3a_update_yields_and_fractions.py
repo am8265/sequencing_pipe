@@ -110,12 +110,12 @@ def update_per_rg_aka_lane_table_yield_and_fractions_by_flowcell(config,machine,
                     LnFrac = 0
                     SeqType = ''
                 email_highlight_pos = check_clustden_lnfrac(config,chgvid,
-                    LnFrac,LnFracAct,fcillumid,lanenum,database)
+                    LnFrac,LnFracAct,fcillumid,lanenum,database,SeqType)
                 sample_info[lanenum].append([chgvid,SeqType,LnFrac,LnFracAct,email_highlight_pos])
     makeHTMLEmail(config,unaligned_dir,machine,fcillumid,sample_info,test,database)
     return fc_yield,sample_info
 
-def check_clustden_lnfrac(config,chgvid,LnFrac,LnFractionAct,fcillumid,LaneNum,database):
+def check_clustden_lnfrac(config,chgvid,LnFrac,LnFractionAct,fcillumid,LaneNum,database,SeqType):
     chemver = run_query(GET_FLOWCELL_CHEMVER.format(fcillumid=fcillumid),database)[0]['CHEMVER']
     query = GET_CLUSTER_DENSITY_FOR_LANE.format(fcillumid=fcillumid,lanenum=LaneNum)
     cluster_density = run_query(query,database)[0]['CLUSTDEN']
@@ -123,7 +123,7 @@ def check_clustden_lnfrac(config,chgvid,LnFrac,LnFractionAct,fcillumid,LaneNum,d
     if chgvid == 'Undetermined':
         if float(LnFractionAct) > 3:
             email_highlight_pos.append(10)
-    else:
+    elif SeqType.upper() != 'EXOME':
         LnFracDiff = float(LnFractionAct)/(float(LnFrac) * 100)
         #print(LnFracDiff,LnFractionAct,LnFrac)
         if float(LnFracDiff) > 1.15 or float(LnFracDiff) < 0.85:
@@ -132,7 +132,8 @@ def check_clustden_lnfrac(config,chgvid,LnFrac,LnFractionAct,fcillumid,LaneNum,d
             email_highlight_pos.append(4)
         elif float(cluster_density) < float(config.get(chemver,'low_cluster_den_threshold')):
             email_highlight_pos.append(4)
-
+    elif SeqType.upper() == 'EXOME' and  float(LnFractionAct) < 0.5:
+        email_highlight_pos.append(3)
     return email_highlight_pos
 
 def check_db_status_or_exit(fcillumid,database):
@@ -253,9 +254,6 @@ def makeHTMLEmail(config,unaligned_dir,machine,fcillumid,sample_info,test,databa
                 email.write('<tr><td colspan="7" align="center">&nbsp</td></tr>\n')
             else:
                 kapaPicoPoolName = getKapaPicoPoolName(fcillumid,samp[0],database)
-                #pool_query = GET_POOLID_FROM_DBID.format(DBID=kapaPicoDBID[0]['DBID'])
-                #poolName = run_query(pool_query,database)
-                #poolName= poolName[0]['CHGVID']
                 logging.info('%s\t%s\t%s\t%s\t%s\t%s\t%s' %
                         (samp[0],samp[1],samp[2],samp[3],cluster_density[0]['CLUSTDEN'],
                          kapaPicoPoolName[0]['PoolName'],kapaPicoPoolName[0]['KAPA_CONC']))
@@ -305,9 +303,9 @@ def set_bcl_complete(fcillumid,database):
             run_query("UPDATE prepT p SET STATUS='BCL Complete',status_time=unix_timestamp() WHERE prepID={} AND STATUS='BCL Started'".format(prepID['prepID']),database) 
     #insert into statusT
     sample_status_insert_query = ("INSERT INTO statusT "
-                                  "(CHGVID,STATUS_TIME,STATUS,DBID,PREPID,USERID,POOLID,SEQID,PLATENAME) "
+                                  "(CHGVID,STATUS_TIME,STATUS,sample_id,PREPID,USERID,POOLID,SEQID,PLATENAME) "
                                   "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),"
-                                  "'BCL Complete',pt.DBID,pt.prepID,{},0,0,' ' "
+                                  "'BCL Complete',pt.sample_id,pt.prepID,{},0,0,' ' "
                                   "FROM Flowcell f "
                                   "JOIN Lane l ON l.FCID=f.FCID "
                                   "JOIN prepT pt ON pt.prepID=l.prepID "

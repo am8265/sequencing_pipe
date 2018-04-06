@@ -133,3 +133,5 @@ map-orientations = 0 	# 0=Normal, 1=No Rev Comp, 2=No Forward  (paired end requi
     conf_file.write(final_config)
     conf_file.close()
 
+
+

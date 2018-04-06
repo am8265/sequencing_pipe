@@ -97,8 +97,10 @@ def get_connection(database):
 def is_external_or_legacy_sample(prepid,database):
     """In cases of legecy samples (prepid < 22000) or external samples. There are no cases of legecy samples with
     multiple preps"""
-    if prepid < 22000:
-        print("Sample has a prepID < 22000")
+    # if prepid < 22000:
+        # print("Sample has a prepID < 22000")
+    if prepid < 50000:
+        print("Sample has a prepID < 50000")
         return True
 
     else:
@@ -264,7 +266,7 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
                     JOIN Flowcell f ON f.FCID=l.FCID \
                     JOIN prepT pt ON l.prepID=pt.prepID \
                     JOIN samplesTOrun s2r ON s2r.seqID=l.seqID \
-                    JOIN SampleT s ON s.DBID=pt.DBID \
+                    JOIN SampleT s ON s.sample_id=pt.sample_id \
                 WHERE \
                     l.prepid='{1}' AND \
                     f.FCillumID='{2}' AND \

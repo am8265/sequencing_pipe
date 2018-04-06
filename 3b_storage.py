@@ -404,8 +404,8 @@ def update_status_to_storage(WHAT,verbose,fcillumid,noStatus,database):
     #Status update for entire flowcell
     if noStatus == False:
         query = ("INSERT INTO statusT "
-                "(CHGVID,STATUS_TIME,STATUS,DBID,PREPID,USERID,POOLID,SEQID,PLATENAME) "
-                "SELECT DISTINCT(pt.CHGVID),UNIX_TIMESTAMP(),'{}',pt.DBID,"
+                "(CHGVID,STATUS_TIME,STATUS,sample_id,PREPID,USERID,POOLID,SEQID,PLATENAME) "
+                "SELECT DISTINCT(pt.CHGVID),UNIX_TIMESTAMP(),'{}',pt.sample_id,"
                 "pt.PREPID,'{}',0,0,' ' "
                 "FROM Flowcell f "
                 "JOIN Lane l ON l.FCID=f.FCID "

@@ -129,9 +129,9 @@ def set_flowcell_samples_and_flowcell_status_to_bclstarted(database,fcillumid,ve
     logger = logging.getLogger(__name__)
     userID = get_user_id(database)
     sample_status_insert_query = ("INSERT INTO statusT "
-                                  "(CHGVID,STATUS_TIME,STATUS,DBID,PREPID,USERID,POOLID,SEQID,PLATENAME) "
+                                  "(CHGVID,STATUS_TIME,STATUS,sample_id,PREPID,USERID,POOLID,SEQID,PLATENAME) "
                                   "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),"
-                                  "'BCL Started',pt.DBID,pt.prepID,{},0,0,' ' "
+                                  "'BCL Started',pt.sample_id,pt.prepID,{},0,0,' ' "
                                   "FROM Flowcell f "
                                   "JOIN Lane l ON l.FCID=f.FCID "
                                   "JOIN prepT pt ON pt.prepID=l.prepID "

@@ -12,6 +12,7 @@ import glob
 #checjs that all samples on flowcell are archived to seqsata location. Also rsync with --remvoe-source so fastqs from scratch are removed
 #code assumes max of 8 lanes
 
+
 def setup_logging(logloc):
     time_stamp='{date:%Y%m%d%H%M%S}'.format( date=datetime.now() )
     logging.basicConfig(level=logging.INFO,
@@ -46,6 +47,19 @@ def run_query_mml(query,connection):
         sys.exit("Error")
 
 def main():
+    #optional input file of flowcells to ignore deletion from
+    ignore_flowcells = []
+    if len(sys.argv) == 2:
+        if os.path.exists(sys.argv[1]):
+            with open(sys.argv[1],'r') as f:
+                for line in f:
+                    ignore_flowcells.append(line.strip())
+        else:
+            raise Exception("file {} doesnt exist".format(sys.argv[1]))
+    elif len(sys.argv) == 1 :
+        pass
+    else:
+        raise Exception("too many input args")
     #get loc from config file
     config = configparser.ConfigParser()
     config.read('{}/config.ini'.format(os.path.dirname(os.path.realpath(__file__))))
@@ -60,9 +74,9 @@ def main():
         print(flo_name)
         setup_logging(logs_dir)
         logger = logging.getLogger(flo_name)
-        #if flo_name in ignore_flowcells:
-        #    logger.info("WARNING!!!!!!! ignoring this flowcell as instructed".format(flo_name))
-        #    continue
+        if flo_name in ignore_flowcells:
+            logger.info("WARNING!!!!!!! ignoring this flowcell as instructed".format(flo_name))
+            continue
         if len(glob.glob('{}/BCL/{}/*/*.fastq.gz'.format(loc,flo))) != 0:
             raise Exception("too many fastqs in {}/BCL/{}".format(loc,flo))
         out = subprocess_exec('find {}/BCL/{}/ -iname "*.gz"'.format(loc,flo))
@@ -94,27 +108,27 @@ def main():
 def clean_unaligned_dir(loc,flo,seqsataloc):
     flo_name = flo.split('_')[2]
     logger = logging.getLogger(__name__)
-    cmd="rm -v {0}/BCL/{1}/EmailSent.txt {0}/BCL/{0}/bcl_complete {0}/BCL/{1}/nohup.sge {0}/BCL/{1}/{2}_{3}_BCL.sh".format(loc,flo,flo_name,seqsataloc[1])
-    print(cmd)
-    #out = subprocess_exec(cmd)
+    cmd="rm -v {0}/BCL/{1}/EmailSent.txt {0}/BCL/{1}/bcl_complete {0}/BCL/{1}/nohup.sge {0}/BCL/{1}/{2}_{3}_BCL.sh".format(loc,flo,flo_name,seqsataloc[1])
+    #print(cmd)
+    out = subprocess_exec(cmd)
     if os.path.exists('{}/BCL/{}/StorageComplete'.format(loc,flo)):
         cmd="rm -v {}/BCL/{}/StorageComplete".format(loc,flo)
-        print(cmd)
-        #out = subprocess_exec(cmd)
+        #print(cmd)
+        out = subprocess_exec(cmd)
     cmd="rm -v {}/BCL/{}/Undetermined_S0_L00?_R?_001.fastq.gz".format(loc,flo)
-    print(cmd)
-    #out = subprocess_exec(cmd)
+    #print(cmd)
+    out = subprocess_exec(cmd)
     rm_undetermined=['{}/BCL/{}/Reports/html/{}/default/Undetermined/all/laneBarcode.html'.format(loc,flo,flo_name),
             '{}/BCL/{}/Reports/html/{}/default/Undetermined/all/lane.html'.format(loc,flo,flo_name),
             '{}/BCL/{}/Reports/html/{}/default/Undetermined/unknown/laneBarcode.html'.format(loc,flo,flo_name),
             '{}/BCL/{}/Reports/html/{}/default/Undetermined/unknown/lane.html'.format(loc,flo,flo_name)]
     cmd="rm -v {}".format(' '.join(rm_undetermined))
-    print(cmd)
-    #out = subprocess_exec(cmd)
+    #print(cmd)
+    out = subprocess_exec(cmd)
     html_loc='{}/BCL/{}/Reports/html'.format(loc,flo)
     cmd="rm -v {0}/Report.css {0}/index.html {0}/tree.html".format(html_loc)
-    print(cmd)
-    #out = subprocess_exec(cmd)
+    #print(cmd)
+    out = subprocess_exec(cmd)
     if os.path.exists("/nfs/{}/summary/Stats".format(seqsataloc[0])) is False:
         out = subprocess_exec("mkdir /nfs/{}/summary/Stats".format(seqsataloc[0]))
     stat_loc='/nfs/{}/summary/Stats/{}_{}_stats.zip'.format(seqsataloc[0],flo_name,seqsataloc[1])
@@ -128,8 +142,8 @@ def clean_unaligned_dir(loc,flo,seqsataloc):
     demux_summary = [ '{}/DemuxSummaryF1L{}.txt'.format(scratch_stats,i) for i in range(1,9) if os.path.exists('{}/DemuxSummaryF1L{}.txt'.format(scratch_stats,i))]
     files_to_zip = ' '.join(files_to_zip + fastq_summary + demux_summary)
     cmd="zip -vmT {} {}".format(stat_loc,files_to_zip)
-    print(cmd)
-    #out = subprocess_exec(cmd)
+    #print(cmd)
+    out = subprocess_exec(cmd)
     if os.path.exists("/nfs/{}/summary/Reports".format(seqsataloc[0])) is False:
         out = subprocess_exec("mkdir /nfs/{}/summary/Reports".format(seqsataloc[0]))
     
@@ -144,12 +158,12 @@ def clean_unaligned_dir(loc,flo,seqsataloc):
     files_to_zip_rep.extend(['{}/laneBarcode.html'.format(rep_all),'{}/lane.html'.format(rep_all)])
     files_to_zip_rep = ' '.join(files_to_zip_rep)
     cmd="zip -vmT /nfs/{0}/summary/Reports/{1}_{2}_all_html.zip {3}".format(seqsataloc[0],flo_name,seqsataloc[1],rep_all)
-    print(cmd)
-    #out = subprocess_exec(cmd)
+    #print(cmd)
+    out = subprocess_exec(cmd)
 
     cmd="find {}/BCL/{} -type d -empty -print -delete".format(loc,flo)
-    print(cmd)
-    #out = subprocess_exec(cmd)
+    #print(cmd)
+    out = subprocess_exec(cmd)
     return
 
 def check_flowcell_db(flo_name,connection):
@@ -161,9 +175,9 @@ def check_flowcell_db(flo_name,connection):
     if numrows != 1:
         raise Exception("error with {}".format(cmd))
     if None in flo_info[0]:
-        raise Exception("Flowcell table not updated")
+        raise Exception("Flowcell table not updated {}".format(flo_name))
     if '0000-00-00 00:00:00' in flo_info[2:6] :
-        raise Exception("Date not updated")
+        raise Exception("Date not updated for {}".format(flo_name))
     if flo_info[0][8] != 1 or flo_info[0][9] != 0 or flo_info[0][10] != 1:
         raise Exception("flowcell {} didnt finish according to database".format(fcillumid))
 
@@ -210,11 +224,11 @@ def check_SAV(flo_name,seqsataloc,raw_loc):
     sav_loc = '/nfs/{}/summary/SAV/{}_{}_SAV.tar.gz'.format(seqsataloc[0],flo_name,seqsataloc[1])
     logger.info(sav_loc)
     if os.path.exists(sav_loc) is False or os.path.getsize(sav_loc) < 104857:
-        if len(glob.glob('{}/*_{}_*_{}{}'.format(raw_loc,seqsataloc[1][0:-1],seqsataloc[-1],flo_name))) != 0:
+        if len(glob.glob('{}/*_{}_*_{}{}'.format(raw_loc,seqsataloc[1][0:-1],seqsataloc[1][-1],flo_name))) != 0:
             #there is a seqscratch1 to get SAV manually from
             raise Exception("SAV file /nfs/{}/summary/SAV/{}_{}_SAV.tar.gz not proper".format(seqsataloc[0],flo_name,seqsataloc[1]))
         else:
-            logger.info("WARNING!!!!! CANNOT CREATE SAV FOR THIS FLOWCELL SINCE {}/*_{}_*_{}{}) IS DELETED".format(raw_loc,seqsataloc[1][0:-1],seqsataloc[-1],flo_name))
+            logger.info("WARNING!!!!! CANNOT CREATE SAV FOR THIS FLOWCELL SINCE {}/*_{}_*_{}{}) IS DELETED".format(raw_loc,seqsataloc[1][0:-1],seqsataloc[1][-1],flo_name))
     return
 
 def subprocess_exec(cmd):
@@ -223,18 +237,20 @@ def subprocess_exec(cmd):
     logger.info(cmd)
     out,err = p1.communicate()
     logger.info(out.decode().strip())
-    if err.decode() != '':
+    if 'rsync' not in cmd and err.decode() != '':
         logger.info(err.decode())
         raise Exception("problem with {} out:{}, err:{}".format(cmd,out.decode().strip(),err.decode().strip()))
+    if 'rsync' in cmd and err.decode() != '':
+        logger.info(err.decode())
     return out.decode().strip().split('\n')
 
 #it seems sometimes the same fastq name is generated twice by the DB due to DB data problem. Hence the need for set of all fastq names.
 def check_fastqs(flo,connection,loc):
     flo_name=flo.split('_')[2]
     logger = logging.getLogger(__name__)
-    cmd=("SELECT distinct upper(p.sample_type), p.chgvid,lanenum,seqsataloc,status,rg_status,step_status,p.prepid,failR1,failR2,p_prepid,l.fcid,l.seqid,l.dbid,l.poolid,s.GAFbin,p.adapterLet,p.is_released "
+    cmd=("SELECT distinct upper(p.sample_type), p.chgvid,lanenum,seqsataloc,status,rg_status,step_status,p.prepid,failR1,failR2,p_prepid,l.fcid,l.seqid,l.sample_id,l.poolid,s.GAFbin,p.adapterLet,p.is_released "
          "FROM prepT p, Lane l, Flowcell f, SampleT s "
-         "WHERE f.fcid=l.fcid and l.prepid=p.prepid and f.fcillumid='{}' and s.dbid=p.dbid").format(flo_name) 
+         "WHERE f.fcid=l.fcid and l.prepid=p.prepid and f.fcillumid='{}' and s.sample_id=p.sample_id").format(flo_name) 
     logger.info(cmd)
     fastq_names = set()
     chgs,num_chg = run_query_mml(cmd,connection)
@@ -257,7 +273,7 @@ def check_fastqs(flo,connection,loc):
         if len(f1) != 1 or len(f2) != 1:
             raise Exception("incorrect number of fastqs in {}/{}/{}/{}/{}_".format(loc,item[0],item[1],flo_name,item[1]))
         f1_a = glob.glob('/nfs/{}/{}/{}/{}/{}_S*_L00{}_R1_001.fastq.gz'.format(item[3],item[0],item[1],flo_name,item[1],item[2]))
-        f2_a =  glob.glob('/nfs/{}/{}/{}/{}/{}_S*_L00{}_R1_001.fastq.gz'.format(item[3],item[0],item[1],flo_name,item[1],item[2]))
+        f2_a =  glob.glob('/nfs/{}/{}/{}/{}/{}_S*_L00{}_R2_001.fastq.gz'.format(item[3],item[0],item[1],flo_name,item[1],item[2]))
         #print(f1_a,f1_b)
         if len(f1_a) != 1 or len(f2_a) != 1:
             raise Exception("incorrect number of fastqs in /nfs/{}/{}/{}/{}/{}_".format(item[3],item[0],item[1],flo_name,item[1]))
@@ -267,40 +283,36 @@ def check_fastqs(flo,connection,loc):
         #print(f1[0],f1_a[0],f2[0],f2_a[0])
         if item[8] is not None or item[9] is not None:
             raise Exception("Flowcell {} failed in lane {}".format(flo_name,item[2])) 
-        #if item[1] in num_fastqs_a:
-        #    num_fastqs_a[item[1]] += 
-
-        """
+        
         #add this in for final run
         out = subprocess_exec("gzip -t {} {}".format(f1[0],f2[0]))
-        """
 
         if item[4] in ['Archiving','BCL Started','BCL Complete','BCL']:
             cmd="UPDATE prepT set status='Storage',status_time=unix_timestamp() where prepid='{}'".format(item[7])
             logger.info("current status is {}. cmd is {}".format(item[4],cmd))
-            """
+            
             _,aff_rows = run_query_mml(cmd,connection)
             if aff_rows != 1:
                 raise Exception("{} returned {} rows".format(cmd,aff_rows))
-            """
-            cmd2=("INSERT INTO statusT (CHGVID,STATUS_TIME,STATUS,DBID,PREPID,USERID,POOLID,SEQID,PLATENAME) "
-                  "SELECT DISTINCT(pt.CHGVID),UNIX_TIMESTAMP(),'Storage',pt.DBID,pt.PREPID,'16940058',0,0,' ' "
+            
+            cmd2=("INSERT INTO statusT (CHGVID,STATUS_TIME,STATUS,sample_id,PREPID,USERID,POOLID,SEQID,PLATENAME) "
+                  "SELECT DISTINCT(pt.CHGVID),UNIX_TIMESTAMP(),'Storage',pt.sample_id,pt.PREPID,'16940058',0,0,' ' "
                   "FROM prepT pt WHERE prepid='{}'").format(item[7])
             logger.info(cmd2)
-            """
+            
             _,aff_rows = run_query_mml(cmd2,connection)
             if aff_rows != 1:
                 raise Exception("{} returned {} rows".format(cmd2,aff_rows))
-            """
+            
         if item[5] in ['sequencing','fastq_ready'] or item[6] != 'in storage':
-            cmd=("UPDATE Lane set rg_status='fastq_copied', step_status='in_storage' where "
-                "prepid='{}' and lanenum='{}' and fcid='{}' and seqid='{}' and dbid='{}' and poolid='{}'").format(item[7],item[2],item[11],item[12],item[13],item[14])
+            cmd=("UPDATE Lane set rg_status='fastq_copied', step_status='in storage' where "
+                "prepid='{}' and lanenum='{}' and fcid='{}' and seqid='{}' and sample_id='{}' and poolid='{}'").format(item[7],item[2],item[11],item[12],item[13],item[14])
             logger.info("current status is ({},{}). cmd is {}".format(item[5],item[6],cmd))
-            """
+            
             _,aff_rows = run_query_mml(cmd,connection)
             if aff_rows != 1:
                 raise Exception("{} updated too many {} rows".format(cmd,aff_rows))
-            """
+            
         
         if item[1] not in num_fastqs_s:
             num_fastqs_s[item[1]] = len(glob.glob('{}/{}/{}/{}/*.fastq.gz'.format(loc,item[0],item[1],flo_name)))
@@ -315,8 +327,8 @@ def check_fastqs(flo,connection,loc):
             
             if os.path.exists('{}/laneBarcode.html'.format(path_scratch)) and os.path.exists('{}/lane.html'.format(path_scratch)):
                 cmd="zip -vmT {0} {1}/laneBarcode.html {1}/lane.html".format(path_dest,path_scratch)
-                print(cmd)
-                #out = subprocess_exec(cmd)
+                #print(cmd)
+                out = subprocess_exec(cmd)
             else:
                 raise Exception("laneBarcode / lane file not found in {}".format(path_scratch))
 
@@ -327,13 +339,13 @@ def check_fastqs(flo,connection,loc):
             
             if (os.path.exists(path_scratch) and os.path.exists(path_ar_2) and os.path.exists(path_ar_1) and os.path.getsize(path_ar_2) > 100 
                 and os.path.getsize(path_scratch) == os.path.getsize(path_ar_2) and os.path.getsize(path_ar_2) == os.path.getsize(path_ar_1)):
-                    path_scratch_lane = '{}/BCL/{}/Reports/html/{}/{}/{}/{}/lane.html'.format(loc,flo,flo_name,gaf,item[1],item[16])
-                    cmd="rsync -azpvv --remove-source-files --dry-run -L --no-owner --no-perms {} {}".format(path_scratch,path_ar_2)
+                    path_scratch_lane = '{}/BCL/{}/Reports/html/{}/{}/{}/all/lane.html'.format(loc,flo,flo_name,gaf,item[1])
+                    cmd="rsync -azpvv --remove-source-files -L --no-owner --no-perms {} {}".format(path_scratch,path_ar_2)
                     out = subprocess_exec(cmd)
-                    cmd="rsync -azpvv --remove-source-files --dry-run -L --no-owner --no-perms {} {}".format(path_ar_1,path_ar_2)
+                    cmd="rsync -azpvv --remove-source-files -L --no-owner --no-perms {} {}".format(path_ar_1,path_ar_2)
                     out = subprocess_exec(cmd)
                     if os.path.exists(path_scratch_lane):
-                        cmd="rsync -azpvv --remove-source-files --dry-run -L --no-owner --no-perms {} {}".format(path_scratch_lane,path_ar_2_lane)
+                        cmd="rsync -azpvv --remove-source-files -L --no-owner --no-perms {} {}".format(path_scratch_lane,path_ar_2_lane)
                         out = subprocess_exec(cmd)
                     else:
                         raise Exception("{} does not exist".format(path_scratch_lane))
@@ -361,8 +373,8 @@ def check_fastqs(flo,connection,loc):
         else:
             pass
         
-        cmd="rsync -azpvv --remove-source-files --dry-run -L --no-owner --no-perms {} {}".format(f1[0],f1_a[0])
-        cmd2="rsync -azpvv --remove-source-files --dry-run -L --no-owner --no-perms {} {}".format(f2[0],f2_a[0])
+        cmd="rsync -azpvv --remove-source-files -L --no-owner --no-perms {} {}".format(f1[0],f1_a[0])
+        cmd2="rsync -azpvv --remove-source-files -L --no-owner --no-perms {} {}".format(f2[0],f2_a[0])
         out = subprocess_exec(cmd)
         out = subprocess_exec(cmd2)
         num_fastqs_rsynced += 2
@@ -373,9 +385,9 @@ def check_fastqs(flo,connection,loc):
     for item in num_fastqs_s:
         if  num_fastqs_a[item][0] != num_fastqs_db[item]:
             logger.info("WARNING!!! incorrect number of fastqs archive:{} according to DB:{} for {}. Problem with DB data or with fastqs in folders?".format(num_fastqs_a[item][0],num_fastqs_db[item],item))
-        cmd="rmdir -v {}/{}/{}/{}".format(loc,num_fastqs_a[item][1],item,flo_name)
-        print(cmd)
-        #out = subprocess_exec(cmd)
+        cmd="rmdir -v --ignore-fail-on-non-empty {}/{}/{}/{}".format(loc,num_fastqs_a[item][1],item,flo_name)
+        #print(cmd)
+        out = subprocess_exec(cmd)
 
     logger.info("{} fastqs were rsynced out of {}".format(num_fastqs_rsynced,len(fastq_names))) 
     logger.info('\n'.join(fastq_names))    

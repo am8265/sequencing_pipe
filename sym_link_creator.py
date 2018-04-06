@@ -74,7 +74,7 @@ def parse_arguments():
     return args
 
 def check_for_fastqs(sample_path):
-    fastqs = glob('{}/raw/*fastq')
+    fastqs = glob('{}/raw/*fastq'.format(sample_path))
     if fastqs != []:
         raise Exception("Fastqs not gzip!")
 
