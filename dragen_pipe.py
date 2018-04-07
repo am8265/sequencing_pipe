@@ -167,7 +167,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
                     print('bam= '+bam_file)
                     run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0]['prepid'],prepid[0]['sample_id'])
 
-                    exit(1);
+                    # exit(1);
 
                 else:
 
