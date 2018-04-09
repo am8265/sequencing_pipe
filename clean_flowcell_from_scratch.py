@@ -102,7 +102,7 @@ def main():
         else:
             logger.info("Completed work on flowcell {}".format(flo_name))
             logger.info("-----------------------------------------------------------------------")
-        logging.shutdown()
+        #logging.shutdown()
     connection.close()
 
 def clean_unaligned_dir(loc,flo,seqsataloc):

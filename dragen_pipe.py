@@ -94,7 +94,8 @@ def emailit(rarp,arse):
     emailMsg['Subject'] = rarp
     emailMsg['From'] = fromAddr
     # to=['dsth@cantab.net','dh2880@cumc.columbia.edu']
-    to=['dsth@cantab.net','dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
+    to=['dh2880@cumc.columbia.edu']
+    # to=['dsth@cantab.net','dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
     emailMsg['To'] = ', '.join(to)
     body='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
     body +='"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">'
@@ -641,13 +642,6 @@ def get_next_sample(pid,database,debug):
         # wtf?!?
         return sample['sample_name'], sample['sample_type'], sample['pseudo_prepid'], sample['capture_kit'], int(sample['ticket_num']),sample['mapping_input']
 
-def email_failure(stuff):
-    emailAddresses = '{}@cumc.columbia.edu'.format(get_user())
-    emailCmd = ('echo "Dragen Pipe failure" | mail -s "Dragen Pipe Failure" {} <<< {}'
-               ).format(emailAddresses,stuff)
-    print(emailCmd)
-    os.system(emailCmd)
-
 def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid,sample_id):
 
     print('{}= {}'.format('prepid',prepid))
@@ -718,7 +712,7 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
     dragen_stderr.close()
 
     if rc != 0:
-        raise Exception("Dragen alignment did not complete successfully (check log)")
+        raise Exception("Dragen alignment did not complete successfully : {} ".format(dragen_cmd))
     try:
         subprocess.call(['chmod','-R','775','{}'.format(output_dir)])
     except:
@@ -726,7 +720,7 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
 
     qualified_bams_found = glob('{}/*bam'.format(output_dir))
     if len(qualified_bams_found) != 1:
-        raise Exception("this is wrong")
+        raise Exception("this is wrong : " + qualified_bams_found)
 
     print("Performing dragen_sample_metadata update")
     run_query("UPDATE dragen_sample_metadata set seqscratch_drive='{}',is_merged=0,component_bams='{}' WHERE pseudo_prepid={}".format(

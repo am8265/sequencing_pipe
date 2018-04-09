@@ -5,7 +5,6 @@ import argparse
 import logging
 import os
 from datetime import datetime
-from interop import py_interop_run_metrics, py_interop_run, py_interop_summary
 from utilities import *
 import warnings
 
