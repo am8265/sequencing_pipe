@@ -38,7 +38,7 @@ def get_prepid(database,sample):
     return prepids
 
 def get_sample_id(database,sample):
-    query = """SELECT sample_id FROM prepT WHERE p_prepid={}
+    query = """SELECT sample_id FROM prepT JOIN Experiment ON prepT.experiment_id=Experiment.id WHERE p_prepid={}
             """.format(sample['pseudo_prepid'])
     results = run_query(query,database)
     check_number_query_results(results,1)

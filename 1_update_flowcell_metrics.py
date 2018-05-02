@@ -107,7 +107,7 @@ def totalLanesCheck(sss_lanes,fcillumid):
 def update_per_sample_illumina_metrics_fraction(database,fcillumid,run_folder,verbose):
     logger = logging.getLogger(__name__)
     logger.debug('Running update_per_sample_illumina_metrics_fraction')
-    sql = ("SELECT l.sample_id,CHGVID,l.FCID,l.lanenum,FCillumID "
+    sql = ("SELECT l.prepid,CHGVID,l.FCID,l.lanenum,FCillumID "
         "FROM Lane l "
         "JOIN Flowcell f on l.FCID=f.FCID "
         "JOIN prepT p on p.prepID=l.prepID "
@@ -139,8 +139,8 @@ def update_per_sample_illumina_metrics_fraction(database,fcillumid,run_folder,ve
 
         sql = ("UPDATE Lane l "
             "SET LnFraction={0} "
-            "WHERE FCID={1} and LaneNum={2} and sample_id={3}"
-            ).format(LnFraction,samp['FCID'],samp['lanenum'],samp['sample_id'])
+            "WHERE FCID={1} and LaneNum={2} and prepid={3}"
+            ).format(LnFraction,samp['FCID'],samp['lanenum'],samp['prepid'])
 
         logger.info(sql)
         if verbose == True:

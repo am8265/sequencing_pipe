@@ -189,6 +189,7 @@ def archiveFastqs(offset,rerun,config,archive_tuples_list,UnalignedLoc,fcillumid
                 if sz_scratch_fastq == 0:
                     raise Exception("{} is empty. What's happening here?".format(scratch_fastq))
                 scratch_total_fastq_size += sz_scratch_fastq
+            print(scratch_fastq)
     if offset == 0 and rerun is False:
         check_orig_dest_transfer('scratch',bcl_total_num_fastq,bcl_total_fastq_size,scratch_total_num_fastq,scratch_total_fastq_size)
     if offset == 1:
@@ -404,9 +405,9 @@ def update_status_to_storage(WHAT,verbose,fcillumid,noStatus,database):
     #Status update for entire flowcell
     if noStatus == False:
         query = ("INSERT INTO statusT "
-                "(CHGVID,STATUS_TIME,STATUS,sample_id,PREPID,USERID,POOLID,SEQID,PLATENAME) "
-                "SELECT DISTINCT(pt.CHGVID),UNIX_TIMESTAMP(),'{}',pt.sample_id,"
-                "pt.PREPID,'{}',0,0,' ' "
+                "(STATUS_TIME,STATUS,PREPID,USERID,POOLID,SEQID) "
+                "SELECT DISTINCT UNIX_TIMESTAMP(),'{}',"
+                "pt.PREPID,'{}',0,0 "
                 "FROM Flowcell f "
                 "JOIN Lane l ON l.FCID=f.FCID "
                 "JOIN prepT pt ON pt.prepID=l.prepID "

@@ -40,13 +40,13 @@ def run_bcl2fastq(args,run_info_dict,config,database,verbose):
     bcl2fastq_cmd = build_bcl2fastq_cmd(args,fcillumid,bcl2fastq_loc,sss_loc,bcl_dir,out_dir,database)
     print(bcl2fastq_cmd)
     logger.info(bcl2fastq_cmd)
-    try:
-        os.mkdir(out_dir,0o770)
-    except OSError as exc:
-        if exc.errno != errno.EEXIST:
-            raise Exception("error creating {}".format(out_dir))
-        else:
-            warnings.warn("directory {} already exists".format(out_dir))
+    if os.path.exists(out_dir):
+        warnings.warn("directory {} already exists".format(out_dir))
+    else:    
+        try:
+            os.mkdir(out_dir,0o770)
+        except:
+            print("error creating {}".format(out_dir))
 
     #Submit bcl job to the cluster
     with open(script_loc,'w') as bcl_script:
@@ -128,9 +128,9 @@ def set_flowcell_samples_and_flowcell_status_to_bclstarted(database,fcillumid,ve
     logger = logging.getLogger(__name__)
     userID = get_user_id(database)
     sample_status_insert_query = ("INSERT INTO statusT "
-                                  "(CHGVID,STATUS_TIME,STATUS,sample_id,PREPID,USERID,POOLID,SEQID,PLATENAME) "
-                                  "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),"
-                                  "'BCL Started',pt.sample_id,pt.prepID,{},0,0,' ' "
+                                  "(STATUS_TIME,STATUS,PREPID,USERID,POOLID,SEQID) "
+                                  "SELECT DISTINCT unix_timestamp(),"
+                                  "'BCL Started',pt.prepID,{},0,0 "
                                   "FROM Flowcell f "
                                   "JOIN Lane l ON l.FCID=f.FCID "
                                   "JOIN prepT pt ON pt.prepID=l.prepID "

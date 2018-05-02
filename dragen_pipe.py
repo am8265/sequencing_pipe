@@ -94,8 +94,8 @@ def emailit(rarp,arse):
     emailMsg['Subject'] = rarp
     emailMsg['From'] = fromAddr
     # to=['dsth@cantab.net','dh2880@cumc.columbia.edu']
-    to=['dh2880@cumc.columbia.edu']
-    # to=['dsth@cantab.net','dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
+    # to=['dh2880@cumc.columbia.edu']
+    to=['dsth@cantab.net','dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
     emailMsg['To'] = ', '.join(to)
     body='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
     body +='"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">'
@@ -148,7 +148,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
 
                 print("running pp= {}".format(pseudo_prepid))
 
-                prepid = run_query("select prepid,sample_id from prepT where p_prepid = {}".format(pseudo_prepid),database)
+                prepid = run_query("select prepid from prepT where p_prepid = {}".format(pseudo_prepid),database)
                 print('have prepid = {}'.format(prepid))
                 if len(prepid)!=1:
                     raise ValueError("we haven't implemented multi-prep handling yet - should really ONLY do this at merging and map rg direct!?!")
@@ -166,7 +166,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
                         raise ValueError("not doing this yet!?!")
                     bam_file='{}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
                     print('bam= '+bam_file)
-                    run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0]['prepid'],prepid[0]['sample_id'])
+                    run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0]['prepid'])
 
                     # exit(1);
 
@@ -304,6 +304,10 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
 
             print("> RG info: lane {}, fcillumd {}, prepid {}".format(rg_lane_num,rg_fcillumid,rg_prepid))
 
+            ####################################### NOW: HERE WE SIMPLY CHECK FOR data->'$.bam' IN WHICH CASE JUST SYM LINK THE SCRATCH LOCATION OF THE BAM
+            ####################################### NOW: HERE WE SIMPLY CHECK FOR data->'$.bam' IN WHICH CASE JUST SYM LINK THE SCRATCH LOCATION OF THE BAM
+            ####################################### NOW: HERE WE SIMPLY CHECK FOR data->'$.bam' IN WHICH CASE JUST SYM LINK THE SCRATCH LOCATION OF THE BAM
+
             setup_first_read_RG(sample,rg_lane_num,rg_fcillumid,rg_prepid,debug)
             set_seqtime(rg_fcillumid,sample,database)
             create_align_config(sample,rg_lane_num,rg_fcillumid,rg_prepid)
@@ -406,12 +410,10 @@ def update_status(sample,status,database):
 
     userID = get_user_id(database)
     statusT_insert = """INSERT INTO statusT
-                        (CHGVID,STATUS,STATUS_TIME,sample_id,PREPID,USERID,POOLID,SEQID,PLATENAME)
-                        VALUES ('{sample_name}','{status}',unix_timestamp(),
-                                {sample_id},{prepid},{userID},0,0,'')
+                        (STATUS,STATUS_TIME,PREPID,USERID,POOLID,SEQID)
+                        VALUES ('{status}',unix_timestamp(),{prepid},{userID},0,0)
                      """.format(userID=userID,status=status,
                                 prepid=sample.metadata['prepid'][0],
-                                sample_id=sample.metadata['sample_id'],
                                 sample_name=sample.metadata['sample_name'])
     run_query(statusT_insert,database)
 
@@ -597,6 +599,10 @@ def get_reads(sample,read_number,debug):
 
 def get_next_sample(pid,database,debug):
 
+    ####################################### NOW: HERE WE SIMPLY INVOKE THE EXTERNAL SE ALIGNMENT WRAPPER
+    ####################################### NOW: HERE WE SIMPLY INVOKE THE EXTERNAL SE ALIGNMENT WRAPPER
+    ####################################### NOW: HERE WE SIMPLY INVOKE THE EXTERNAL SE ALIGNMENT WRAPPER
+
     q="SELECT d.sample_name,d.sample_type,d.capture_kit,d.pseudo_prepid,d.is_external ticket_num,d.mapping_input FROM dragen_sample_metadata d "
     q+=" join prepT p on p.p_prepid=d.pseudo_prepid "
 
@@ -642,10 +648,9 @@ def get_next_sample(pid,database,debug):
         # wtf?!?
         return sample['sample_name'], sample['sample_type'], sample['pseudo_prepid'], sample['capture_kit'], int(sample['ticket_num']),sample['mapping_input']
 
-def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid,sample_id):
+def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid):
 
     print('{}= {}'.format('prepid',prepid))
-    print('{}= {}'.format('sample_id',sample_id))
     print('{}= {}'.format('sample_name',sample_name))
     print('{}= {}'.format('sample_type',sample_type))
     print('{}= {}'.format('capture_kit',capture_kit))
@@ -667,7 +672,7 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
     subprocess.call(['mkdir','-p',log_dir])
 
     if len(glob("{}/*.bam".format(output_dir)))!=0:
-        raise Exception("Sample with bam files already exists!")
+        raise Exception("EXTERNAL: Sample with bam files already exists!")
 
     update_queue(pseudo_prepid,database)
 
@@ -712,7 +717,7 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
     dragen_stderr.close()
 
     if rc != 0:
-        raise Exception("Dragen alignment did not complete successfully : {} ".format(dragen_cmd))
+        raise Exception("EXTERNAL: Dragen alignment did not complete successfully : {} ".format(dragen_cmd))
     try:
         subprocess.call(['chmod','-R','775','{}'.format(output_dir)])
     except:
@@ -720,7 +725,7 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
 
     qualified_bams_found = glob('{}/*bam'.format(output_dir))
     if len(qualified_bams_found) != 1:
-        raise Exception("this is wrong : " + qualified_bams_found)
+        raise Exception("EXTERNAL: this is wrong : " + qualified_bams_found)
 
     print("Performing dragen_sample_metadata update")
     run_query("UPDATE dragen_sample_metadata set seqscratch_drive='{}',is_merged=0,component_bams='{}' WHERE pseudo_prepid={}".format(
@@ -734,11 +739,10 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
 
     userID = get_user_id(database)
     # ['prepid'][0],
-    run_query("INSERT INTO statusT (CHGVID,STATUS,STATUS_TIME,sample_id,PREPID,USERID,POOLID,SEQID,PLATENAME) VALUES ('{sample_name}','{status}',unix_timestamp(), {sample_id},{prepid},{userID},0,0,'')".format(
+    run_query("INSERT INTO statusT (CHGVID,STATUS,STATUS_TIME,PREPID,USERID,POOLID,SEQID,PLATENAME) VALUES ('{sample_name}','{status}',unix_timestamp(),{prepid},{userID},0,0,'')".format(
       userID=userID,
       status=status,
-      prepid=prepid, 
-      sample_id=sample_id,
+      prepid=prepid,
       sample_name=sample_name
     ),database)
 

@@ -145,7 +145,7 @@ def check_db_status_or_exit(fcillumid,database):
                         "WHERE f.FCillumID='{}'".format(fcillumid),database)
     raise_exception_switch = 0
     for prepID in samples:
-        status = run_query("SELECT CHGVID,status "
+        status = run_query("SELECT status "
                            "FROM statusT "
                            "WHERE prepID={} "
                            "ORDER BY status_time "
@@ -232,7 +232,7 @@ def getKapaPicoPoolName(fcillumid,CHGVID,database):
     logger.info(cmd)
     kapaPicoPoolName = run_query(cmd,database)
     if len(kapaPicoPoolName) != 1:
-        raise Exception("get_kapa_conc query gave incorrect number of results: {}".format(str(len(kapaPicoPoolName))))
+        raise Exception("get_kapa_conc query {} gave incorrect number of results: {}".format(cmd,str(len(kapaPicoPoolName))))
     return kapaPicoPoolName
 
 def makeHTMLEmail(config,unaligned_dir,machine,fcillumid,sample_info,test,database):
@@ -303,9 +303,9 @@ def set_bcl_complete(fcillumid,database):
             run_query("UPDATE prepT p SET STATUS='BCL Complete',status_time=unix_timestamp() WHERE prepID={} AND STATUS='BCL Started'".format(prepID['prepID']),database) 
     #insert into statusT
     sample_status_insert_query = ("INSERT INTO statusT "
-                                  "(CHGVID,STATUS_TIME,STATUS,sample_id,PREPID,USERID,POOLID,SEQID,PLATENAME) "
-                                  "SELECT DISTINCT(pt.CHGVID),unix_timestamp(),"
-                                  "'BCL Complete',pt.sample_id,pt.prepID,{},0,0,' ' "
+                                  "(STATUS_TIME,STATUS,PREPID,USERID,POOLID,SEQID) "
+                                  "SELECT DISTINCT unix_timestamp(),"
+                                  "'BCL Complete',pt.prepID,{},0,0 "
                                   "FROM Flowcell f "
                                   "JOIN Lane l ON l.FCID=f.FCID "
                                   "JOIN prepT pt ON pt.prepID=l.prepID "

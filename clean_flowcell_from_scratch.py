@@ -29,7 +29,7 @@ def get_connection_mml(database):
         db_host = reader.get(db, 'host')
         db_user = reader.get(db, 'user')
         db_pass = reader.get(db,'password')
-        connection = pymysql.connect(host=db_host,user=db_user,passwd=db_pass,db='sequenceDB')
+        connection = pymysql.connect(host=db_host,user=db_user,passwd=db_pass,db='sequenceDB',cursorclass=pymysql.cursors.DictCursor)
         return connection
     except pymysql.Error:
         traceback.print_exc()
@@ -108,7 +108,7 @@ def main():
 def clean_unaligned_dir(loc,flo,seqsataloc):
     flo_name = flo.split('_')[2]
     logger = logging.getLogger(__name__)
-    cmd="rm -v {0}/BCL/{1}/EmailSent.txt {0}/BCL/{1}/bcl_complete {0}/BCL/{1}/nohup.sge {0}/BCL/{1}/{2}_{3}_BCL.sh".format(loc,flo,flo_name,seqsataloc[1])
+    cmd="rm -v {0}/BCL/{1}/EmailSent.txt {0}/BCL/{1}/bcl_complete {0}/BCL/{1}/nohup.sge {0}/BCL/{1}/{2}_{3}_BCL.sh".format(loc,flo,flo_name,seqsataloc['seqsataloc'])
     #print(cmd)
     out = subprocess_exec(cmd)
     if os.path.exists('{}/BCL/{}/StorageComplete'.format(loc,flo)):
@@ -129,9 +129,9 @@ def clean_unaligned_dir(loc,flo,seqsataloc):
     cmd="rm -v {0}/Report.css {0}/index.html {0}/tree.html".format(html_loc)
     #print(cmd)
     out = subprocess_exec(cmd)
-    if os.path.exists("/nfs/{}/summary/Stats".format(seqsataloc[0])) is False:
-        out = subprocess_exec("mkdir /nfs/{}/summary/Stats".format(seqsataloc[0]))
-    stat_loc='/nfs/{}/summary/Stats/{}_{}_stats.zip'.format(seqsataloc[0],flo_name,seqsataloc[1])
+    if os.path.exists("/nfs/{}/summary/Stats".format(seqsataloc['seqsataloc'])) is False:
+        out = subprocess_exec("mkdir /nfs/{}/summary/Stats".format(seqsataloc['seqsataloc']))
+    stat_loc='/nfs/{}/summary/Stats/{}_{}_stats.zip'.format(seqsataloc['seqsataloc'],flo_name,seqsataloc['machine'])
     scratch_stats = '{}/BCL/{}/Stats'.format(loc,flo)
     files_to_zip = ['{}/BCL/{}/LnFractionEmail.txt'.format(loc,flo),
             '{}/DemultiplexingStats.xml'.format(scratch_stats),
@@ -144,8 +144,8 @@ def clean_unaligned_dir(loc,flo,seqsataloc):
     cmd="zip -vmT {} {}".format(stat_loc,files_to_zip)
     #print(cmd)
     out = subprocess_exec(cmd)
-    if os.path.exists("/nfs/{}/summary/Reports".format(seqsataloc[0])) is False:
-        out = subprocess_exec("mkdir /nfs/{}/summary/Reports".format(seqsataloc[0]))
+    if os.path.exists("/nfs/{}/summary/Reports".format(seqsataloc['seqsataloc'])) is False:
+        out = subprocess_exec("mkdir /nfs/{}/summary/Reports".format(seqsataloc['seqsataloc']))
     
     files_to_zip_rep = ['{}/BCL/{}/Reports/html/{}/default/all/all/laneBarcode.html'.format(loc,flo,flo_name),
             '{}/BCL/{}/Reports/html/{}/default/all/all/lane.html'.format(loc,flo,flo_name)]
@@ -157,7 +157,7 @@ def clean_unaligned_dir(loc,flo,seqsataloc):
     rep_all = '{}/BCL/{}/Reports/html/{}/all/all/all'.format(loc,flo,flo_name)
     files_to_zip_rep.extend(['{}/laneBarcode.html'.format(rep_all),'{}/lane.html'.format(rep_all)])
     files_to_zip_rep = ' '.join(files_to_zip_rep)
-    cmd="zip -vmT /nfs/{0}/summary/Reports/{1}_{2}_all_html.zip {3}".format(seqsataloc[0],flo_name,seqsataloc[1],rep_all)
+    cmd="zip -vmT /nfs/{0}/summary/Reports/{1}_{2}_all_html.zip {3}".format(seqsataloc['seqsataloc'],flo_name,seqsataloc['machine'],rep_all)
     #print(cmd)
     out = subprocess_exec(cmd)
 
@@ -178,12 +178,12 @@ def check_flowcell_db(flo_name,connection):
         raise Exception("Flowcell table not updated {}".format(flo_name))
     if '0000-00-00 00:00:00' in flo_info[2:6] :
         raise Exception("Date not updated for {}".format(flo_name))
-    if flo_info[0][8] != 1 or flo_info[0][9] != 0 or flo_info[0][10] != 1:
+    if flo_info[0]['pipelinecomplete'] != 1 or flo_info[0]['fail'] != 0 or flo_info[0]['complete'] != 1:
         raise Exception("flowcell {} didnt finish according to database".format(fcillumid))
 
 def check_log(flo_name,seqsataloc):
     logger = logging.getLogger(__name__)
-    nohup_loc = '/nfs/{}/summary/bcl_nohup/{}_{}_bcl2fastqLog.zip'.format(seqsataloc[0],flo_name,seqsataloc[1])
+    nohup_loc = '/nfs/{}/summary/bcl_nohup/{}_{}_bcl2fastqLog.zip'.format(seqsataloc['seqsataloc'],flo_name,seqsataloc['machine'])
     logger.info(nohup_loc)
     if os.path.exists(nohup_loc) is False or os.path.getsize(nohup_loc[0]) < 500:
         raise Exception("/nfs/{}/summary/bcl_nohup/{}_{}_bcl2fastqLog.zip doesnt exist".format(seqsataloc[0],flo_name,seqsataloc[1]))
@@ -208,27 +208,28 @@ def check_checkpoints(flo,seqsataloc,loc,raw_loc):
     out = subprocess_exec("tail -n1 {}/BCL/{}/LnFractionEmail.txt".format(loc,flo))
     if len(out)!=1 or (out[0] != '<tr><td colspan="7" align="center">&nbsp</td></tr>' and out[0]!='</tr>'):#2nd happens in old format ex: 180203_A00123B_H333TDSXX_Unaligned/LnFractionEmail.txt
         raise Exception('last line of {}/BCL/{}/LnFractionEmail.txt is incorrect. output: {}, expected:<tr><td colspan="7" align="center">&nbsp</td></tr>'.format(loc,flo,out))
-    csv_name = glob.glob('/nfs/{}/Sequencing_SampleSheets/{}_*_{}.csv'.format(seqsataloc[0],seqsataloc[1],flo_name))
+    csv_name = glob.glob('/nfs/{}/Sequencing_SampleSheets/{}_*_{}.csv'.format(seqsataloc['seqsataloc'],seqsataloc['machine'],flo_name))
     if len(csv_name) != 1 or  os.path.getsize(csv_name[0]) < 1024: #smalle than 10KB
-        raise Exception("Too many csvs/ incorrect size for {} in {}".format(flo_name,seqsataloc[0]))
+        raise Exception("Too many csvs/ incorrect size for {} in {}".format(flo_name,seqsataloc['seqsataloc']))
     #check seqscratch1 flowcell exists; in some cases it may have been deleted so this check is useless
-    raw_runs = glob.glob('{}/*_{}_*_{}{}'.format(raw_loc,seqsataloc[1][0:-1],seqsataloc[1][-1],flo_name)) 
+    raw_runs = glob.glob('{}/*_{}_*_{}{}'.format(raw_loc,seqsataloc['machine'][0:-1],seqsataloc['machine'][-1],flo_name)) 
     if len(raw_runs) == 0:
         return
     elif len(raw_runs) != 1 or os.path.exists('{}/StorageComplete'.format(raw_runs[0])) is False:
-        raise Exception("problem with existence of {}/*_{}_*_{}{}".format(raw_loc,seqsataloc[1][0:-1],seqsataloc[1][-1],flo_name))
+        raise Exception("problem with existence of {}/*_{}_*_{}{}".format(raw_loc,seqsataloc['machine'][0:-1],seqsataloc['machine'][-1],flo_name))
     return
 
 def check_SAV(flo_name,seqsataloc,raw_loc):
     logger = logging.getLogger(__name__)
-    sav_loc = '/nfs/{}/summary/SAV/{}_{}_SAV.tar.gz'.format(seqsataloc[0],flo_name,seqsataloc[1])
+    print(seqsataloc)
+    sav_loc = '/nfs/{}/summary/SAV/{}_{}_SAV.tar.gz'.format(seqsataloc['seqsataloc'],flo_name,seqsataloc['machine'])
     logger.info(sav_loc)
     if os.path.exists(sav_loc) is False or os.path.getsize(sav_loc) < 104857:
-        if len(glob.glob('{}/*_{}_*_{}{}'.format(raw_loc,seqsataloc[1][0:-1],seqsataloc[1][-1],flo_name))) != 0:
+        if len(glob.glob('{}/*_{}_*_{}{}'.format(raw_loc,seqsataloc['machine'][0:-1],seqsataloc['machine'][-1],flo_name))) != 0:
             #there is a seqscratch1 to get SAV manually from
-            raise Exception("SAV file /nfs/{}/summary/SAV/{}_{}_SAV.tar.gz not proper".format(seqsataloc[0],flo_name,seqsataloc[1]))
+            raise Exception("SAV file /nfs/{}/summary/SAV/{}_{}_SAV.tar.gz not proper".format(seqsataloc['seqsataloc'],flo_name,seqsataloc['machine']))
         else:
-            logger.info("WARNING!!!!! CANNOT CREATE SAV FOR THIS FLOWCELL SINCE {}/*_{}_*_{}{}) IS DELETED".format(raw_loc,seqsataloc[1][0:-1],seqsataloc[1][-1],flo_name))
+            logger.info("WARNING!!!!! CANNOT CREATE SAV FOR THIS FLOWCELL SINCE {}/*_{}_*_{}{}) IS DELETED".format(raw_loc,seqsataloc['machine'][0:-1],seqsataloc['machine'][-1],flo_name))
     return
 
 def subprocess_exec(cmd):
@@ -248,9 +249,9 @@ def subprocess_exec(cmd):
 def check_fastqs(flo,connection,loc):
     flo_name=flo.split('_')[2]
     logger = logging.getLogger(__name__)
-    cmd=("SELECT distinct upper(p.sample_type), p.chgvid,lanenum,seqsataloc,status,rg_status,step_status,p.prepid,failR1,failR2,p_prepid,l.fcid,l.seqid,l.sample_id,l.poolid,s.GAFbin,p.adapterLet,p.is_released "
-         "FROM prepT p, Lane l, Flowcell f, SampleT s "
-         "WHERE f.fcid=l.fcid and l.prepid=p.prepid and f.fcillumid='{}' and s.sample_id=p.sample_id").format(flo_name) 
+    cmd=("SELECT distinct upper(p.sample_type) sample_type, p.chgvid,lanenum,seqsataloc,status,rg_status,step_status,p.prepid,failR1,failR2,p_prepid,l.fcid,l.seqid,l.poolid,s.GAFbin gaf,p.adapterLet adapter,p.is_released "
+         "FROM prepT p, Lane l, Flowcell f, SampleT s, Experiment e "
+         "WHERE f.fcid=l.fcid and l.prepid=p.prepid and f.fcillumid='{}' and s.sample_id=e.sample_id and e.id=p.experiment_id").format(flo_name) 
     logger.info(cmd)
     fastq_names = set()
     chgs,num_chg = run_query_mml(cmd,connection)
@@ -266,64 +267,64 @@ def check_fastqs(flo,connection,loc):
 
     for item in chgs:
         #print(item)
-        chgvids.append((item[0],item[1],item[3]))
-        f1 = glob.glob('{}/{}/{}/{}/{}_S*_L00{}_R1_001.fastq.gz'.format(loc,item[0],item[1],flo_name,item[1],item[2]))
-        f2 = glob.glob('{}/{}/{}/{}/{}_S*_L00{}_R2_001.fastq.gz'.format(loc,item[0],item[1],flo_name,item[1],item[2]))
+        chgvids.append((item['sample_type'],item['chgvid'],item['lanenum']))
+        f1 = glob.glob('{0}/{1}/{2}/{3}/{2}_S*_L00{4}_R1_001.fastq.gz'.format(loc,item['sample_type'],item['chgvid'],flo_name,item['lanenum']))
+        f2 = glob.glob('{0}/{1}/{2}/{3}/{2}_S*_L00{4}_R2_001.fastq.gz'.format(loc,item['sample_type'],item['chgvid'],flo_name,item['lanenum']))
         #print(f1[0],f2[0])
         if len(f1) != 1 or len(f2) != 1:
-            raise Exception("incorrect number of fastqs in {}/{}/{}/{}/{}_".format(loc,item[0],item[1],flo_name,item[1]))
-        f1_a = glob.glob('/nfs/{}/{}/{}/{}/{}_S*_L00{}_R1_001.fastq.gz'.format(item[3],item[0],item[1],flo_name,item[1],item[2]))
-        f2_a =  glob.glob('/nfs/{}/{}/{}/{}/{}_S*_L00{}_R2_001.fastq.gz'.format(item[3],item[0],item[1],flo_name,item[1],item[2]))
+            raise Exception("incorrect number of fastqs in {0}/{1}/{2}/{3}/{2}_".format(loc,item['sample_type'],item['chgvid'],flo_name))
+        f1_a = glob.glob('/nfs/{0}/{1}/{2}/{3}/{2}_S*_L00{4}_R1_001.fastq.gz'.format(item['seqsataloc'],item['sample_type'],item['chgvid'],flo_name,item['lanenum']))
+        f2_a = glob.glob('/nfs/{0}/{1}/{2}/{3}/{2}_S*_L00{4}_R2_001.fastq.gz'.format(item['seqsataloc'],item['sample_type'],item['chgvid'],flo_name,item['lanenum']))
         #print(f1_a,f1_b)
         if len(f1_a) != 1 or len(f2_a) != 1:
-            raise Exception("incorrect number of fastqs in /nfs/{}/{}/{}/{}/{}_".format(item[3],item[0],item[1],flo_name,item[1]))
+            raise Exception("incorrect number of fastqs in /nfs/{0}/{1}/{2}/{3}/{2}_".format(item['seqsataloc'],item['sample_type'],item['chgvid'],flo_name))
         #checksize
         if os.path.getsize(f1[0]) == 0 or  os.path.getsize(f1[0]) !=  os.path.getsize(f1_a[0]):
             raise Exception("{} size:{}, {} size:{}".format(f1[0],os.path.getsize(f1[0]),f1_a[0],os.path.getsize(f1_a[0])))
         #print(f1[0],f1_a[0],f2[0],f2_a[0])
-        if item[8] is not None or item[9] is not None:
-            raise Exception("Flowcell {} failed in lane {}".format(flo_name,item[2])) 
+        if item['failR1'] is not None or item['failR2'] is not None:
+            raise Exception("Flowcell {} failed in lane {}".format(flo_name,item['lanenum'])) 
         
         #add this in for final run
         out = subprocess_exec("gzip -t {} {}".format(f1[0],f2[0]))
 
-        if item[4] in ['Archiving','BCL Started','BCL Complete','BCL']:
-            cmd="UPDATE prepT set status='Storage',status_time=unix_timestamp() where prepid='{}'".format(item[7])
-            logger.info("current status is {}. cmd is {}".format(item[4],cmd))
+        if item['status'] in ['Archiving','BCL Started','BCL Complete','BCL']:
+            cmd="UPDATE prepT set status='Storage',status_time=unix_timestamp() where prepid='{}'".format(item['prepid'])
+            logger.info("current status is {}. cmd is {}".format(item['status'],cmd))
             
             _,aff_rows = run_query_mml(cmd,connection)
             if aff_rows != 1:
                 raise Exception("{} returned {} rows".format(cmd,aff_rows))
             
-            cmd2=("INSERT INTO statusT (CHGVID,STATUS_TIME,STATUS,sample_id,PREPID,USERID,POOLID,SEQID,PLATENAME) "
-                  "SELECT DISTINCT(pt.CHGVID),UNIX_TIMESTAMP(),'Storage',pt.sample_id,pt.PREPID,'16940058',0,0,' ' "
-                  "FROM prepT pt WHERE prepid='{}'").format(item[7])
+            cmd2=("INSERT INTO statusT (STATUS_TIME,STATUS,PREPID,USERID,POOLID,SEQID) "
+                  "SELECT DISTINCT UNIX_TIMESTAMP(),'Storage',pt.PREPID,'16940058',0,0 "
+                  "FROM prepT pt WHERE prepid='{}'").format(item['prepid'])
             logger.info(cmd2)
             
             _,aff_rows = run_query_mml(cmd2,connection)
             if aff_rows != 1:
                 raise Exception("{} returned {} rows".format(cmd2,aff_rows))
             
-        if item[5] in ['sequencing','fastq_ready'] or item[6] != 'in storage':
+        if item['rg_status'] in ['sequencing','fastq_ready'] or item['step_status'] != 'in storage':
             cmd=("UPDATE Lane set rg_status='fastq_copied', step_status='in storage' where "
-                "prepid='{}' and lanenum='{}' and fcid='{}' and seqid='{}' and sample_id='{}' and poolid='{}'").format(item[7],item[2],item[11],item[12],item[13],item[14])
-            logger.info("current status is ({},{}). cmd is {}".format(item[5],item[6],cmd))
+                "prepid='{}' and lanenum='{}' and fcid='{}' and seqid='{}' and  poolid='{}'").format(item['prepid'],item['lanenum'],item['fcid'],item['seqid'],item['poolid'])
+            logger.info("current status is ({},{}). cmd is {}".format(item['rg_status'],item['step_status'],cmd))
             
             _,aff_rows = run_query_mml(cmd,connection)
             if aff_rows != 1:
                 raise Exception("{} updated too many {} rows".format(cmd,aff_rows))
             
         
-        if item[1] not in num_fastqs_s:
-            num_fastqs_s[item[1]] = len(glob.glob('{}/{}/{}/{}/*.fastq.gz'.format(loc,item[0],item[1],flo_name)))
-            num_fastqs_a[item[1]] = (len(glob.glob('/nfs/{}/{}/{}/{}/*.fastq.gz'.format(item[3],item[0],item[1],flo_name))),item[0])
-            num_fastqs_db[item[1]] = 2
-            tot_fastqs_a += num_fastqs_s[item[1]]
-            if num_fastqs_a[item[1]][0] != num_fastqs_s[item[1]]:
-                raise Exception("incorrect # fastqs in {}/{}/{}/{}, /nfs/{}/{}/{}/{} ({},{})".format(loc,item[0],item[1],flo_name,item[3],item[0],item[1],flo_name,num_fastqs_s[item[1]],num_fastqs_a[item[1]][0]))
-            gaf = item[15].replace(" ","") #gaf bin can have space between it's characters but dirname doesnt
-            path_scratch = '{}/BCL/{}/Reports/html/{}/{}/{}/{}'.format(loc,flo,flo_name,gaf,item[1],item[16])
-            path_dest = '/nfs/{}/{}/{}/{}/lane_{}.zip'.format(item[3],item[0],item[1],flo_name,item[16])
+        if item['chgvid'] not in num_fastqs_s:
+            num_fastqs_s[item['chgvid']] = len(glob.glob('{}/{}/{}/{}/*.fastq.gz'.format(loc,item['sample_type'],item['chgvid'],flo_name)))
+            num_fastqs_a[item['chgvid']] = (len(glob.glob('/nfs/{}/{}/{}/{}/*.fastq.gz'.format(item['seqsataloc'],item['sample_type'],item['chgvid'],flo_name))),item['sample_type'])
+            num_fastqs_db[item['chgvid']] = 2
+            tot_fastqs_a += num_fastqs_s[item['chgvid']]
+            if num_fastqs_a[item['chgvid']][0] != num_fastqs_s[item['chgvid']]:
+                raise Exception("incorrect # fastqs in {0}/{1}/{2}/{3}, /nfs/{4}/{1}/{2}/{3} ({5},{6})".format(loc,item['sample_type'],item['chgvid'],flo_name,item['seqsataloc'],num_fastqs_s[item[1]],num_fastqs_a[item[1]][0]))
+            gaf = item['gaf'].replace(" ","") #gaf bin can have space between it's characters but dirname doesnt
+            path_scratch = '{}/BCL/{}/Reports/html/{}/{}/{}/{}'.format(loc,flo,flo_name,gaf,item['chgvid'],item['adapter'])
+            path_dest = '/nfs/{}/{}/{}/{}/lane_{}.zip'.format(item['seqsataloc'],item['sample_type'],item['chgvid'],flo_name,item['adapter'])
             
             if os.path.exists('{}/laneBarcode.html'.format(path_scratch)) and os.path.exists('{}/lane.html'.format(path_scratch)):
                 cmd="zip -vmT {0} {1}/laneBarcode.html {1}/lane.html".format(path_dest,path_scratch)
@@ -332,14 +333,14 @@ def check_fastqs(flo,connection,loc):
             else:
                 raise Exception("laneBarcode / lane file not found in {}".format(path_scratch))
 
-            path_scratch = '{}/BCL/{}/Reports/html/{}/{}/{}/all/laneBarcode.html'.format(loc,flo,flo_name,gaf,item[1])
-            path_ar_2 = '/nfs/{}/{}/{}/{}/laneBarcode.html'.format(item[3],item[0],item[1],flo_name)
-            path_ar_2_lane = '/nfs/{}/{}/{}/{}/lane.html'.format(item[3],item[0],item[1],flo_name)
-            path_ar_1 = '{}/{}/{}/{}/laneBarcode.html'.format(loc,item[0],item[1],flo_name)
+            path_scratch = '{}/BCL/{}/Reports/html/{}/{}/{}/all/laneBarcode.html'.format(loc,flo,flo_name,gaf,item['chgvid'])
+            path_ar_2 = '/nfs/{}/{}/{}/{}/laneBarcode.html'.format(item['seqsataloc'],item['sample_type'],item['chgvid'],flo_name)
+            path_ar_2_lane = '/nfs/{}/{}/{}/{}/lane.html'.format(item['seqsataloc'],item['sample_type'],item['chgvid'],flo_name)
+            path_ar_1 = '{}/{}/{}/{}/laneBarcode.html'.format(loc,item['sample_type'],item['chgvid'],flo_name)
             
             if (os.path.exists(path_scratch) and os.path.exists(path_ar_2) and os.path.exists(path_ar_1) and os.path.getsize(path_ar_2) > 100 
                 and os.path.getsize(path_scratch) == os.path.getsize(path_ar_2) and os.path.getsize(path_ar_2) == os.path.getsize(path_ar_1)):
-                    path_scratch_lane = '{}/BCL/{}/Reports/html/{}/{}/{}/all/lane.html'.format(loc,flo,flo_name,gaf,item[1])
+                    path_scratch_lane = '{}/BCL/{}/Reports/html/{}/{}/{}/all/lane.html'.format(loc,flo,flo_name,gaf,item['chgvid'])
                     cmd="rsync -azpvv --remove-source-files -L --no-owner --no-perms {} {}".format(path_scratch,path_ar_2)
                     out = subprocess_exec(cmd)
                     cmd="rsync -azpvv --remove-source-files -L --no-owner --no-perms {} {}".format(path_ar_1,path_ar_2)
@@ -353,22 +354,22 @@ def check_fastqs(flo,connection,loc):
                     raise Exception("problem with laneBarcode.html files {} {} {}".format(path_scratch,path_ar_2,path_ar_1))
         
         else:
-            num_fastqs_db[item[1]] += 2
+            num_fastqs_db[item['chgvid']] += 2
         
         fastq_names.update([f1[0],f2[0]])
-        cmd="select is_merged from dragen_sample_metadata where pseudo_prepid='{}'".format(item[10])
+        cmd="select is_merged from dragen_sample_metadata where pseudo_prepid='{}'".format(item['p_prepid'])
         logger.info(cmd)
         is_merged,aff_rows = run_query_mml(cmd,connection)
         if aff_rows > 1:
             raise Exception("cmd {} returned {} rows".format(cmd,aff_rows))
         
-        if item[0] == 'RNASEQ' and item[17] < 3:
+        if item['sample_type'] == 'RNASEQ' and item['is_released'] < 3:
             logger.info("Not completed dragen alignment")
-            logger.info("{}\t{}\t{}\t/nfs/{}/{}/{}/{}\t{}/{}/{}/{}\tis_released:{}\n".format(item[0],item[1],item[4],item[3],item[0],item[1],flo_name,loc,item[0],item[1],flo_name,item[1],item[17]))
+            logger.info("{0}\t{1}\t{2}\t/nfs/{3}/{0}/{1}/{4}\t{5}/{0}/{1}/{4}\tis_released:{6}\n".format(item['sample_type'],item['chgvid'],item['status'],item['seqsataloc'],flo_name,loc,item['is_released']))
             continue
-        elif len(is_merged) == 0 or is_merged[0][0] <= 1 or  (is_merged[0][0] >= 80000 and is_merged[0][0] <= 80100):
+        elif len(is_merged) == 0 or is_merged[0]['is_merged'] <= 1 or  (is_merged[0]['is_merged'] >= 80000 and is_merged[0]['is_merged'] <= 80100):
             logger.info("Not completed dragen alignment")
-            logger.info("{}\t{}\t{}\t/nfs/{}/{}/{}/{}\t{}/{}/{}/{}\n".format(item[0],item[1],item[4],item[3],item[0],item[1],flo_name,loc,item[0],item[1],flo_name,item[1]))
+            logger.info("{0}\t{1}\t{2}\t/nfs/{3}/{0}/{1}/{4}\t{5}/{0}/{1}/{4}\n".format(item['sample_type'],item['chgvid'],item['status'],item['seqsataloc'],flo_name,loc))
             continue
         else:
             pass

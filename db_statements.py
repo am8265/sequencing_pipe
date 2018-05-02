@@ -77,8 +77,10 @@ GET_POOLID_FROM_DBID = """
 GET_FLOWCELL_PROJECTS = """
     SELECT DISTINCT(REPLACE(s.GAFBIN,' ','')) AS GAFBIN
     FROM SampleT s
-    JOIN Lane l ON s.sample_id=l.sample_id
-    JOIN Flowcell f ON f.FCID=l.FCID
+    JOIN Experiment e ON e.sample_id=s.sample_id
+    JOIN prepT p ON p.experiment_id=e.id
+    JOIN Lane l ON l.prepid=p.prepid
+    JOIN Flowcell f ON f.fcid=l.fcid
     WHERE FCILLUMID = "{fcillumid}"
     """
 
@@ -132,14 +134,5 @@ GET_PREPID_ON_LANE = """
     JOIN Flowcell f
     ON l.FCID=f.FCID
     WHERE FCILLUMID="{fcillumid}" AND l.laneNum="{lane_num}"
-    ORDER BY sample_id
-    """
-
-GET_DBID_ON_LANE = """
-    SELECT sample_id
-    FROM Lane l
-    JOIN Flowcell f
-    ON l.FCID=f.FCID
-    WHERE FCILLUMID="{fcillumid}" AND l.laneNum="{lane_num}"
-    ORDER BY sample_id
+    ORDER BY prepid
     """

@@ -266,7 +266,8 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
                     JOIN Flowcell f ON f.FCID=l.FCID \
                     JOIN prepT pt ON l.prepID=pt.prepID \
                     JOIN samplesTOrun s2r ON s2r.seqID=l.seqID \
-                    JOIN SampleT s ON s.sample_id=pt.sample_id \
+                    JOIN Experiment e ON e.id=pt.experiment_id \
+                    JOIN SampleT s ON s.sample_id=e.sample_id \
                 WHERE \
                     l.prepid='{1}' AND \
                     f.FCillumID='{2}' AND \
@@ -328,7 +329,7 @@ merging and not mapping cos we would already have that lovely, juicy bam!'.forma
 def check_bcl_complete(bcl2fastq_dir):
     bcl_complete_flag_loc = glob(bcl2fastq_dir + '/bcl_complete')
     if bcl_complete_flag_loc == []:
-        print(bcl2fastq_dir + '/bcl_complete')
+        print('checking for ' + bcl2fastq_dir + '/bcl_complete')
         raise Exception('bcl_complete flag file not found! Check if BCL2Fastq completed successfully')
 
 def check_flowcell_complete(fcillumid,bcl_dir,run_folder_path,machine_type,database):
