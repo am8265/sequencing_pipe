@@ -94,8 +94,8 @@ def emailit(rarp,arse):
     emailMsg['Subject'] = rarp
     emailMsg['From'] = fromAddr
     # to=['dsth@cantab.net','dh2880@cumc.columbia.edu']
-    # to=['dh2880@cumc.columbia.edu']
-    to=['dsth@cantab.net','dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
+    to=['dh2880@cumc.columbia.edu']
+    # to=['dsth@cantab.net','dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
     emailMsg['To'] = ', '.join(to)
     body='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
     body +='"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">'
@@ -148,7 +148,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
 
                 print("running pp= {}".format(pseudo_prepid))
 
-                prepid = run_query("select prepid from prepT where p_prepid = {}".format(pseudo_prepid),database)
+                prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
                 print('have prepid = {}'.format(prepid))
                 if len(prepid)!=1:
                     raise ValueError("we haven't implemented multi-prep handling yet - should really ONLY do this at merging and map rg direct!?!")
@@ -305,8 +305,21 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
             print("> RG info: lane {}, fcillumd {}, prepid {}".format(rg_lane_num,rg_fcillumid,rg_prepid))
 
             ####################################### NOW: HERE WE SIMPLY CHECK FOR data->'$.bam' IN WHICH CASE JUST SYM LINK THE SCRATCH LOCATION OF THE BAM
-            ####################################### NOW: HERE WE SIMPLY CHECK FOR data->'$.bam' IN WHICH CASE JUST SYM LINK THE SCRATCH LOCATION OF THE BAM
-            ####################################### NOW: HERE WE SIMPLY CHECK FOR data->'$.bam' IN WHICH CASE JUST SYM LINK THE SCRATCH LOCATION OF THE BAM
+            lane_table = run_query("select count(1) count, data from Lane l join Flowcell f on l.fcid=f.fcid where prepid={} and fcillumid='{}' and lanenum={}".format(rg_prepid,rg_fcillumid,rg_lane_num),database)[0]
+            print (lane_table)
+            ##### clearly, can just do data == None...?!?
+            if lane_table["count"]==1:
+                if lane_table["data"] == None:
+                    print("legacy internal - just map it...")
+                else:
+                    ####################################### DO IT!?!?
+                    raise ValueError("here we simply parse the json, sym link the bam and return...")
+            elif lane_table["count"]==0:
+                print("legacy external procedure")
+            else:
+                raise ValueError("what the heck is going on")
+            # print(laneFCID)
+            # raise ValueError("lane = {}/{} vs arse {} vs {} vs {}".format(lane_table["count"],lane_table["data"],rg_lane_num,rg_fcillumid,rg_prepid))
 
             setup_first_read_RG(sample,rg_lane_num,rg_fcillumid,rg_prepid,debug)
             set_seqtime(rg_fcillumid,sample,database)
@@ -600,11 +613,13 @@ def get_reads(sample,read_number,debug):
 def get_next_sample(pid,database,debug):
 
     ####################################### NOW: HERE WE SIMPLY INVOKE THE EXTERNAL SE ALIGNMENT WRAPPER
-    ####################################### NOW: HERE WE SIMPLY INVOKE THE EXTERNAL SE ALIGNMENT WRAPPER
-    ####################################### NOW: HERE WE SIMPLY INVOKE THE EXTERNAL SE ALIGNMENT WRAPPER
+    print("calling se alignment process")
+    os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")
+    # if os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se")!=0:
+        # raise Exception("problem with se alignment process!")
 
     q="SELECT d.sample_name,d.sample_type,d.capture_kit,d.pseudo_prepid,d.is_external ticket_num,d.mapping_input FROM dragen_sample_metadata d "
-    q+=" join prepT p on p.p_prepid=d.pseudo_prepid "
+    q+=" join prepT p on p.p_prepid=d.pseudo_prepid where failedprep=0 and "
 
     if pid == 0:
         # q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID asc LIMIT 1 "
@@ -615,9 +630,9 @@ def get_next_sample(pid,database,debug):
         # q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid asc LIMIT 1 "
         who=socket.gethostname()
         if who == "dragen2.igm.cumc.columbia.edu":
-            q=q+"WHERE is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
+            q=q+"is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
         else:
-            q=q+"WHERE is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
+            q=q+"is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
             # q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and sample_type != 'Genome' ORDER BY pseudo_prepid desc LIMIT 1 "

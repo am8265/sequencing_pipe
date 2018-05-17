@@ -31,14 +31,14 @@ def run_query(query,database):
 
 def get_prepid(database,sample):
     """Retrieve qualifying prepids"""
-    query = ("SELECT prepid FROM prepT WHERE p_prepid={0}"
+    query = ("SELECT prepid FROM prepT WHERE p_prepid={0} and failedprep=0"
             ).format(sample["pseudo_prepid"])
     prepids = run_query(query,database)
     prepids = [x['prepid'] for x in prepids]
     return prepids
 
 def get_sample_id(database,sample):
-    query = """SELECT sample_id FROM prepT JOIN Experiment ON prepT.experiment_id=Experiment.id WHERE p_prepid={}
+    query = """SELECT sample_id FROM prepT JOIN Experiment ON prepT.experiment_id=Experiment.id WHERE p_prepid={} and failedprep=0
             """.format(sample['pseudo_prepid'])
     results = run_query(query,database)
     check_number_query_results(results,1)
@@ -47,7 +47,7 @@ def get_sample_id(database,sample):
 def get_priority(database,sample):
     query = ("SELECT PRIORITY "
             "FROM prepT "
-            "WHERE P_PREPID ={pseudo_prepid} "
+            "WHERE P_PREPID ={pseudo_prepid} and failedprep=0 "
             "ORDER BY PRIORITY DESC "
             "LIMIT 1"
             ).format(**sample)
@@ -166,7 +166,7 @@ def get_fastq_loc(database, sample):
                 "JOIN Lane l ON f.FCID=l.FCID "
                 "JOIN prepT p ON l.prepID=p.prepID "
                 "WHERE (FailR1 IS NULL and FailR2 IS NULL) "
-                "AND l.prepID={0} AND f.fail=0 "
+                "AND l.prepID={0} AND f.fail=0 and failedprep=0 "
                 "GROUP BY f.fcid"
                 ).format(prepid)
 
