@@ -13,6 +13,7 @@ import time
 from db_statements import *
 from glob import glob
 from utilities import check_number_query_results,get_connection,is_external_or_legacy_sample
+import json
 
 class FastqError(Exception):
     """Fastq not found"""
@@ -82,7 +83,49 @@ def get_bed_file_loc(database,capture_kit):
     bed_file_loc = run_query(query,database)[0]['region_file_lsrc']
     return bed_file_loc
 
-def get_fastq_loc(database, sample):
+def get_fastq_loc(database, sample,rarp):
+    # rarp['arse']='fdsafds';
+    # https://stackoverflow.com/questions/986006/how-do-i-pass-a-variable-by-reference
+    # If you pass a mutable object into a method, the method gets a reference to that same object and you can mutate it to your heart's delight, but if you rebind the reference in the method, the outer scope will know nothing about it,
+    # hence 
+    #   rarp.append('fdfd')
+    # not 
+    #   rarp='fff';
+    # print ("select count(1) count, data using query for location")
+    # new_fq = 0
+    total = 0
+    for prepid in sample["prepid"]:
+        query = ("SELECT rg_status,lanenum, data FROM Flowcell f JOIN Lane l ON f.FCID=l.FCID JOIN prepT p ON l.prepID=p.prepID "
+            "WHERE (FailR1 IS NULL and FailR2 IS NULL) "
+            # let's do it with or without bam - i.e. just use the fastq from scratch location directly
+            # "WHERE data->'$.bam' is not null and (FailR1 IS NULL and FailR2 IS NULL) "
+            "AND l.prepID={0} AND f.fail=0 and failedprep=0 "
+            # "GROUP BY f.fcid"
+            ).format(prepid)
+        info = run_query(query,database)
+        # from pprint import pprint as pp
+        for d in info:
+            total = total+1
+            # pp(d['data'])
+            ##### should we allow for fastq direct - i.e. align directly when in hurry?!?
+            if d['data'] != None:
+                j=(json.loads(d['data']))
+                if 'bam' in j:
+                    print(d['rg_status'])
+                    bam=j['bam']
+                    # pp(bam)
+                    rarp.append('{}/{}'.format(bam['path']['scratch'],bam['basename']))
+                else:
+                    raise ValueError("since this only happens post alignment invocation this should be possible")
+        # pp(info)
+    if len(rarp)>0:
+        if len(rarp)!=total:
+            raise ValueError("We aren't allowing hybrids or bam/fastq mixes at this time (should we make release require bam - we shouldn't get here without a bam present anyway)")
+        else:
+            return []
+    else:
+        print("legacy procedure")
+
     found_locs = []
     #correcting the downstream consequences of "custom capture" as the sample_type
     corrected_sample_type = sample['sample_type'].upper().replace(" ","_")
@@ -90,7 +133,6 @@ def get_fastq_loc(database, sample):
     for prepid in sample["prepid"]:
         external_or_legacy_flag = is_external_or_legacy_sample(prepid,database)
 
-        from pprint import pprint as pp
         pp(sample)
 
         """For cases where there is not flowell information the sequeuncing
@@ -205,6 +247,7 @@ def get_fastq_loc(database, sample):
     R1 data however for sampels that predate the database we have to manually
     check for R2 existance"""
     final_locs = check_fastq_locs(found_locs)
+    pp(final_locs)
     return final_locs
 
 def check_fastq_locs(locs):
@@ -273,6 +316,11 @@ def isInternalSample(laneFCIDTuples):
 class dragen_sample:
     # store all relevant information about a sample in a dictionary
     def __init__(self, sample_name, sample_type, pseudo_prepid, capture_kit, database):
+
+        #### will need to allow fro multiple preps here too!?!
+        from pprint import pprint as pp
+        pp(self) ; pp(sample_name) ; pp(sample_type) ; pp(pseudo_prepid) ; pp(capture_kit)
+
         self.metadata = {}
         self.metadata['sample_name'] = sample_name
         self.metadata['sample_type'] = sample_type.lower()
@@ -288,7 +336,17 @@ class dragen_sample:
         self.metadata['sample_id'] = get_sample_id(database,self.metadata)
         self.metadata['prepid'] = get_prepid(database,self.metadata)
         self.metadata['priority'] = get_priority(database,self.metadata)
-        self.metadata['fastq_loc'] = get_fastq_loc(database,self.metadata)
+        tracked_files=[]; # {}
+        # print("before={}".format(tracked_files))
+        self.metadata['fastq_loc'] = get_fastq_loc(database,self.metadata,tracked_files)
+        # print("after={}".format(tracked_files))
+        if len(self.metadata['fastq_loc'])==0 and len(tracked_files)==0:
+            raise ValueError("this is very wrong")
+        elif len(tracked_files)>0:
+            self.metadata['bams'] = tracked_files
+        # from pprint import pprint as pp
+        # pp(vars(self))
+        # exit(1)
         self.metadata['lane'] = get_lanes(database,self.metadata)
 
     def get_attribute(self, attribute):
