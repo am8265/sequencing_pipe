@@ -267,6 +267,10 @@ def check_bam_found_vs_bam_db(sample,qualified_bams_found):
 
 def get_component_bams(sample,debug):
     qualified_bams_found = glob('{output_dir}/*bam'.format(**sample.metadata))
+
+    from pprint import pprint as pp
+    pp(qualified_bams_found)
+    # exit(1)
     check_bam_found_vs_bam_db(sample,qualified_bams_found)
     if len(qualified_bams_found) < 1:
         raise Exception("No qualified bams were found!")
@@ -280,7 +284,14 @@ def get_component_bams(sample,debug):
 def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
 
     ###### should really update these to fastq error!?!
-    check_Fastq_Total_Size(sample,debug)
+    from pprint import pprint as pp
+    pp(vars(sample))
+    if 'bams' in sample.metadata:
+        print("we have pre-mapped bams for this sample")
+    else:
+        print("this is a legacy sample")
+        check_Fastq_Total_Size(sample,debug)
+
     setup_dir(seqscratch_drive,sample,debug)
     existing_bams_check = False
     output_dir = sample.metadata['output_dir']
@@ -292,47 +303,73 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
 
     if existing_bams == [] or existing_bams_check == False:
 
+        ###### mark this as started in dsm...
         update_queue(pseudo_prepid,database)
 
         # is_external > 1 - i.e. it's new and has a ticket number so we pull mapped_input value...?!?
         # here we decide what to do?!?
         # create_align_conf_for_bam_lazy
 
-        for laneFCID in sample.metadata['lane'][0]: #loop over read groups
+        if 'bams' in sample.metadata:
+            print("we have pre-mapped bams for this sample")
+            ##### DIPSHIT THE NAMING STRUCTURE WAS ALREADY CORRECT!?!
+            for b in sample.metadata['bams']:
+                # pp(output_dir)
+                pp(b)
+                bam='{}/{}'.format(output_dir,os.path.basename(b[2]))
+                # bam=os.path.join(output_dir,'{}.{}.bam'.format(b[1],b[0]))
+                print('have bam = {} -> {}'.format(b[2],bam))
+                if not os.path.exists(bam):
+                    os.symlink(b[2],bam)
+                index='{}/{}.bai'.format(output_dir,os.path.basename(b[2]))
+                # index=os.path.join(output_dir,'{}.{}.bam.bai'.format(b[1],b[0]))
+                if not os.path.exists(index):
+                    os.symlink(b[2]+'.bai',index)
+                print('have bai = {} -> {}'.format(b[2]+'.bai',bam))
+                ##### duh, all getting merged atm
+                # dups_o='{}/{}.{}.dragen.combined.log'.format(os.path.dirname(b[2]),b[1],b[0])
+                # dups_l='{}/logs/{}.{}.dragen.log'.format(output_dir,b[1],b[0])
+                # print('have dups = {} -> {}'.format(dups_o,dups_l))
+        else:
+            print("this is a legacy sample")
 
-            rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
+            ###### argh, wtf!?! simpler to put this in else...
+            for laneFCID in sample.metadata['lane'][0]: #loop over read groups
 
-            print("> RG info: lane {}, fcillumd {}, prepid {}".format(rg_lane_num,rg_fcillumid,rg_prepid))
+                rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
 
-            ####################################### NOW: HERE WE SIMPLY CHECK FOR data->'$.bam' IN WHICH CASE JUST SYM LINK THE SCRATCH LOCATION OF THE BAM
-            lane_table = run_query("select count(1) count, data from Lane l join Flowcell f on l.fcid=f.fcid where prepid={} and fcillumid='{}' and lanenum={}".format(rg_prepid,rg_fcillumid,rg_lane_num),database)[0]
-            print (lane_table)
-            ##### clearly, can just do data == None...?!?
-            if lane_table["count"]==1:
-                if lane_table["data"] == None:
-                    print("legacy internal - just map it...")
+                print("> RG info: lane {}, fcillumd {}, prepid {}".format(rg_lane_num,rg_fcillumid,rg_prepid))
+
+                ####################################### NOW: HERE WE SIMPLY CHECK FOR data->'$.bam' IN WHICH CASE JUST SYM LINK THE SCRATCH LOCATION OF THE BAM
+                lane_table = run_query("select count(1) count, data from Lane l join Flowcell f on l.fcid=f.fcid where prepid={} and fcillumid='{}' and lanenum={}".format(rg_prepid,rg_fcillumid,rg_lane_num),database)[0]
+                print (lane_table)
+                ##### clearly, can just do data == None...?!?
+                if lane_table["count"]==1:
+                    if lane_table["data"] == None:
+                        print("legacy internal - just map it...")
+                    else:
+                        ####################################### DO IT!?!?
+                        raise ValueError("here we simply parse the json, sym link the bam and return...")
+                elif lane_table["count"]==0:
+                    print("legacy external procedure")
                 else:
-                    ####################################### DO IT!?!?
-                    raise ValueError("here we simply parse the json, sym link the bam and return...")
-            elif lane_table["count"]==0:
-                print("legacy external procedure")
-            else:
-                raise ValueError("what the heck is going on")
-            # print(laneFCID)
-            # raise ValueError("lane = {}/{} vs arse {} vs {} vs {}".format(lane_table["count"],lane_table["data"],rg_lane_num,rg_fcillumid,rg_prepid))
+                    raise ValueError("what the heck is going on")
+                # print(laneFCID)
+                # raise ValueError("lane = {}/{} vs arse {} vs {} vs {}".format(lane_table["count"],lane_table["data"],rg_lane_num,rg_fcillumid,rg_prepid))
 
-            setup_first_read_RG(sample,rg_lane_num,rg_fcillumid,rg_prepid,debug)
-            set_seqtime(rg_fcillumid,sample,database)
-            create_align_config(sample,rg_lane_num,rg_fcillumid,rg_prepid)
+                setup_first_read_RG(sample,rg_lane_num,rg_fcillumid,rg_prepid,debug)
+                set_seqtime(rg_fcillumid,sample,database)
+                create_align_config(sample,rg_lane_num,rg_fcillumid,rg_prepid)
 
-            # if not debug:
-            # if dontexecute == False: #For test purposes
-            run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug)
+                # if not debug:
+                # if dontexecute == False: #For test purposes
+                ###### does nothing but run dragen
+                run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug)
 
-            update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database)
+                #### utteraly pointless
+                update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database)
 
-        # if not debug:
-
+        ####### f' me - just globbing...
         component_bams = get_component_bams(sample,debug)
         update_dragen_metadata_prepT_status(sample,component_bams,database,pseudo_prepid,debug)
         # rm_query = "DELETE FROM {0} WHERE pseudo_prepid={1}".format("tmp_dragen",pseudo_prepid)

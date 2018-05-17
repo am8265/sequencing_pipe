@@ -95,7 +95,10 @@ def get_fastq_loc(database, sample,rarp):
     # new_fq = 0
     total = 0
     for prepid in sample["prepid"]:
-        query = ("SELECT rg_status,lanenum, data FROM Flowcell f JOIN Lane l ON f.FCID=l.FCID JOIN prepT p ON l.prepID=p.prepID "
+        ###### grab absolutely ALL data for sample - BUT - needs to be changed to join via experiment_id and not prepid!?!
+        ###### grab absolutely ALL data for sample - BUT - needs to be changed to join via experiment_id and not prepid!?!
+        ###### grab absolutely ALL data for sample - BUT - needs to be changed to join via experiment_id and not prepid!?!
+        query = ("SELECT rg_status,lanenum,fcillumid, data FROM Flowcell f JOIN Lane l ON f.FCID=l.FCID JOIN prepT p ON l.prepID=p.prepID "
             "WHERE (FailR1 IS NULL and FailR2 IS NULL) "
             # let's do it with or without bam - i.e. just use the fastq from scratch location directly
             # "WHERE data->'$.bam' is not null and (FailR1 IS NULL and FailR2 IS NULL) "
@@ -114,7 +117,7 @@ def get_fastq_loc(database, sample,rarp):
                     print(d['rg_status'])
                     bam=j['bam']
                     # pp(bam)
-                    rarp.append('{}/{}'.format(bam['path']['scratch'],bam['basename']))
+                    rarp.append( [ d['lanenum'], d['fcillumid'], '{}/{}'.format(bam['path']['scratch'],bam['basename']) ] )
                 else:
                     raise ValueError("since this only happens post alignment invocation this should be possible")
         # pp(info)
