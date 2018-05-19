@@ -651,9 +651,9 @@ def get_next_sample(pid,database,debug):
 
     ####################################### NOW: HERE WE SIMPLY INVOKE THE EXTERNAL SE ALIGNMENT WRAPPER
     print("calling se alignment process")
-    os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")
-    # if os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se")!=0:
-        # raise Exception("problem with se alignment process!")
+    # os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")
+    if os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")!=0:
+        raise Exception("problem with se alignment process!")
 
     q="SELECT d.sample_name,d.sample_type,d.capture_kit,d.pseudo_prepid,d.is_external ticket_num,d.mapping_input FROM dragen_sample_metadata d "
     q+=" join prepT p on p.p_prepid=d.pseudo_prepid where failedprep=0 and "
@@ -684,7 +684,7 @@ def get_next_sample(pid,database,debug):
 
         cur.execute(q)
         if cur.rowcount != 1:
-            print("there's nothing to do")
+            print("[dp] there's nothing in dsm")
             sys.exit(0)
             # raise ValueError("couldn't get a sample")
 

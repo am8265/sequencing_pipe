@@ -123,6 +123,13 @@ def get_fastq_loc(database, sample,rarp):
         # pp(info)
     if len(rarp)>0:
         if len(rarp)!=total:
+            # from pprint import pprint as pp
+            query = ("update dragen_sample_metadata set is_merged = 80111 where pseudo_prepid = {}".format(sample['pseudo_prepid']))
+            run_query(query,database)
+            ########## implement hybrid procedure directly with Experiment table along with metrics - i.e. at each bam finishing check if all bams for
+            ########## expt_id are mapped - if they're old trigger them for dragen_align_se else directly merge them and do stats...!?!?
+            print("We aren't allowing hybrids or bam/fastq mixes at this time (should we make release require bam - we shouldn't get here without a bam present anyway)")
+            exit(1)
             raise ValueError("We aren't allowing hybrids or bam/fastq mixes at this time (should we make release require bam - we shouldn't get here without a bam present anyway)")
         else:
             return []
