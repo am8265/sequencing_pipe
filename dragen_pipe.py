@@ -148,10 +148,10 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
 
                 print("running pp= {}".format(pseudo_prepid))
 
-                prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
-                print('have prepid = {}'.format(prepid))
-                if len(prepid)!=1:
-                    raise ValueError("we haven't implemented multi-prep handling yet - should really ONLY do this at merging and map rg direct!?!")
+# prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
+# print('have prepid = {}'.format(prepid))
+# if len(prepid)!=1:
+#   raise ValueError("we haven't implemented multi-prep handling yet - should really ONLY do this at merging and map rg direct!?!")
 
                 ##### this is the silly, ott bit so lock first and update to avoid cycling forever with probs...?!?
                 ##### - in the end locked in get_next_sample
@@ -655,8 +655,9 @@ def get_next_sample(pid,database,debug):
     if os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")!=0:
         raise Exception("problem with se alignment process!")
 
-    q="SELECT d.sample_name,d.sample_type,d.capture_kit,d.pseudo_prepid,d.is_external ticket_num,d.mapping_input FROM dragen_sample_metadata d "
-    q+=" join prepT p on p.p_prepid=d.pseudo_prepid where failedprep=0 and "
+    q="SELECT d.sample_name,d.sample_type,d.experiment_id,d.capture_kit,d.pseudo_prepid,d.is_external ticket_num,d.mapping_input FROM dragen_sample_metadata d "
+    q+=" join prepT p on p.experiment_id=d.experiment_id where (failedprep=0 or failedprep>=100) and "
+    # q+=" join prepT p on p.p_prepid=d.pseudo_prepid where failedprep=0 and "
 
     if pid == 0:
         # q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID asc LIMIT 1 "
@@ -689,6 +690,9 @@ def get_next_sample(pid,database,debug):
             # raise ValueError("couldn't get a sample")
 
         sample=cur.fetchone()
+
+        if sample['pseudo_prepid']!=sample['experiment_id']:
+            raise ValueError("experiment_id does not match legacy pseudo_prepid")
 
         cur.execute("update dragen_sample_metadata set is_merged = 80010 WHERE pseudo_prepid = {} and is_merged = 80000".format(sample['pseudo_prepid']) )
         if cur.rowcount != 1:
@@ -724,7 +728,10 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
     subprocess.call(['mkdir','-p',log_dir])
 
     if len(glob("{}/*.bam".format(output_dir)))!=0:
-        raise Exception("EXTERNAL: Sample with bam files already exists!")
+        run_query("UPDATE dragen_sample_metadata SET is_merged = 80113 where pseudo_prepid = {}".format(pseudo_prepid),database)
+        print("EXTERNAL_BAM2BAM : Sample with bam files already exists!")
+        exit(1)
+        raise Exception("EXTERNAL_BAM2BAM : Sample with bam files already exists!")
 
     update_queue(pseudo_prepid,database)
 
@@ -769,7 +776,10 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
     dragen_stderr.close()
 
     if rc != 0:
-        raise Exception("EXTERNAL: Dragen alignment did not complete successfully : {} ".format(dragen_cmd))
+        run_query("UPDATE dragen_sample_metadata SET is_merged = 80112 where pseudo_prepid = {}".format(pseudo_prepid),database)
+        print ("EXTERNAL_BAM2BAM : Dragen alignment did not complete successfully : {} ".format(dragen_cmd))
+        exit(1)
+        raise Exception("EXTERNAL_BAM2BAM : Dragen alignment did not complete successfully : {} ".format(dragen_cmd))
     try:
         subprocess.call(['chmod','-R','775','{}'.format(output_dir)])
     except:

@@ -6,7 +6,7 @@ GET_QUALIFIED_BAMS = """
     FCILLUMID NOT LIKE 'X%' AND
     FAILR1 IS NULL AND
     FAILR2 IS NULL AND
-    FAILEDPREP = 0
+    (FAILEDPREP = 0 or FAILEDPREP>=100)
     """
     # doesn't support SE cases
     # AND RELEASED = 1
@@ -22,7 +22,7 @@ GET_PREPID_FROM_P_PREPID = """
     SELECT PREPID
     FROM prepT
     WHERE P_PREPID = {}
-    AND FAILEDPREP = 0
+    AND (FAILEDPREP = 0 or FAILEDPREP>=100)
     """
 GET_P_PREPID_FROM_PREPID = """
     SELECT DISTINCT P_PREPID
@@ -47,7 +47,7 @@ GET_YIELD_FROM_PPID = """
     FROM prepT p
     JOIN Lane l ON p.prepid=l.prepid
     WHERE p.p_prepid={ppid} AND
-    FAILEDPREP = 0
+    (FAILEDPREP = 0 or FAILEDPREP>=100)
     """
 
 GET_MACHINE_FAILED_STATUS_FROM_FCILLUMID_QUERY = """
