@@ -129,7 +129,9 @@ def get_fastq_loc(database, sample,rarp):
     # if ( len(sample['prepid'])>1 and len(rarp)==0 ) or len(rarp)>0:
     if len(rarp)>0:
         if len(rarp)!=total:
-            # from pprint import pprint as pp
+            print("JUST HACK THIS BY ADDING IN KNOWN PATH TO NASTY GLOB STUFF BELOW!?!?")
+            from pprint import pprint as pp
+            pp(sample)
             if len(sample["prepid"])>1:
                 query = ("update dragen_sample_metadata set is_merged = 80121 where pseudo_prepid = {}".format(sample['pseudo_prepid']))
                 run_query(query,database)
@@ -143,6 +145,8 @@ def get_fastq_loc(database, sample,rarp):
                 query = ("update dragen_sample_metadata set is_merged = 80122 where pseudo_prepid = {}".format(sample['pseudo_prepid']))
                 run_query(query,database)
                 query = ("update Experiment set is_released = 'legacy_hybrid_error' where id = {}".format(sample['pseudo_prepid']))
+                run_query(query,database)
+                query = ("update prepT set status = 'Not allowing legacy-hybrid mixes - please patch all SEs' where experiment_id = {}".format(sample['pseudo_prepid']))
                 run_query(query,database)
                 print("We aren't allowing legacy_hybrid_error mixes - please patch all SEs")
                 exit(1)
