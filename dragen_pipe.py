@@ -109,7 +109,10 @@ def emailit(rarp,arse):
 
 def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
 
-    os.system("dragen_reset")
+    if 0:
+        os.system("dragen_reset")
+    else:
+        print("not reseting system")
 
     config = get_config()
     if isinstance(run_type_flag,str) == True: #pseudo_prepid present
@@ -146,7 +149,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
 
             while sample_name is not None:
 
-                print("running pp= {}".format(pseudo_prepid))
+                print("running experiment_id = {}".format(pseudo_prepid))
 
 # prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
 # print('have prepid = {}'.format(prepid))
@@ -166,7 +169,10 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
                         raise ValueError("not doing this yet!?!")
                     bam_file='{}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
                     print('bam= '+bam_file)
+                    ##### wtf happened?!?
+                    prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
                     run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0]['prepid'])
+                    # run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0])
 
                     # exit(1);
 
@@ -334,8 +340,11 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
             print("this is a legacy sample")
 
             ###### argh, wtf!?! simpler to put this in else...
-            for laneFCID in sample.metadata['lane'][0]: #loop over read groups
+            ############ this could never have worked?!?
+            # for laneFCID in sample.metadata['lane'][0]: #loop over read groups
+            for laneFCID in sample.metadata['lane']: 
 
+                print("supposed to be running '{}'".format(laneFCID))
                 rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
 
                 print("> RG info: lane {}, fcillumd {}, prepid {}".format(rg_lane_num,rg_fcillumid,rg_prepid))
@@ -668,9 +677,11 @@ def get_next_sample(pid,database,debug):
         # q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid asc LIMIT 1 "
         who=socket.gethostname()
         if who == "dragen2.igm.cumc.columbia.edu":
-            q=q+"is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
+            q=q+"is_merged = 80000 ORDER BY d.experiment_id desc LIMIT 1 "
+            # q=q+"is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
         else:
-            q=q+"is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
+            q=q+"is_merged = 80000 ORDER BY d.experiment_id desc LIMIT 1 "
+            # q=q+"is_merged = 80000 ORDER BY p.prepid desc LIMIT 1 "
             # q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and d.sample_type != 'Genome' ORDER BY p.prepid desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and sample_type != 'Genome' ORDER BY pseudo_prepid desc LIMIT 1 "
