@@ -1,4 +1,4 @@
-#!/nfs/goldstein/software/python3.6.1-x86_64_shared/bin/python
+#!/nfs/goldstein/software/python3.6.1-x86_64_shared/bin/python -u
 """
 Create a configuration file used by the Dragen system to processed IGM samples
 based on their priority level in the Dragen pipeline queue
@@ -357,8 +357,9 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
                     if lane_table["data"] == None:
                         print("legacy internal - just map it...")
                     else:
+                        print("This seems to have a data field and yet we're running in legacy mode - make this an error after the hybrids are finished!?!")
                         ####################################### DO IT!?!?
-                        raise ValueError("here we simply parse the json, sym link the bam and return...")
+                        # raise ValueError("here we simply parse the json, sym link the bam and return...")
                 elif lane_table["count"]==0:
                     print("legacy external procedure")
                 else:
@@ -667,6 +668,9 @@ def get_next_sample(pid,database,debug):
     q="SELECT d.sample_name,d.sample_type,d.experiment_id,d.capture_kit,d.pseudo_prepid,d.is_external ticket_num,d.mapping_input FROM dragen_sample_metadata d "
     q+=" join prepT p on p.experiment_id=d.experiment_id where (failedprep=0 or failedprep>=100) and "
     # q+=" join prepT p on p.p_prepid=d.pseudo_prepid where failedprep=0 and "
+
+    print("TEMPORARILY DISABLING EXTERNAL SAMPLES")
+    q+=" externaldata is null and "
 
     if pid == 0:
         # q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID asc LIMIT 1 "

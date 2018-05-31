@@ -83,7 +83,7 @@ def get_bed_file_loc(database,capture_kit):
     bed_file_loc = run_query(query,database)[0]['region_file_lsrc']
     return bed_file_loc
 
-def get_fastq_loc(database, sample,rarp):
+def get_fastq_loc(database, sample, rarp ):
     # rarp['arse']='fdsafds';
     # https://stackoverflow.com/questions/986006/how-do-i-pass-a-variable-by-reference
     # If you pass a mutable object into a method, the method gets a reference to that same object and you can mutate it to your heart's delight, but if you rebind the reference in the method, the outer scope will know nothing about it,
@@ -94,6 +94,11 @@ def get_fastq_loc(database, sample,rarp):
     # print ("select count(1) count, data using query for location")
     # new_fq = 0
     total = 0
+
+    
+    ##### people have been breaking the dir/file name combos wrt., the Lane.data json field so simpler to downgrade and patch up...
+    NEW_GLOBS_FOR_DOWNGRADING_PATCH = []
+    
 
     print("we have '{}' preps for this experiment".format(len(sample['prepid'])))
 
@@ -119,43 +124,52 @@ def get_fastq_loc(database, sample,rarp):
                 if 'bam' in j:
                     print(d['rg_status'])
                     bam=j['bam']
+                    print("new flavour with {} @ {}".format(d['rg_status'],j['bam']['path']['scratch']))
                     # pp(bam)
                     rarp.append( [ d['lanenum'], d['fcillumid'], '{}/{}'.format(bam['path']['scratch'],bam['basename']) ] )
                 else:
                     raise ValueError("since this only happens post alignment invocation this should be possible")
+                NEW_GLOBS_FOR_DOWNGRADING_PATCH.append(j['fastq']['path']['archive'])
         # pp(info)
     ############# since we are retreiving multiple prepids in init we can actually do things this way!?!
     ############# we can also hack it to allow for hybrids to work via ond procedure
     # if ( len(sample['prepid'])>1 and len(rarp)==0 ) or len(rarp)>0:
     if len(rarp)>0:
         if len(rarp)!=total:
-            print("JUST HACK THIS BY ADDING IN KNOWN PATH TO NASTY GLOB STUFF BELOW!?!?")
-            from pprint import pprint as pp
-            pp(sample)
-            if len(sample["prepid"])>1:
-                query = ("update dragen_sample_metadata set is_merged = 80121 where pseudo_prepid = {}".format(sample['pseudo_prepid']))
-                run_query(query,database)
-                query = ("update Experiment set is_released = 'legacy_multiprep_error' where id = {}".format(sample['pseudo_prepid']))
-                run_query(query,database)
-                ### or fastq/bam ...
-                print("We aren't allowing legacy_multiprep_error mixes - please patch all SEs")
-                exit(1)
-                raise ValueError("We aren't allowing hybrids or bam/fastq mixes at this time (should we make release require bam - we shouldn't get here without a bam present anyway)")
-            else:
-                query = ("update dragen_sample_metadata set is_merged = 80122 where pseudo_prepid = {}".format(sample['pseudo_prepid']))
-                run_query(query,database)
-                query = ("update Experiment set is_released = 'legacy_hybrid_error' where id = {}".format(sample['pseudo_prepid']))
-                run_query(query,database)
-                query = ("update prepT set status = 'Not allowing legacy-hybrid mixes - please patch all SEs' where experiment_id = {}".format(sample['pseudo_prepid']))
-                run_query(query,database)
-                print("We aren't allowing legacy_hybrid_error mixes - please patch all SEs")
-                exit(1)
-                raise ValueError("We aren't allowing hybrids or bam/fastq mixes at this time (should we make release require bam - we shouldn't get here without a bam present anyway)")
+            print("> SUMMARY : HYBRID : JUST HACK THIS BY ADDING IN KNOWN PATH TO NASTY GLOB STUFF BELOW!?!?")
+            print("annoying {}".format(len(rarp)))
+            # this actually causes a purely local change :
+            # rarp=[] # force legacy procedure
+            rarp.clear() # del rarp[:]
+            print("annoying {}".format(len(rarp)))
+#            from pprint import pprint as pp
+#            pp(sample)
+#            if len(sample["prepid"])>1:
+#                query = ("update dragen_sample_metadata set is_merged = 80121 where pseudo_prepid = {}".format(sample['pseudo_prepid']))
+#                run_query(query,database)
+#                query = ("update Experiment set is_released = 'legacy_multiprep_error' where id = {}".format(sample['pseudo_prepid']))
+#                run_query(query,database)
+#                ### or fastq/bam ...
+#                print("We aren't allowing legacy_multiprep_error mixes - please patch all SEs")
+#                exit(1)
+#                raise ValueError("We aren't allowing hybrids or bam/fastq mixes at this time (should we make release require bam - we shouldn't get here without a bam present anyway)")
+#            else:
+#                query = ("update dragen_sample_metadata set is_merged = 80122 where pseudo_prepid = {}".format(sample['pseudo_prepid']))
+#                run_query(query,database)
+#                query = ("update Experiment set is_released = 'legacy_hybrid_error' where id = {}".format(sample['pseudo_prepid']))
+#                run_query(query,database)
+#                query = ("update prepT set status = 'Not allowing legacy-hybrid mixes - please patch all SEs' where experiment_id = {}".format(sample['pseudo_prepid']))
+#                run_query(query,database)
+#                print("We aren't allowing legacy_hybrid_error mixes - please patch all SEs")
+#                exit(1)
+#                raise ValueError("We aren't allowing hybrids or bam/fastq mixes at this time (should we make release require bam - we shouldn't get here without a bam present anyway)")
             ########## implement hybrid procedure directly with Experiment table along with metrics - i.e. at each bam finishing check if all bams for
             ########## expt_id are mapped - if they're old trigger them for dragen_align_se else directly merge them and do stats...!?!?
         else:
+            print("> SUMMARY : NEW PRE-MAPPED PROCEDURE")
             return []
     else:
+        print("> SUMMARY : LEGACY")
         print("\n\t>legacy procedure : total={}, registered_fastq={}, preps={}\n\n".format(total,len(rarp),len(sample['prepid'])))
 
     found_locs = []
@@ -163,21 +177,12 @@ def get_fastq_loc(database, sample,rarp):
     corrected_sample_type = sample['sample_type'].upper().replace(" ","_")
     sample_name=sample['sample_name']
 
+    p_c=0
     for prepid in sample["prepid"]:
-        print ("checking prepid = '{}'".format(prepid))
+        p_c+=1
+        print ("> (get_fastq_loc) CHECKING PREPID = '{}', '{}' of '{}'".format(prepid,p_c,len(sample['prepid'])))
         external_or_legacy_flag = is_external_or_legacy_sample(prepid,database)
-
         # pp(sample)
-
-        """For cases where there is not flowell information the sequeuncing
-        will have to be found via brute force.  There will be three types of samples
-        that under this catergory: Old Casava 1.8 sample (pre-seqDB),
-        Casava 1.7 samples sequenced by the Illumina GAII and external samples.
-
-        Typically when processing the external sample previously each read group is
-        enumerated 1,2,3...etc.
-        Now external samples are archived with the fcillumid."""
-
         ####### this is all an abomination!?!
         potential_locs = []
 
@@ -207,6 +212,7 @@ def get_fastq_loc(database, sample,rarp):
 
         if external_or_legacy_flag == True:
 
+            print(" > pure, evil name-coliding nonsense - in general will mix up multiply sequenced samples and truncate multiprep...")
             if sample["prepid"][0]<50000:
             # if sample["prepid"][0]<22000:
                 # from pprint import pprint as pp
@@ -237,7 +243,7 @@ def get_fastq_loc(database, sample,rarp):
                 raise FastqError('{} Fastq files not found'.format(sample_name))
         else:
 
-            print ("using query for location")
+            print ("> using, but largely ignoring, query for location")
 
             query = ("SELECT DISTINCT SEQSATALOC,FCILLUMID,SAMPLE_TYPE FROM Flowcell f "
                 "JOIN Lane l ON f.FCID=l.FCID "
@@ -248,20 +254,23 @@ def get_fastq_loc(database, sample,rarp):
             ).format(prepid)
 
             print("using\n{}".format(query))
-            seqsatalocs = run_query(query,database)
-            if len(seqsatalocs)==0:
+            flowcell_seqsatalocs = run_query(query,database)
+            if len(flowcell_seqsatalocs)==0:
                 query = ("update dragen_sample_metadata set is_merged = 80130 where experiment_id = {}".format(sample['experiment_id']))
                 run_query(query,database)
                 raise ValueError("prepid {} of experiment {} does not appear to have been sequenced - sequence or fail it to proceed".format(
                   prepid,sample['experiment_id']))
 
-            print('we have the following locations from db to check : {}'.format(seqsatalocs))
+            print('we have the following locations from db to check : {}'.format(flowcell_seqsatalocs))
 
             from pprint import pprint as pp
 
             # print(seqsatalocs)
-            for flowcell in seqsatalocs:
+            f_c=0
+            for flowcell in flowcell_seqsatalocs:
                 print(flowcell)
+                f_c+=1
+                print (" > CHECKING FLOWCELL = '{}', '{}' of '{}'".format(flowcell['FCILLUMID'],f_c,len(flowcell_seqsatalocs)))
 
                 ######### FUCK ME!?! this only actually checks the seqsata location when NONE of the hard-coded locations work?!?
                 if flowcell['SEQSATALOC'] == '':
@@ -269,11 +278,15 @@ def get_fastq_loc(database, sample,rarp):
                     msg = ('Sample {} on flowcell {} is missing seqsataloc! Still sequencing?' ).format(sample_name,flowcell['FCILLUMID'])
                     raise ValueError(msg)
 
-                pp(sample)
+                # pp(sample)
                 if sample['sample_name'][0:6]=="ALSNEU":
                     print("This is offensitve!?!? : prepending 'actual' archive location!?!")
                     potential_locs.insert(0,'/nfs/{}/{}/'.format(flowcell['SEQSATALOC'],flowcell['SAMPLE_TYPE'].upper()))
                     pp(potential_locs)
+
+                if len(NEW_GLOBS_FOR_DOWNGRADING_PATCH):
+                    print("we patch in yet more paths for hybrids?!?")
+                    potential_locs.append(NEW_GLOBS_FOR_DOWNGRADING_PATCH)
 
                 for potential_loc in potential_locs:
 
@@ -358,7 +371,7 @@ def get_lanes(database,sample):
     ffs=False
     for prepid in sample['prepid']:
 
-        print("running prepid = '{}'".format(prepid))
+        print("> (get_lanes) RUNNING PREPID = '{}'".format(prepid))
 
         query = ("SELECT DISTINCT lanenum,FCIllumID,p.prepID from Flowcell f "
             "JOIN Lane l ON f.FCID=l.FCID "
@@ -456,13 +469,18 @@ class dragen_sample:
         if len(self.metadata['fastq_loc'])==0 and len(tracked_files)==0:
             raise ValueError("this is very, very, very wrong")
         elif len(tracked_files)>0:
+            print("> WE HAVE {} TRACKED FILES AND {} LOCATIONS".format(len(tracked_files),len(self.metadata['fastq_loc'])))
+            if len(self.metadata['fastq_loc'])>0:
+                raise ValueError("these are mutually exclusive")
             self.metadata['bams'] = tracked_files
+        print("> WE HAVE {} TRACKED FILES AND {} LOCATIONS".format(len(tracked_files),len(self.metadata['fastq_loc'])))
         # from pprint import pprint as pp
         # pp(vars(self))
         # exit(1)
         self.metadata['lane'] = get_lanes(database,self.metadata)
         from pprint import pprint as pp
         pp(self.metadata['lane'])
+        print("> handing back silly object thing")
         # exit(1)
 
     def get_attribute(self, attribute):
