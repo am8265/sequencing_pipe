@@ -194,17 +194,15 @@ def get_fastq_loc(database, sample, rarp ):
 
         potential_locs.extend([
             '/nfs/fastq_temp/{}/'.format(corrected_sample_type),
-            '/nfs/fastq_temp5/tx_temp/tx_3036/',
-            '/nfs/fastq_temp2/{}_ssd/'.format(corrected_sample_type),       ##### truelly evil!?!
+            '/nfs/seqscratch_ssd/transfer_finished_symlinks/{}/'.format(corrected_sample_type),
+            # '/nfs/fastq_temp5/tx_temp/tx_3036/',
+            # '/nfs/fastq_temp2/{}_ssd/'.format(corrected_sample_type),       ##### truelly evil!?!
             '/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
             '/nfs/seqscratch*/tx_temp/tx_*/',
-            '/nfs/sequencing/tx_2390/CGND*/Project*/',
-            '/nfs/fastq_temp/tx_temp/tx_2390/CGND*/Project*/',
-            '/nfs/seqscratch*/tx_temp/tx_2390/CGND*/Project*/',
             '/nfs/igmdata01/{}/'.format(corrected_sample_type),
-            '/nfs/stornext/seqfinal/casava1.8/whole_{}/'.format(corrected_sample_type),
             '/nfs/fastq1[568]/{}/'.format(corrected_sample_type),
-            '/nfs/fastq_temp5/tx_2995/Project_CGND_12737_B01_GRM_WGS.fastq.2017-08-29/'
+            # '/nfs/stornext/seqfinal/casava1.8/whole_{}/'.format(corrected_sample_type),
+            # '/nfs/fastq_temp5/tx_2995/Project_CGND_12737_B01_GRM_WGS.fastq.2017-08-29/'
             ###### this is causing so many issues that better to remove and add back later!?!
             ###### i.e. just check ALL fastq error!?!
             # '/nfs/seqsata*/seqfinal/whole_genome/'

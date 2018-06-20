@@ -94,7 +94,8 @@ def emailit(rarp,arse):
     emailMsg['Subject'] = rarp
     emailMsg['From'] = fromAddr
     # to=['dsth@cantab.net','dh2880@cumc.columbia.edu']
-    to=['dh2880@cumc.columbia.edu']
+    # to=['dh2880@cumc.columbia.edu']
+    to=['igm-bioinfo@columbia.edu'] # 'dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
     # to=['dsth@cantab.net','dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
     emailMsg['To'] = ', '.join(to)
     body='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
@@ -661,16 +662,20 @@ def get_next_sample(pid,database,debug):
 
     ####################################### NOW: HERE WE SIMPLY INVOKE THE EXTERNAL SE ALIGNMENT WRAPPER
     print("calling se alignment process")
-    # os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")
-    if os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")!=0:
-        raise Exception("problem with se alignment process!")
+    if False:
+        if os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")!=0:
+            print("\n\nproblem with se alignment process!\n\n")
+            # sleep(1)
+            raise Exception("\n\nproblem with se alignment process!\n\n")
+    else:
+        os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")
 
     q="SELECT d.sample_name,d.sample_type,d.experiment_id,d.capture_kit,d.pseudo_prepid,d.is_external ticket_num,d.mapping_input FROM dragen_sample_metadata d "
     q+=" join prepT p on p.experiment_id=d.experiment_id where (failedprep=0 or failedprep>=100) and "
     # q+=" join prepT p on p.p_prepid=d.pseudo_prepid where failedprep=0 and "
 
-    print("TEMPORARILY DISABLING EXTERNAL SAMPLES")
-    q+=" externaldata is null and "
+    # print("TEMPORARILY DISABLING EXTERNAL SAMPLES")
+    # q+=" externaldata is null and "
 
     if pid == 0:
         # q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID asc LIMIT 1 "
@@ -816,7 +821,7 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
 
     userID = get_user_id(database)
     # ['prepid'][0],
-    run_query("INSERT INTO statusT (CHGVID,STATUS,STATUS_TIME,PREPID,USERID,POOLID,SEQID,PLATENAME) VALUES ('{sample_name}','{status}',unix_timestamp(),{prepid},{userID},0,0,'')".format(
+    run_query("INSERT INTO statusT (STATUS,STATUS_TIME,PREPID,USERID,POOLID,SEQID) VALUES ('{status}',unix_timestamp(),{prepid},{userID},0,0)".format(
       userID=userID,
       status=status,
       prepid=prepid,
