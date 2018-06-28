@@ -95,8 +95,8 @@ def emailit(rarp,arse):
     emailMsg['From'] = fromAddr
     # to=['dsth@cantab.net','dh2880@cumc.columbia.edu']
     # to=['dh2880@cumc.columbia.edu']
-    to=['igm-bioinfo@columbia.edu'] # 'dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
-    # to=['dsth@cantab.net','dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
+    # to=['igm-bioinfo@columbia.edu'] # 'dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
+    to=['dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
     emailMsg['To'] = ', '.join(to)
     body='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
     body +='"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">'
@@ -110,7 +110,8 @@ def emailit(rarp,arse):
 
 def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
 
-    if 0:
+    # saga sample errors causing system to hang on reset with restarts...
+    if False:
         os.system("dragen_reset")
     else:
         print("not reseting system")
@@ -142,6 +143,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
             pseudo_prepid = 0
             sample_name, sample_type, pseudo_prepid, capture_kit, tx, mi = get_next_sample(pseudo_prepid,database,debug)
 
+            print("we have experiment_id= {} with ticket= {}".format(pseudo_prepid,tx))
             # should set up seqscratch but atm fastq_temp & fastq_temp2 are set up
             # if sample_type == "Genome":
                 # print("UPDATING DIR FOR GENOMES!?!")
@@ -150,7 +152,7 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
 
             while sample_name is not None:
 
-                print("running experiment_id = {}".format(pseudo_prepid))
+                print(" > running experiment_id = {}".format(pseudo_prepid))
 
 # prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
 # print('have prepid = {}'.format(prepid))
@@ -166,12 +168,15 @@ def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
                     print ('use newer route for external')
                     print(mi)
                     j=json.loads(mi)
+                    print(j)
                     if len(j)!=1 or j[0]['format']!='bam':
                         raise ValueError("not doing this yet!?!")
                     bam_file='{}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
                     print('bam= '+bam_file)
                     ##### wtf happened?!?
-                    prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
+                    prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 or failedprep = 11 or failedprep >= 100 ".format(pseudo_prepid),database)
+                    # prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
+                    print('prepid= {}'.format(prepid))
                     run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0]['prepid'])
                     # run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0])
 
@@ -249,7 +254,7 @@ def check_bam_found_vs_bam_db(sample,qualified_bams_found):
     max_prepid = max(map(lambda x:int(x),sample.metadata['prepid']))
     if is_external_or_legacy_sample(max_prepid,database) == True:
        print("Checking bams found vs RGs from fastqs")
-       for laneFCID in sample.metadata['lane'][0]: #loop over read groups
+       for laneFCID in sample.metadata['lane']: #[0]: #loop over read groups
             rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
 
             bam_loc = ("{output_dir}/{sample_name}.{pseudo_prepid}.{rg_fcillumid}.{rg_lane_num}.*bam"
@@ -726,6 +731,7 @@ def get_next_sample(pid,database,debug):
 
 def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid):
 
+    print("arsgh")
     print('{}= {}'.format('prepid',prepid))
     print('{}= {}'.format('sample_name',sample_name))
     print('{}= {}'.format('sample_type',sample_type))
@@ -749,9 +755,14 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
 
     if len(glob("{}/*.bam".format(output_dir)))!=0:
         run_query("UPDATE dragen_sample_metadata SET is_merged = 80113 where pseudo_prepid = {}".format(pseudo_prepid),database)
+        print(output_dir)
         print("EXTERNAL_BAM2BAM : Sample with bam files already exists!")
-        exit(1)
-        raise Exception("EXTERNAL_BAM2BAM : Sample with bam files already exists!")
+        if True:
+            print("TEMPORARY NAST HACK");
+            os.system("rm -f {}/*.bam".format(output_dir))
+        else:
+            exit(1)
+            raise Exception("EXTERNAL_BAM2BAM : Sample with bam files already exists!")
 
     update_queue(pseudo_prepid,database)
 
