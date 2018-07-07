@@ -25,6 +25,8 @@ def main():
         send_email("No harmful discrepancies between waldb finished = 1 and failure = 0 samples and dsm")
     else:
         send_email("PROBLEM WITH WALDB DATA!",''.join(list(set(email_file))))
+    conn_waldb.close()
+    conn_sdb.close()
 
 def populate_waldb_id_hist(conn_waldb,conn_sdb,f_supersede,email_file):    
     logger = logging.getLogger(__name__)
@@ -84,7 +86,9 @@ def populate_waldb_id_hist(conn_waldb,conn_sdb,f_supersede,email_file):
                     .format(dsm_op['sample_name'], row['sample_name'],dsm_op['sample_type'],row['sample_type'],dsm_op['capture_kit'],row['capture_kit']))
         
         #create entry for waldb_id_hist
-        if row['prep_id'] < 0 or row['sample_finished'] != 1 or row['sample_failure'] != 0:
+        if row['prep_id'] > 0 and row['sample_finished'] == 0 and row['sample_failure'] == 0:
+            cur_state = {'sample_id':row['sample_id'],'date':str(datetime.datetime.now()),'status':'Weird'}
+        elif row['prep_id'] < 0 or row['sample_finished'] != 1 or row['sample_failure'] != 0:
             cur_state = {'sample_id':row['sample_id'],'date':str(datetime.datetime.now()),'status':"Deprecated"}
         elif row['prep_id'] in f_supersede:
             cur_state= {'sample_id':row['sample_id'],'date':str(datetime.datetime.now()),'status':"Superseded"}

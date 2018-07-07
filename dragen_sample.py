@@ -129,7 +129,9 @@ def get_fastq_loc(database, sample, rarp ):
                     rarp.append( [ d['lanenum'], d['fcillumid'], '{}/{}'.format(bam['path']['scratch'],bam['basename']) ] )
                 else:
                     raise ValueError("since this only happens post alignment invocation this should be possible")
-                NEW_GLOBS_FOR_DOWNGRADING_PATCH.append(j['fastq']['path']['archive'])
+                NEW_GLOBS_FOR_DOWNGRADING_PATCH.append( 
+                        '/'.join( j['fastq']['path']['archive'].split('/')[:-3] )
+                )
         # pp(info)
     ############# since we are retreiving multiple prepids in init we can actually do things this way!?!
     ############# we can also hack it to allow for hybrids to work via ond procedure
@@ -283,8 +285,10 @@ def get_fastq_loc(database, sample, rarp ):
                     pp(potential_locs)
 
                 if len(NEW_GLOBS_FOR_DOWNGRADING_PATCH):
-                    print("we patch in yet more paths for hybrids?!?")
-                    potential_locs.append(NEW_GLOBS_FOR_DOWNGRADING_PATCH)
+                    print("we patch in yet more paths for hybrids?!? : {}".format(NEW_GLOBS_FOR_DOWNGRADING_PATCH))
+                    ##### duh, need to put list into list!?!?
+                    # potential_locs.append(NEW_GLOBS_FOR_DOWNGRADING_PATCH)
+                    potential_locs.extend(NEW_GLOBS_FOR_DOWNGRADING_PATCH)
 
                 for potential_loc in potential_locs:
 
