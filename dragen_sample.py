@@ -110,6 +110,9 @@ def get_fastq_loc(database, sample, rarp ):
             "WHERE (FailR1 IS NULL and FailR2 IS NULL) "
             # let's do it with or without bam - i.e. just use the fastq from scratch location directly
             # "WHERE data->'$.bam' is not null and (FailR1 IS NULL and FailR2 IS NULL) "
+######################### strictly should be checking is_released here!?!
+######################### strictly should be checking is_released here!?!
+######################### strictly should be checking is_released here!?!
             "AND l.prepID={0} AND f.fail=0 and (failedprep=0 or failedprep>=100) "
             # "GROUP BY f.fcid"
             ).format(prepid)
@@ -136,7 +139,12 @@ def get_fastq_loc(database, sample, rarp ):
     ############# since we are retreiving multiple prepids in init we can actually do things this way!?!
     ############# we can also hack it to allow for hybrids to work via ond procedure
     # if ( len(sample['prepid'])>1 and len(rarp)==0 ) or len(rarp)>0:
-    if len(rarp)>0:
+    if sample['sample_name'][0:6]=="igm160" and ( int(sample['experiment_id'])>=181922 and int(sample['experiment_id'])<=181983 ):
+        print("> SUMMARY : F0CKW1T, CUN7 HANDLING. this should have been were we re-staged db bams for merging with topup SEs but instead is a BS hack for Gilead")
+        from pprint import pprint as pp
+        pp(sample)
+        print ("cunts")
+    elif len(rarp)>0:
         if len(rarp)!=total:
             print("> SUMMARY : HYBRID : JUST HACK THIS BY ADDING IN KNOWN PATH TO NASTY GLOB STUFF BELOW!?!?")
             print("annoying {}".format(len(rarp)))

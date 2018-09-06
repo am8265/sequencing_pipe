@@ -108,126 +108,159 @@ def emailit(rarp,arse):
     server.sendmail(fromAddr,to,emailMsg.as_string())
     server.quit()
 
-def main(run_type_flag, debug, dontexecute, database, seqscratch_drive):
+def no_work(database):
+    # from pprint import pprint as pp
+    rg = run_query("select count(1) count from Lane where rg_status = 'fastq_ready'",database)
+    # pp(rg)
+    dsm = run_query("select count(1) count from dragen_sample_metadata where is_merged = 80000",database)
+    # pp(dsm)
+    return rg[0]["count"]==0 and dsm[0]["count"]==0
+
+def main(reset_dragen,no_prerelease_align):
+
+    ###### some of these should 'perhaps' be arguments?!?
+    seqscratch_drive = 'seqscratch_ssd'
+    database="sequenceDB"
+    dontexecute = False
+    run_type_flag = True
+    debug = True
+
+    config = get_config()
+
+    # print ("using no_prerelease_align={}, reset_dragen={}".format(no_prerelease_align,reset_dragen))
+    # exit(1)
+
+    ############################################################################################ 
+
+    ############### if there is nothing to do we run a single gVCF run and exit such as to allow going back to other stuff after
+    ############### try 200000 first - i.e. new WGS and then release - i.e. update to pipeline_step 1 -> complete, is_merged 1, released_to_pipeline...
+    ############### else try 200040/200100 and wipe the bam and return ism to 40/100 - make sure output dir is in /nfs/seqscratch_ssd/dsth/wgs_gvcf such as to only have to run 
+    ############### /nfs/seqscratch_ssd/dsth/alignstats/add_in_gvcf_location.pl to register 
+    ############### need to automate population of WGS_Dragen_gVCF/WGS_Mean_Cov/WGS_Median_Cov in dragen_pipe itself of just mining from 
+    ############### /nfs/seqscratch_ssd/dsth/alignstats/PostReleaseMerge_PrePipelineEntry
+    ####################### RELEASE MUST BE POOL AWARE AND USE TARGET/MIN BY PROJECT AND TYPE - I.E. MUST GET REST INTERFACE RUNNING WITH core
+    ####################### MUST MAKE check_merge_add-some-tracking-info_and_push-to-gatk USE SAME VALUES VIA REST INTERFACE TO 'unrelease' FULLY BUT ALSO
+    #######################   STORE THE RELEASE_BLOCKED VALUES AND TIME?!?
+
+    ############################################################################################ 
 
     # saga sample errors causing system to hang on reset with restarts...
-    if False:
+    # print('reset={}'.format(reset_dragen))
+    if reset_dragen:
         os.system("dragen_reset")
     else:
         print("not reseting system")
 
-    config = get_config()
-    if isinstance(run_type_flag,str) == True: #pseudo_prepid present
-        pseudo_prepid = run_type_flag
-        sample_name, sample_type, pseudo_prepid, capture_kit, tx, mi = get_next_sample(pseudo_prepid,database,debug)
-        try:
-            sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
-        except Exception as e:
-            raise Exception("unable to construct dragen sample for '{}' : '{}'".format(sample_name,e))
-        try:
-            run_sample(sample,dontexecute,config,seqscratch_drive,database,debug)
-        except:
-            status='Dragen Alignment Failure'
-            update_status(sample,status,database)
-            raise Exception("unable to run dragen for {} : {}".format(sample_name,e))
-            # emailit('alignment issue:2 ' + sample_name,pprint.pformat(vars(sample)))
-            # sick of all the emails!?!
-            # email_failure()
+    ############################################################################################ 
 
-#############################################################################
-    elif run_type_flag == True: #Automated run
-#############################################################################
+    if no_work(database):
+        # print("there's nothing to do - should handle 'new' flavour release here anyway")
+        print("there's nothing to do so running WGS gVCF")
+        #### here we run 1 AND ONLY 1 gVCF run in order of preference 200000,200040,200100
+        ###### just cannot be fucked!?!
+        os.system("/nfs/seqscratch_ssd/dsth/wgs_gvcf/run_caller_for_wgs.pl")
+        exit(1)
 
-        try:
+    ############################################################################################ 
 
-            pseudo_prepid = 0
-            sample_name, sample_type, pseudo_prepid, capture_kit, tx, mi = get_next_sample(pseudo_prepid,database,debug)
+    ##### should prolly handle 'new' style relese here to stop it waiting on alignment!?!
+    ##### i.e. just have a flag to return if legacy style sample...
+    ##### topup/remerge should run from scratch and should just merge new data in!?!
+    # def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
+    # pp(vars(sample))
+    # if 'bams' in sample.metadata:
+        # print("we have pre-mapped bams for this sample")
 
-            print("we have experiment_id= {} with ticket= {}".format(pseudo_prepid,tx))
-            # should set up seqscratch but atm fastq_temp & fastq_temp2 are set up
-            # if sample_type == "Genome":
-                # print("UPDATING DIR FOR GENOMES!?!")
-                # seqscratch_drive = "fastq_temp"
-                # seqscratch_drive = "fastq_temp2"
+    ############################################################################################ 
 
-            while sample_name is not None:
+    try:
 
-                print(" > running experiment_id = {}".format(pseudo_prepid))
+        pseudo_prepid = 0
+        sample_name, sample_type, pseudo_prepid, capture_kit, tx, mi = get_next_sample(pseudo_prepid,database,debug,no_prerelease_align)
 
-# prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
-# print('have prepid = {}'.format(prepid))
-# if len(prepid)!=1:
-#   raise ValueError("we haven't implemented multi-prep handling yet - should really ONLY do this at merging and map rg direct!?!")
+        print("we have experiment_id= {} with ticket= {}".format(pseudo_prepid,tx))
+        # should set up seqscratch but atm fastq_temp & fastq_temp2 are set up
+        # if sample_type == "Genome":
+            # print("UPDATING DIR FOR GENOMES!?!")
+            # seqscratch_drive = "fastq_temp"
+            # seqscratch_drive = "fastq_temp2"
 
-                ##### this is the silly, ott bit so lock first and update to avoid cycling forever with probs...?!?
-                ##### - in the end locked in get_next_sample
+        while sample_name is not None:
 
-                if tx>1:
+            print(" > running experiment_id = {}".format(pseudo_prepid))
 
-                    ###### 'could' update dragen_sample for other types but really not worth it right now?!?
-                    print ('use newer route for external')
-                    print(mi)
-                    j=json.loads(mi)
-                    print(j)
-                    if len(j)!=1 or j[0]['format']!='bam':
-                        raise ValueError("not doing this yet!?!")
-                    bam_file='{}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
-                    print('bam= '+bam_file)
-                    ##### wtf happened?!?
-                    prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 or failedprep = 11 or failedprep >= 100 ".format(pseudo_prepid),database)
-                    # prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
-                    print('prepid= {}'.format(prepid))
-                    run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0]['prepid'])
-                    # run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0])
+            # prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
+            # print('have prepid = {}'.format(prepid))
+            # if len(prepid)!=1:
+            #   raise ValueError("we haven't implemented multi-prep handling yet - should really ONLY do this at merging and map rg direct!?!")
+            ##### this is the silly, ott bit so lock first and update to avoid cycling forever with probs...?!?
+            ##### - in the end locked in get_next_sample
 
-                    # exit(1);
+            if tx>1:
 
-                else:
+                ###### 'could' update dragen_sample for other types but really not worth it right now?!?
+                print ('use newer route for external')
+                print(mi)
+                j=json.loads(mi)
+                print(j)
+                if len(j)!=1 or j[0]['format']!='bam':
+                    raise ValueError("not doing this yet!?!")
+                bam_file='{}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
+                print('bam= '+bam_file)
+                ##### wtf happened?!?
+                prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 or failedprep = 11 or failedprep >= 100 ".format(pseudo_prepid),database)
+                # prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
+                print('prepid= {}'.format(prepid))
+                run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0]['prepid'])
+                # run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0])
 
-                    try:
-                        sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
-                    except Exception as e:
-                        raise Exception("unable to construct dragen sample for {} : {}".format(sample_name,e))
-
-                    try:
-                        run_sample(sample,dontexecute,config,seqscratch_drive,database,debug)
-                    except Exception as e:
-                        status='Dragen Alignment Failure'
-                        update_status(sample,status,database)
-                        raise Exception("unable to run dragen for {} : {}".format(sample_name,e))
-                        # email_failure()
-                        # stops it getting caught below?!?
-                        # sys.exit(1)
+            else:
 
                 try:
-                    sample_name, sample_type, pseudo_prepid, capture_kit, tx, mi = get_next_sample(0,database,debug)
-                except:
-                    print("No more samples in the queue")
-                    sys.exit(0)
+                    sample = dragen_sample(sample_name,sample_type,pseudo_prepid,capture_kit,database)
+                except Exception as e:
+                    raise Exception("unable to construct dragen sample for {} : {}".format(sample_name,e))
 
-        except Exception as e:
-            msg="Fastq error ({})".format(str(e).replace('\n',' ').replace('  ',' ').lstrip(' '))
-            tb = traceback.format_exc()
-            print("sending email with '{}'\n\nand '{}'".format(msg,tb))
-            emailit(msg,tb)
-            print(sample_name+", "+sample_type+", "+str(pseudo_prepid)+", "+capture_kit);
+                try:
+                    run_sample(sample,dontexecute,config,seqscratch_drive,database,debug)
+                except Exception as e:
+                    status='Dragen Alignment Failure'
+                    update_status(sample,status,database)
+                    raise Exception("unable to run dragen for {} : {}".format(sample_name,e))
+                    # email_failure()
+                    # stops it getting caught below?!?
+                    # sys.exit(1)
 
-            connection = get_connection(database)
-            with connection.cursor() as cursor:
-                wipe = False;
-                ####### add in check for the 'usual' suspect log messages!?!
-                if wipe:
-                    cursor.execute("update prepT set is_released = 0, failedprep = 11, status = %s where p_prepid = %s and chgvid = %s",(msg,pseudo_prepid,sample_name))
-                    cursor.execute("delete from dragen_sample_metadata where pseudo_prepid = %s and sample_name = %s",(pseudo_prepid,sample_name))
-                else:
-                    cursor.execute("update prepT set status = %s where p_prepid = %s and chgvid = %s",(msg,pseudo_prepid,sample_name))
-                    cursor.execute("update dragen_sample_metadata set is_merged = 80100 where pseudo_prepid = %s and sample_name = %s",(pseudo_prepid,sample_name))
+            try:
+                sample_name, sample_type, pseudo_prepid, capture_kit, tx, mi = get_next_sample(0,database,debug,no_prerelease_align)
+            except:
+                print("No more samples in the queue")
+                sys.exit(0)
 
-                connection.commit()
+    except Exception as e:
 
-            raise Exception("\n\n> "+msg)
+        msg="Fastq error ({})".format(str(e).replace('\n',' ').replace('  ',' ').lstrip(' '))
+        tb = traceback.format_exc()
+        print("sending email with '{}'\n\nand '{}'".format(msg,tb))
+        emailit(msg,tb)
+        print(sample_name+", "+sample_type+", "+str(pseudo_prepid)+", "+capture_kit);
 
-            exit(1)
+        connection = get_connection(database)
+        with connection.cursor() as cursor:
+            # wipe = False;
+            ####### add in check for the 'usual' suspect log messages!?!
+            # if wipe:
+                # cursor.execute("update prepT set is_released = 0, failedprep = 11, status = %s where p_prepid = %s and chgvid = %s",(msg,pseudo_prepid,sample_name))
+                # cursor.execute("delete from dragen_sample_metadata where pseudo_prepid = %s and sample_name = %s",(pseudo_prepid,sample_name))
+            # else:
+            cursor.execute("update prepT set status = %s where p_prepid = %s and chgvid = %s",(msg,pseudo_prepid,sample_name))
+            cursor.execute("update dragen_sample_metadata set is_merged = 80100 where pseudo_prepid = %s and sample_name = %s",(pseudo_prepid,sample_name))
+
+            connection.commit()
+
+        raise Exception("\n\n> "+msg)
+
+        exit(1)
 
 #############################################################################
 
@@ -250,7 +283,7 @@ def update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database):
                         ).format(rg_fcillumid,rg_lane_num,rg_prepid)
     run_query(read_group_insert,database)
 
-def check_bam_found_vs_bam_db(sample,qualified_bams_found):
+def check_bam_found_vs_bam_db(sample,qualified_bams_found,database):
     max_prepid = max(map(lambda x:int(x),sample.metadata['prepid']))
     if is_external_or_legacy_sample(max_prepid,database) == True:
        print("Checking bams found vs RGs from fastqs")
@@ -266,24 +299,28 @@ def check_bam_found_vs_bam_db(sample,qualified_bams_found):
 
     else:
         print("Checking bams found vs RGs in db")
-        query = GET_QUALIFIED_BAMS.format(**sample.metadata)
+        # this is still single prep...
+        # query = GET_QUALIFIED_BAMS.format(**sample.metadata)
+        query = "SELECT fcillumid,laneNum FROM prepT p JOIN Lane l on p.PREPID=l.PREPID JOIN Flowcell f on l.fcid=f.fcid WHERE p.experiment_id = {pseudo_prepid} AND FCILLUMID NOT LIKE 'X%' AND FAILR1 IS NULL AND FAILR2 IS NULL AND (FAILEDPREP = 0 or FAILEDPREP>=100)".format(**sample.metadata)
         qualified_bams_in_db = run_query(query,database)
         if len(qualified_bams_in_db) != len(qualified_bams_found):
-            print(qualified_bams_found,qualified_bams_in_db)
-            raise Exception("Number of bams found != number of RGs in database!")
+            from pprint import pprint as pp
+            pp(qualified_bams_found)
+            pp(qualified_bams_in_db)
+            raise Exception("Number of bams found ({}) != number of RGs in database ({})!".format(len(qualified_bams_found),len(qualified_bams_in_db)))
         for db_bam in qualified_bams_in_db:
             db_bam = ("{output_dir}/{sample_name}.{pseudo_prepid}.{fcillumid}.{lane_num}.bam"
                      ).format(fcillumid=db_bam['fcillumid'],lane_num=db_bam['laneNum'],**sample.metadata)
             if glob(db_bam) == []:
                 raise Exception("Bam {} not found!".format(db_bam))
 
-def get_component_bams(sample,debug):
+def get_component_bams(sample,debug,database):
     qualified_bams_found = glob('{output_dir}/*bam'.format(**sample.metadata))
 
     from pprint import pprint as pp
     pp(qualified_bams_found)
     # exit(1)
-    check_bam_found_vs_bam_db(sample,qualified_bams_found)
+    check_bam_found_vs_bam_db(sample,qualified_bams_found,database)
     if len(qualified_bams_found) < 1:
         raise Exception("No qualified bams were found!")
     tmp_bam_list = []
@@ -323,6 +360,7 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
         # create_align_conf_for_bam_lazy
 
         if 'bams' in sample.metadata:
+
             print("we have pre-mapped bams for this sample")
             ##### DIPSHIT THE NAMING STRUCTURE WAS ALREADY CORRECT!?!
             for b in sample.metadata['bams']:
@@ -342,6 +380,7 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
                 # dups_o='{}/{}.{}.dragen.combined.log'.format(os.path.dirname(b[2]),b[1],b[0])
                 # dups_l='{}/logs/{}.{}.dragen.log'.format(output_dir,b[1],b[0])
                 # print('have dups = {} -> {}'.format(dups_o,dups_l))
+
         else:
             print("this is a legacy sample")
 
@@ -386,7 +425,7 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
                 update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database)
 
         ####### f' me - just globbing...
-        component_bams = get_component_bams(sample,debug)
+        component_bams = get_component_bams(sample,debug,database)
         update_dragen_metadata_prepT_status(sample,component_bams,database,pseudo_prepid,debug)
         # rm_query = "DELETE FROM {0} WHERE pseudo_prepid={1}".format("tmp_dragen",pseudo_prepid)
         # if debug:
@@ -394,7 +433,7 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
         # run_query(rm_query,database)
 
     else:
-        raise Exception("Sample with bam files already exists!")
+        raise Exception("[legacy] Sample with bam files already exists!")
 
 def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
     output_dir = sample.metadata['output_dir']
@@ -504,18 +543,24 @@ def update_queue(pseudo_prepid,database):
         ###### clearly anything with this state is in an error state if we're running!?!
         ###### also check for conf files etc. - i.e. really make sure not getting races?!?
 
+        # q="select * from dragen_sample_metadata WHERE pseudo_prepid = {}".format(pseudo_prepid) 
+        # print(q)
+        # x=cur.execute(q)
+        # z=cur.fetchone()
+        # print("wtf?!? = '{}'".format(z))
+
         ########### clear previous errors - shouldn't be there!?!
         q="update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}".format( state+10, state )
         print(q)
         cur.execute(q)
-        print("we marked {} problem samples".format(cur.rowcount))
+        print("we marked {} 'old', problem samples".format(cur.rowcount))
 
         ########### get lock on current sample!?!
         q="update dragen_sample_metadata set is_merged = {} WHERE pseudo_prepid = {} and is_merged = 80010".format(state,pseudo_prepid) 
         print(q)
         cur.execute(q)
         if cur.rowcount != 1:
-            raise ValueError("seems we couldn't get a lock on sample {}".format(pseudo_prepid));
+            raise ValueError("seems we couldn't get a lock on sample {} : {} : {}".format(pseudo_prepid,cur.rowcount,q));
         else:
             print("we likely have a lock")
 
@@ -663,20 +708,31 @@ def get_reads(sample,read_number,debug):
 ##################### is this doing anything but loop on the same samples forever?!?
 ##################### is this doing anything but loop on the same samples forever?!?
 
-def get_next_sample(pid,database,debug):
+def get_next_sample(pid,database,debug,no_prerelease_align):
 
     ####################################### NOW: HERE WE SIMPLY INVOKE THE EXTERNAL SE ALIGNMENT WRAPPER
     print("calling se alignment process")
-    if False:
-        if os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")!=0:
-            print("\n\nproblem with se alignment process!\n\n")
-            # sleep(1)
-            raise Exception("\n\nproblem with se alignment process!\n\n")
-    else:
-        os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")
+
+    if no_prerelease_align==False:
+
+        if False:
+            if os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")!=0:
+                print("\n\nproblem with se alignment process!\n\n")
+                # sleep(1)
+                raise Exception("\n\nproblem with se alignment process!\n\n")
+        else:
+            os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")
 
     q="SELECT d.sample_name,d.sample_type,d.experiment_id,d.capture_kit,d.pseudo_prepid,d.is_external ticket_num,d.mapping_input FROM dragen_sample_metadata d "
-    q+=" join prepT p on p.experiment_id=d.experiment_id where (failedprep=0 or failedprep>=100) and "
+
+
+####### fuck sake!?!?
+    q+=" join prepT p on p.experiment_id=d.experiment_id where (failedprep=0 or failedprep=11 or failedprep>=100) and "
+    # q+=" join prepT p on p.experiment_id=d.experiment_id where (failedprep=0 or failedprep>=100) and "
+
+################
+    # q+=" d.sample_type = 'Exome' and "
+
     # q+=" join prepT p on p.p_prepid=d.pseudo_prepid where failedprep=0 and "
 
     # print("TEMPORARILY DISABLING EXTERNAL SAMPLES")
@@ -754,13 +810,13 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
     subprocess.call(['mkdir','-p',log_dir])
 
     if len(glob("{}/*.bam".format(output_dir)))!=0:
-        run_query("UPDATE dragen_sample_metadata SET is_merged = 80113 where pseudo_prepid = {}".format(pseudo_prepid),database)
         print(output_dir)
         print("EXTERNAL_BAM2BAM : Sample with bam files already exists!")
         if True:
-            print("TEMPORARY NAST HACK");
+            print("TEMPORARY NASTY HACK");
             os.system("rm -f {}/*.bam".format(output_dir))
         else:
+            run_query("UPDATE dragen_sample_metadata SET is_merged = 80113 where pseudo_prepid = {}".format(pseudo_prepid),database)
             exit(1)
             raise Exception("EXTERNAL_BAM2BAM : Sample with bam files already exists!")
 
@@ -769,6 +825,10 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
     conf_file = ("{}/{}.{}.DragenAlignment.conf").format(script_dir,sample_name,pseudo_prepid)
     print('{}= {}'.format('conf_file',conf_file))
 
+    print("input bam = '{}'".format(bam_file))
+    bam_file=bam_file.replace('/nfs/fastq_temp2/tx_3202/','/nfs/fastq_temp2/tx_temp/tx_3202/')
+    bam_file=bam_file.replace('/nfs/fastq_temp2/tx_3372/','/nfs/fastq_temp2/tx_temp/tx_3372/')
+    print("input bam = '{}'".format(bam_file))
     final_config_cont = raw_config.format(
        bam_file=bam_file,sample_name=sample_name,pseudo_prepid=pseudo_prepid,output_dir=output_dir
        # ,get_bed_file_loc(database,capture_kit)
@@ -840,32 +900,24 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
     ),database)
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser(description=__doc__)
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("-p", "--pseudo_prepid", type=str,
-                        help="Run dragen in single sample mode with provided pseudo_prepid")
-    group.add_argument("-a", "--auto", default=False, action="store_true",
-                        help="Run pipeline in automated mode")
-    parser.add_argument("-d", "--debug", default=False, action="store_true",
-                        help="Verbose output for debugging")
-    parser.add_argument("--seqscratch_drive", default='seqscratch_ssd',
-                        action='store', help="Set output destination")
-    parser.add_argument("--dontexecute", default=False, action="store_true",
-                        help="Perform setup but do not start a Dragen run")
-    parser.add_argument("--test", default=False, action="store_true",
-                        help="Query and updates to the database occur on the "
-                        "test server")
-    parser.add_argument('--version', '-v', action='version',
-                        version='%(prog)s v3.0')
-    args=parser.parse_args()
 
-    if args.pseudo_prepid:
-        run_type_flag = args.pseudo_prepid
-    else:
-        run_type_flag = args.auto
-    if args.test:
-        database="testDB"
-    else:
-        database="sequenceDB"
+    ###### get rid of some of these options!?!
+    ###### make dragen_reset an option!?!
+    # group = parser.add_mutually_exclusive_group(required=True)
+    # group.add_argument("-e", "--experiment_id", type=int)
+    # group.add_argument("-a", "--auto",          default=False,              action="store_true",    help="Run pipeline in automated mode")
+    # group.add_argument("-p", "--pseudo_prepid", type=str,                                           help="Run dragen in single sample mode with provided pseudo_prepid")
 
-    main(run_type_flag, args.debug, args.dontexecute, database, args.seqscratch_drive)
+    # parser.add_argument("-d", "--debug",        default=False,              action="store_true",    help="Verbose output for debugging")
+    # parser.add_argument("--seqscratch_drive",   default='seqscratch_ssd',   action='store',         help="Set output destination")
+
+    parser.add_argument("-r", "--reset", default=False, action="store_true") # make it an option flag with store_true?!?
+    parser.add_argument("--no_prerelease_align", default=False, action="store_true") # make it an option flag with store_true?!?
+    arg_list=parser.parse_args()
+
+    main(arg_list.reset,arg_list.no_prerelease_align)
+    # main(run_type_flag, args.debug, args.dontexecute, database, args.seqscratch_drive)
+
+

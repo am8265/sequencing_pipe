@@ -2,12 +2,13 @@ GET_QUALIFIED_BAMS = """
     SELECT fcillumid,laneNum FROM prepT p
     JOIN Lane l on p.PREPID=l.PREPID
     JOIN Flowcell f on l.fcid=f.fcid
-    WHERE P_PREPID = {pseudo_prepid} AND
+    WHERE p.experiment_id = {pseudo_prepid} AND
     FCILLUMID NOT LIKE 'X%' AND
     FAILR1 IS NULL AND
     FAILR2 IS NULL AND
     (FAILEDPREP = 0 or FAILEDPREP>=100)
     """
+    # WHERE P_PREPID = {pseudo_prepid} AND
     # doesn't support SE cases
     # AND RELEASED = 1
     # Add when release module goes live for HTS
