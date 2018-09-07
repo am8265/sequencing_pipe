@@ -213,7 +213,7 @@ def main(reset_dragen,no_prerelease_align):
 
                 if j[0]['format']=='bam':
                     filey='bam-input = {}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
-                elif j[0]['format']!='cram':
+                elif j[0]['format']=='cram':
                     # filey='{}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
                     filey='cram-input = {}/{}.{}\ncram-reference = {}'.format(j[0]['path'],j[0]['name'],j[0]['format'],j[0]['ref'])
                 else:
