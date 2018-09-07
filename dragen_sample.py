@@ -139,11 +139,13 @@ def get_fastq_loc(database, sample, rarp ):
     ############# since we are retreiving multiple prepids in init we can actually do things this way!?!
     ############# we can also hack it to allow for hybrids to work via ond procedure
     # if ( len(sample['prepid'])>1 and len(rarp)==0 ) or len(rarp)>0:
-    if sample['sample_name'][0:6]=="igm160" and ( int(sample['experiment_id'])>=181922 and int(sample['experiment_id'])<=181983 ):
+    # 181983,
+    if sample['sample_name'][0:6]=="igm160" and ( int(sample['experiment_id'])>=180922 and int(sample['experiment_id'])<=182983 ):
         print("> SUMMARY : F0CKW1T, CUN7 HANDLING. this should have been were we re-staged db bams for merging with topup SEs but instead is a BS hack for Gilead")
         from pprint import pprint as pp
         pp(sample)
         print ("cunts")
+        rarp.clear() # del rarp[:]
     elif len(rarp)>0:
         if len(rarp)!=total:
             print("> SUMMARY : HYBRID : JUST HACK THIS BY ADDING IN KNOWN PATH TO NASTY GLOB STUFF BELOW!?!?")
@@ -203,6 +205,7 @@ def get_fastq_loc(database, sample, rarp ):
             potential_locs.insert(0,'/nfs/seqscratch_ssd/dsth/APPALING_ALS_ISSUE/'.format(corrected_sample_type))
 
         potential_locs.extend([
+            '/nfs/archive/p2018/FASTQ/EXOME','/nfs/archive/p2018/FASTQ/EXOME',
             '/nfs/fastq_temp/{}/'.format(corrected_sample_type),
             '/nfs/seqscratch_ssd/transfer_finished_symlinks/{}/'.format(corrected_sample_type),
             # '/nfs/fastq_temp5/tx_temp/tx_3036/',
@@ -297,6 +300,17 @@ def get_fastq_loc(database, sample, rarp ):
                     ##### duh, need to put list into list!?!?
                     # potential_locs.append(NEW_GLOBS_FOR_DOWNGRADING_PATCH)
                     potential_locs.extend(NEW_GLOBS_FOR_DOWNGRADING_PATCH)
+
+                # potential_locs = potential_locs.reverse
+                # pp(potential_locs)
+                # x=[]
+
+                # for cunt in potential_locs.reverse:
+                    # x.extend(cunt)
+
+                # potential_locs = x
+                # pp(potential_locs)
+                # exit(1)
 
                 for potential_loc in potential_locs:
 

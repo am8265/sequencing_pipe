@@ -23,13 +23,14 @@ import pymysql
 import json
 from dragen_sample import get_bed_file_loc
 
+# -input} = {file}
 raw_config="""#================================================================================
 # Dragen 2.5 Configuration File
 #================================================================================
 # SAMPLE SETUP
 intermediate-results-dir = /staging/tmp
 ref-dir = /staging/REF/b37_decoy/
-bam-input = {bam_file}
+{type}
 # fastq-offset = 33 		
 enable-auto-multifile = true
 #================================================================================
@@ -203,15 +204,33 @@ def main(reset_dragen,no_prerelease_align):
                 print(mi)
                 j=json.loads(mi)
                 print(j)
-                if len(j)!=1 or j[0]['format']!='bam':
+
+
+                if len(j)!=1:
                     raise ValueError("not doing this yet!?!")
-                bam_file='{}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
-                print('bam= '+bam_file)
+
+                filey=''
+
+                if j[0]['format']=='bam':
+                    filey='bam-input = {}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
+                elif j[0]['format']!='cram':
+                    # filey='{}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
+                    filey='cram-input = {}/{}.{}\ncram-reference = {}'.format(j[0]['path'],j[0]['name'],j[0]['format'],j[0]['ref'])
+                else:
+                    raise ValueError("not doing this yet!?!")
+
+                print("using '{}'\n".format(filey))
+                # sys.exit(1)
+
+                # filey='bam-input = {}\n'.format(filey)
+                # bam_file='{}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
+                # print('file= '+bam_file)
+
                 ##### wtf happened?!?
                 prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 or failedprep = 11 or failedprep >= 100 ".format(pseudo_prepid),database)
                 # prepid = run_query("select prepid from prepT where p_prepid = {} and failedprep = 0 ".format(pseudo_prepid),database)
                 print('prepid= {}'.format(prepid))
-                run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0]['prepid'])
+                run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,filey,prepid[0]['prepid'])
                 # run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid[0])
 
             else:
@@ -785,7 +804,7 @@ def get_next_sample(pid,database,debug,no_prerelease_align):
         # wtf?!?
         return sample['sample_name'], sample['sample_type'], sample['pseudo_prepid'], sample['capture_kit'], int(sample['ticket_num']),sample['mapping_input']
 
-def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,bam_file,prepid):
+def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit,sample_name,pseudo_prepid,filey,prepid):
 
     print("arsgh")
     print('{}= {}'.format('prepid',prepid))
@@ -825,13 +844,17 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
     conf_file = ("{}/{}.{}.DragenAlignment.conf").format(script_dir,sample_name,pseudo_prepid)
     print('{}= {}'.format('conf_file',conf_file))
 
-    print("input bam = '{}'".format(bam_file))
-    bam_file=bam_file.replace('/nfs/fastq_temp2/tx_3202/','/nfs/fastq_temp2/tx_temp/tx_3202/')
-    bam_file=bam_file.replace('/nfs/fastq_temp2/tx_3372/','/nfs/fastq_temp2/tx_temp/tx_3372/')
-    print("input bam = '{}'".format(bam_file))
+    # print("input bam = '{}'".format(filey))
+    # bam_file=bam_file.replace('/nfs/fastq_temp2/tx_3202/','/nfs/fastq_temp2/tx_temp/tx_3202/')
+    # bam_file=bam_file.replace('/nfs/fastq_temp2/tx_3372/','/nfs/fastq_temp2/tx_temp/tx_3372/')
+    # print("input bam = '{}'".format(filey))
+    # ,get_bed_file_loc(database,capture_kit)
     final_config_cont = raw_config.format(
-       bam_file=bam_file,sample_name=sample_name,pseudo_prepid=pseudo_prepid,output_dir=output_dir
-       # ,get_bed_file_loc(database,capture_kit)
+       # file=bam_file,
+       sample_name=sample_name,
+       pseudo_prepid=pseudo_prepid,
+       output_dir=output_dir,
+       type=filey
     )
 
     # print("using {}".format(final_config_cont))
