@@ -214,6 +214,7 @@ def main(reset_dragen,no_prerelease_align):
                 if j[0]['format']=='bam':
                     filey='bam-input = {}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
                 elif j[0]['format']=='cram':
+                    raise ValueError("there is an error in dragen cram decompression!?!")
                     # filey='{}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
                     filey='cram-input = {}/{}.{}\ncram-reference = {}'.format(j[0]['path'],j[0]['name'],j[0]['format'],j[0]['ref'])
                 else:
@@ -334,11 +335,18 @@ def check_bam_found_vs_bam_db(sample,qualified_bams_found,database):
                 raise Exception("Bam {} not found!".format(db_bam))
 
 def get_component_bams(sample,debug,database):
+
+    ########## fucking dipshit!?!
     qualified_bams_found = glob('{output_dir}/*bam'.format(**sample.metadata))
 
     from pprint import pprint as pp
+
+    for i in qualified_bams_found:
+        pp(i)
+
     pp(qualified_bams_found)
     # exit(1)
+
     check_bam_found_vs_bam_db(sample,qualified_bams_found,database)
     if len(qualified_bams_found) < 1:
         raise Exception("No qualified bams were found!")
@@ -367,6 +375,21 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
     submit_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     existing_bams = glob("{}/*.bam".format(output_dir))
 
+    ########## fucking dipshit!?! yet more fuckwit handling...
+    from pprint import pprint as pp
+    arse1='{}/{}.{}.bam'.format(sample.metadata['output_dir'],sample.metadata['sample_name'],sample.metadata['pseudo_prepid'])
+    arse2='{}/{}.{}.merge.bam'.format(sample.metadata['output_dir'],sample.metadata['sample_name'],sample.metadata['pseudo_prepid'])
+    if os.path.exists(arse1):
+        print("clean-up {} to avoid db count conflict error?!?".format(arse1))
+        os.remove(arse1)
+    if os.path.exists(arse2):
+        print("clean-up {} to avoid db count conflict error?!?".format(arse2))
+        os.remove(arse2)
+    qualified_bams_found = glob('{output_dir}/*bam'.format(**sample.metadata))
+    # pp(sample.metadata)
+    for i in qualified_bams_found:
+        print('we have bam = {}'.format(os.path.basename(i)))
+    exit(1)
     # debug = True 
 
     if existing_bams == [] or existing_bams_check == False:
