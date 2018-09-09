@@ -344,7 +344,7 @@ def get_component_bams(sample,debug,database):
     for i in qualified_bams_found:
         pp(i)
 
-    pp(qualified_bams_found)
+    # pp(qualified_bams_found)
     # exit(1)
 
     check_bam_found_vs_bam_db(sample,qualified_bams_found,database)
@@ -389,7 +389,6 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
     # pp(sample.metadata)
     for i in qualified_bams_found:
         print('we have bam = {}'.format(os.path.basename(i)))
-    exit(1)
     # debug = True 
 
     if existing_bams == [] or existing_bams_check == False:
