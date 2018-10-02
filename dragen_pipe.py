@@ -23,6 +23,8 @@ import pymysql
 import json
 from dragen_sample import get_bed_file_loc
 
+twat_global=0
+
 # -input} = {file}
 raw_config="""#================================================================================
 # Dragen 2.5 Configuration File
@@ -89,6 +91,13 @@ map-orientations = 0 	# 0=Normal, 1=No Rev Comp, 2=No Forward  (paired end requi
 """
 
 def emailit(rarp,arse):
+
+    if twat_global!=0:
+
+        print("not sending email")
+        import os
+        os._exit(1)
+
     smtpserver = 'localhost'
     fromAddr = 'dh2880@cumc.columbia.edu'
     emailMsg = MM('alternative') #email.MIMEMultipart.MIMEMultipart('alternative')
@@ -117,7 +126,7 @@ def no_work(database):
     # pp(dsm)
     return rg[0]["count"]==0 and dsm[0]["count"]==0
 
-def main(reset_dragen,no_prerelease_align):
+def main(reset_dragen,no_prerelease_align,experiment_id):
 
     ###### some of these should 'perhaps' be arguments?!?
     seqscratch_drive = 'seqscratch_ssd'
@@ -125,6 +134,8 @@ def main(reset_dragen,no_prerelease_align):
     dontexecute = False
     run_type_flag = True
     debug = True
+
+    print('reset_dragen={}\nno_prerelease_align={}\nexperiment_id={}\ntwat_global={}'.format(reset_dragen,no_prerelease_align,experiment_id,twat_global))
 
     config = get_config()
 
@@ -177,7 +188,7 @@ def main(reset_dragen,no_prerelease_align):
     try:
 
         pseudo_prepid = 0
-        sample_name, sample_type, pseudo_prepid, capture_kit, tx, mi = get_next_sample(pseudo_prepid,database,debug,no_prerelease_align)
+        sample_name, sample_type, pseudo_prepid, capture_kit, tx, mi = get_next_sample(pseudo_prepid,database,debug,no_prerelease_align,experiment_id)
 
         print("we have experiment_id= {} with ticket= {}".format(pseudo_prepid,tx))
         # should set up seqscratch but atm fastq_temp & fastq_temp2 are set up
@@ -252,7 +263,7 @@ def main(reset_dragen,no_prerelease_align):
                     # sys.exit(1)
 
             try:
-                sample_name, sample_type, pseudo_prepid, capture_kit, tx, mi = get_next_sample(0,database,debug,no_prerelease_align)
+                sample_name, sample_type, pseudo_prepid, capture_kit, tx, mi = get_next_sample(0,database,debug,no_prerelease_align,experiment_id)
             except:
                 print("No more samples in the queue")
                 sys.exit(0)
@@ -572,6 +583,8 @@ def update_queue(pseudo_prepid,database):
         state=80011
     elif who == "dragen2.igm.cumc.columbia.edu":
         state=80012
+    elif twat_global!=0:
+        print("we don't care")
     else:
         raise ValueError("{} is not allowed to run this".format(who))
 
@@ -600,7 +613,7 @@ def update_queue(pseudo_prepid,database):
         q="update dragen_sample_metadata set is_merged = {} WHERE pseudo_prepid = {} and is_merged = 80010".format(state,pseudo_prepid) 
         print(q)
         cur.execute(q)
-        if cur.rowcount != 1:
+        if cur.rowcount != 1 and twat_global==0:
             raise ValueError("seems we couldn't get a lock on sample {} : {} : {}".format(pseudo_prepid,cur.rowcount,q));
         else:
             print("we likely have a lock")
@@ -749,7 +762,7 @@ def get_reads(sample,read_number,debug):
 ##################### is this doing anything but loop on the same samples forever?!?
 ##################### is this doing anything but loop on the same samples forever?!?
 
-def get_next_sample(pid,database,debug,no_prerelease_align):
+def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
 
     ####################################### NOW: HERE WE SIMPLY INVOKE THE EXTERNAL SE ALIGNMENT WRAPPER
     print("calling se alignment process")
@@ -765,8 +778,6 @@ def get_next_sample(pid,database,debug,no_prerelease_align):
             os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")
 
     q="SELECT d.sample_name,d.sample_type,d.experiment_id,d.capture_kit,d.pseudo_prepid,d.is_external ticket_num,d.mapping_input FROM dragen_sample_metadata d "
-
-
 ####### fuck sake!?!?
     q+=" join prepT p on p.experiment_id=d.experiment_id where (failedprep=0 or failedprep=11 or failedprep>=100) and "
     # q+=" join prepT p on p.experiment_id=d.experiment_id where (failedprep=0 or failedprep>=100) and "
@@ -779,7 +790,8 @@ def get_next_sample(pid,database,debug,no_prerelease_align):
     # print("TEMPORARILY DISABLING EXTERNAL SAMPLES")
     # q+=" externaldata is null and "
 
-    if pid == 0:
+    if experiment_id == 0:
+    # if pid == 0:
         # q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID asc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 ORDER BY PSEUDO_PREPID desc LIMIT 1 "
         ###### need to pick up old als samples
@@ -799,7 +811,7 @@ def get_next_sample(pid,database,debug,no_prerelease_align):
         # q=q+"WHERE is_merged = 80000 and sample_type != 'Genome' ORDER BY priority asc, sample_type desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and sample_type = 'Exome' order by pseudo_prepid desc LIMIT 1 "
     else:
-        q=q+("WHERE P_PREPID={}".format(pid))
+        q=q+("pseudo_prepid={}".format(experiment_id))
 
     connection = get_connection(database)
 
@@ -817,12 +829,16 @@ def get_next_sample(pid,database,debug,no_prerelease_align):
             raise ValueError("experiment_id does not match legacy pseudo_prepid")
 
         cur.execute("update dragen_sample_metadata set is_merged = 80010 WHERE pseudo_prepid = {} and is_merged = 80000".format(sample['pseudo_prepid']) )
-        if cur.rowcount != 1:
+
+        if cur.rowcount != 1 and experiment_id==0:
+        # if cur.rowcount != 1:
             raise ValueError("seems we couldn't get a lock on sample {}".format(sample['pseudo_prepid']));
 
         connection.commit()
         connection.close()
 
+        from pprint import pprint as pp
+        pp(sample)
         # wtf?!?
         return sample['sample_name'], sample['sample_type'], sample['pseudo_prepid'], sample['capture_kit'], int(sample['ticket_num']),sample['mapping_input']
 
@@ -960,9 +976,15 @@ if __name__ == "__main__":
 
     parser.add_argument("-r", "--reset", default=False, action="store_true") # make it an option flag with store_true?!?
     parser.add_argument("--no_prerelease_align", default=False, action="store_true") # make it an option flag with store_true?!?
+    parser.add_argument("-e", "--experiment_id", default=0, type=int)
+
     arg_list=parser.parse_args()
 
-    main(arg_list.reset,arg_list.no_prerelease_align)
+    if arg_list.experiment_id!=0:
+        twat_global=arg_list.experiment_id
+        arg_list.no_prerelease_align=False
+    
+    main(arg_list.reset,arg_list.no_prerelease_align,arg_list.experiment_id)
     # main(run_type_flag, args.debug, args.dontexecute, database, args.seqscratch_drive)
 
 
