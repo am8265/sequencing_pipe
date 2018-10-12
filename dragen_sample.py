@@ -266,9 +266,19 @@ def get_fastq_loc(database, sample, rarp ):
 
             print("using\n{}".format(query))
             flowcell_seqsatalocs = run_query(query,database)
+
             if len(flowcell_seqsatalocs)==0:
-                query = ("update dragen_sample_metadata set is_merged = 80130 where experiment_id = {}".format(sample['experiment_id']))
+
+                #### do single joined update?!?
+                query = ("update dragen_sample_metadata set is_merged = -2 where experiment_id = {}".format(sample['experiment_id']))
                 run_query(query,database)
+                query = ("update prepT set is_released = 0, status = 'Failed/Low-Qual Sample; Has no passing sequence events - will require deprecation', status_time = UNIX_TIMESTAMP(CURRENT_TIMESTAMP()) where experiment_id = {}".format(sample['experiment_id']))
+                run_query(query,database)
+                query = ("update Experiment set is_released = 'release_rejected' where id = {}".format(sample['experiment_id']))
+                run_query(query,database)
+                print("whatever, just don't let exception handling catch this one")
+                os._exit(1)
+
                 raise ValueError("prepid {} of experiment {} does not appear to have been sequenced - sequence or fail it to proceed".format(
                   prepid,sample['experiment_id']))
 
