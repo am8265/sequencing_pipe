@@ -401,6 +401,8 @@ def get_lanes(database,sample):
             "JOIN Lane l ON f.FCID=l.FCID "
             "JOIN prepT p ON l.prepID=p.prepID "
             "WHERE (FailR1 IS NULL and FailR2 IS NULL) "
+            ###### don't require pipelinecomplete/complete as want to see them
+            "and f.fail=0 "
             "AND l.prepID={0} AND (p.failedPrep=0 or failedprep>=100) "
         ).format(prepid)
 
@@ -433,11 +435,17 @@ def get_lanes(database,sample):
                     dist_fc.append(flowcell.split('/')[-1])
         ###### cretin - this makes it a tuple!?! what's it even for?!?
         # lanes = (lanes,)
-    print("we have {} distinct prepids and {} distinct fc".format(len(sample['prepid']),len(set(dist_fc))))
+    print("[DS] we have {} distinct prepids and {} distinct fc".format(len(sample['prepid']),len(set(dist_fc))))
     if ffs and len(sample['prepid'])>len(set(dist_fc)):
-        query = ("update dragen_sample_metadata set is_merged = 80140 where experiment_id = {}".format(sample['experiment_id']))
-        run_query(query,database)
-        raise ValueError("legacy globbin procedure is unable to locate distinct flowcells")
+        from pprint import pprint as pp
+        pp(sample['prepid'])
+        pp(set(dist_fc))
+        ##### ?!?
+        ##### ?!?
+        ##### ?!?
+        # query = ("update dragen_sample_metadata set is_merged = 80140 where experiment_id = {}".format(sample['experiment_id']))
+        # run_query(query,database)
+        # raise ValueError("legacy globbing procedure is unable to locate distinct flowcells")
     ### evil?!?
     lanes=list(set(lanes))
     # pp(lanes) 

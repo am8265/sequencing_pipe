@@ -24,6 +24,8 @@ import json
 from dragen_sample import get_bed_file_loc
 
 twat_global=0
+twat_global_restage_list_no_mapping=False
+twat_global_no_cram_conversion=False
 
 # -input} = {file}
 raw_config="""#================================================================================
@@ -126,7 +128,7 @@ def no_work(database):
     # pp(dsm)
     return rg[0]["count"]==0 and dsm[0]["count"]==0
 
-def main(reset_dragen,no_prerelease_align,experiment_id):
+def main(reset_dragen,no_prerelease_align,experiment_id,no_gvcf):
 
     ###### some of these should 'perhaps' be arguments?!?
     seqscratch_drive = 'seqscratch_ssd'
@@ -165,7 +167,7 @@ def main(reset_dragen,no_prerelease_align,experiment_id):
 
     ############################################################################################ 
 
-    if no_work(database):
+    if no_work(database) and no_gvcf==False:
         # print("there's nothing to do - should handle 'new' flavour release here anyway")
         print("there's nothing to do so running WGS gVCF")
         #### here we run 1 AND ONLY 1 gVCF run in order of preference 200000,200040,200100
@@ -184,6 +186,8 @@ def main(reset_dragen,no_prerelease_align,experiment_id):
         # print("we have pre-mapped bams for this sample")
 
     ############################################################################################ 
+
+    print("wtf")
 
     try:
 
@@ -225,11 +229,36 @@ def main(reset_dragen,no_prerelease_align,experiment_id):
                 if j[0]['format']=='bam':
                     filey='bam-input = {}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
                 elif j[0]['format']=='cram':
-                    raise ValueError("there is an error in dragen cram decompression!?!")
+
+                    scratch='/nfs/{}/ALIGNMENT/BUILD37/DRAGEN/{}/{}.{}/'.format(seqscratch_drive,sample_type.upper(),sample_name,pseudo_prepid)
+
+                    if not os.path.isdir(scratch):
+                        print('need to create dir {}'.format(scratch))
+                        os.mkdir(scratch)
+
+                    #### these are analagous - but it's likely worth putting the conversion step here just for simplicity!?!
+                    # time /nfs/fastq_temp/homes/dsth/ad_hoc/REFS/CRAM/samtools/samtools view -@ 48 -b -T /nfs/seqscratch09/tx_temp/tx_3990/hg19.fa -o 1743200.samtools.7.bam /nfs/seqscratch09/tx_temp/tx_3990/1422171.cram
+                    # time dragen -f --enable-map-align=false --file-conversion=true --cram-input /nfs/seqscratch09/tx_temp/tx_3990/1422171.cram --output-format=bam -r /nfs/fastq_temp/homes/dsth/ad_hoc/REFS/CRAM/hg19/ --output-directory /nfs/seqscratch_ssd/dsth/DNA_PIPE/1743200  --output-file-prefix 1743200.2
+
+                    cmd='time dragen -f --enable-map-align=false --file-conversion=true --cram-input {}/{}.{} \
+                      --output-format=bam -r {} --output-directory {} --output-file-prefix {}.{}.cram2bam'.format(
+                      j[0]['path'],     j[0]['name'], j[0]['format'],       j[0]['ref'],        scratch,      sample_name,pseudo_prepid
+                    )
+
+                    print('will run\n\n\t{}\n'.format(cmd))
+                    if twat_global_no_cram_conversion==False and os.system(cmd):
+                        raise ValueError("error in dragen cram2bam conversion.")
+
+                    # raise ValueError("there is an error in dragen cram decompression!?!")
+
+                    # filey='cram-input = {}/{}.{}\ncram-reference = {}'.format(j[0]['path'],j[0]['name'],j[0]['format'],j[0]['ref'])
+                    filey='bam-input = {}/{}.{}.cram2bam.bam'.format(scratch,sample_name,pseudo_prepid)
                     # filey='{}/{}.{}'.format(j[0]['path'],j[0]['name'],j[0]['format'])
-                    filey='cram-input = {}/{}.{}\ncram-reference = {}'.format(j[0]['path'],j[0]['name'],j[0]['format'],j[0]['ref'])
+
                 else:
                     raise ValueError("not doing this yet!?!")
+
+                # exit(1)
 
                 print("using '{}'\n".format(filey))
                 # sys.exit(1)
@@ -263,6 +292,9 @@ def main(reset_dragen,no_prerelease_align,experiment_id):
                     # sys.exit(1)
 
             try:
+                if experiment_id!=0:
+                    print("gonna stop")
+                    os._exit(0)
                 sample_name, sample_type, pseudo_prepid, capture_kit, tx, mi = get_next_sample(0,database,debug,no_prerelease_align,experiment_id)
             except:
                 print("No more samples in the queue")
@@ -315,9 +347,11 @@ def update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database):
     run_query(read_group_insert,database)
 
 def check_bam_found_vs_bam_db(sample,qualified_bams_found,database):
+
     max_prepid = max(map(lambda x:int(x),sample.metadata['prepid']))
+
     if is_external_or_legacy_sample(max_prepid,database) == True:
-       print("Checking bams found vs RGs from fastqs")
+       print("(A) Checking bams found vs RGs from fastqs")
        for laneFCID in sample.metadata['lane']: #[0]: #loop over read groups
             rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
 
@@ -329,16 +363,21 @@ def check_bam_found_vs_bam_db(sample,qualified_bams_found,database):
                 raise Exception("Bam {} not found!".format(bam_loc))
 
     else:
-        print("Checking bams found vs RGs in db")
+        print("(B) Checking bams found vs RGs in db")
         # this is still single prep...
         # query = GET_QUALIFIED_BAMS.format(**sample.metadata)
-        query = "SELECT fcillumid,laneNum FROM prepT p JOIN Lane l on p.PREPID=l.PREPID JOIN Flowcell f on l.fcid=f.fcid WHERE p.experiment_id = {pseudo_prepid} AND FCILLUMID NOT LIKE 'X%' AND FAILR1 IS NULL AND FAILR2 IS NULL AND (FAILEDPREP = 0 or FAILEDPREP>=100)".format(**sample.metadata)
+        ###### again don't hide unfinished data just broken - i.e. filter on fail NOT complete/pipelinecomplete
+        query = "SELECT fcillumid,laneNum FROM prepT p JOIN Lane l on p.PREPID=l.PREPID JOIN Flowcell f on l.fcid=f.fcid WHERE f.fail=0 and p.experiment_id = {pseudo_prepid} AND FCILLUMID NOT LIKE 'X%' AND FAILR1 IS NULL AND FAILR2 IS NULL AND (FAILEDPREP = 0 or FAILEDPREP>=100)".format(**sample.metadata)
+        # query = "SELECT fcillumid,laneNum FROM prepT p JOIN Lane l on p.PREPID=l.PREPID JOIN Flowcell f on l.fcid=f.fcid WHERE p.experiment_id = {pseudo_prepid} AND FCILLUMID NOT LIKE 'X%' AND FAILR1 IS NULL AND FAILR2 IS NULL AND (FAILEDPREP = 0 or FAILEDPREP>=100)".format(**sample.metadata)
         qualified_bams_in_db = run_query(query,database)
+
         if len(qualified_bams_in_db) != len(qualified_bams_found):
+
             from pprint import pprint as pp
             pp(qualified_bams_found)
             pp(qualified_bams_in_db)
             raise Exception("Number of bams found ({}) != number of RGs in database ({})!".format(len(qualified_bams_found),len(qualified_bams_in_db)))
+
         for db_bam in qualified_bams_in_db:
             db_bam = ("{output_dir}/{sample_name}.{pseudo_prepid}.{fcillumid}.{lane_num}.bam"
                      ).format(fcillumid=db_bam['fcillumid'],lane_num=db_bam['laneNum'],**sample.metadata)
@@ -353,6 +392,7 @@ def get_component_bams(sample,debug,database):
     from pprint import pprint as pp
 
     for i in qualified_bams_found:
+        sys.stdout.write('bam found = ')
         pp(i)
 
     # pp(qualified_bams_found)
@@ -374,12 +414,36 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
     from pprint import pprint as pp
     pp(vars(sample))
     if 'bams' in sample.metadata:
-        print("we have pre-mapped bams for this sample")
+        print("THIS IS A NEW FLAVOUR SAMPLE WITH PRE-MAPPED COMPONENTS")
+        if twat_global_restage_list_no_mapping:
+            print("THIS MAKES NO SENSE AS IT'S PREMAPPED POST RUN")
+            return
+            # os._exit(1)
     else:
-        print("this is a legacy sample")
+        print("THIS IS A LEGACY OR HYBRID SAMPLE")
         check_Fastq_Total_Size(sample,debug)
 
     setup_dir(seqscratch_drive,sample,debug)
+
+    print("using scratch dir {}".format(sample.metadata['output_dir']))
+    if not os.path.isdir(sample.metadata['output_dir']):
+        print("this is wrong!")
+        os._exit(1)
+
+    # rfo
+    r_list='{}/restage.txt'.format(sample.metadata['output_dir'])
+    if twat_global_restage_list_no_mapping:
+        print("only generating restaging list {}".format(r_list))
+        if(os.path.isfile(r_list)):
+            rfo=open(r_list,"w+")
+            # rfo.write('arse')
+            rfo.truncate()
+            rfo.close()
+        # else:
+            # rfo=open(list,"w+")
+            # rfo.write('arse')
+        # rfo.close()
+
     existing_bams_check = False
     output_dir = sample.metadata['output_dir']
     pseudo_prepid = sample.metadata['pseudo_prepid']
@@ -388,14 +452,33 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
 
     ########## fucking dipshit!?! yet more fuckwit handling...
     from pprint import pprint as pp
+
+    ####################################################################################################
+    ################ merge intermediates...
+    ####################################################################################################
     arse1='{}/{}.{}.bam'.format(sample.metadata['output_dir'],sample.metadata['sample_name'],sample.metadata['pseudo_prepid'])
     arse2='{}/{}.{}.merge.bam'.format(sample.metadata['output_dir'],sample.metadata['sample_name'],sample.metadata['pseudo_prepid'])
+
     if os.path.exists(arse1):
         print("clean-up {} to avoid db count conflict error?!?".format(arse1))
         os.remove(arse1)
     if os.path.exists(arse2):
         print("clean-up {} to avoid db count conflict error?!?".format(arse2))
         os.remove(arse2)
+
+    ####################################################################################################
+    ################ pipeline intermediates - we should 'really' mark these are as 'require deprecation'
+    ####################################################################################################
+    arse3='{}/{}.{}.realn.recal.bam'.format(sample.metadata['output_dir'],sample.metadata['sample_name'],sample.metadata['pseudo_prepid'])
+    if os.path.exists(arse3):
+        print("clean-up {} to avoid db count conflict error?!?".format(arse3))
+        os.remove(arse3)
+    arse4='{}/{}.{}.realn.bam'.format(sample.metadata['output_dir'],sample.metadata['sample_name'],sample.metadata['pseudo_prepid'])
+    if os.path.exists(arse4):
+        print("clean-up {} to avoid db count conflict error?!?".format(arse4))
+        os.remove(arse4)
+    ####################################################################################################
+
     qualified_bams_found = glob('{output_dir}/*bam'.format(**sample.metadata))
     # pp(sample.metadata)
     for i in qualified_bams_found:
@@ -413,28 +496,42 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
 
         if 'bams' in sample.metadata:
 
-            print("we have pre-mapped bams for this sample")
+            print("\n---------------------------------------------------------------");
+            print("GO THROUGH MAPPED RG COMPONENTS DIRECT FROM FC - i.e. we ONLY link files over!?!")
+            print("---------------------------------------------------------------\n");
+
+            bc=0
             ##### DIPSHIT THE NAMING STRUCTURE WAS ALREADY CORRECT!?!
             for b in sample.metadata['bams']:
+
                 # pp(output_dir)
+                bc=bc+1
+                sys.stdout.write('[{}/{}] : bam thing from dragen_sample = '.format(bc,len(sample.metadata['bams'])))
                 pp(b)
+                sys.stdout.write('\n')
+
                 bam='{}/{}'.format(output_dir,os.path.basename(b[2]))
                 # bam=os.path.join(output_dir,'{}.{}.bam'.format(b[1],b[0]))
                 print('have bam = {} -> {}'.format(b[2],bam))
                 if not os.path.exists(bam):
                     os.symlink(b[2],bam)
+
                 index='{}/{}.bai'.format(output_dir,os.path.basename(b[2]))
                 # index=os.path.join(output_dir,'{}.{}.bam.bai'.format(b[1],b[0]))
                 if not os.path.exists(index):
                     os.symlink(b[2]+'.bai',index)
-                print('have bai = {} -> {}'.format(b[2]+'.bai',bam))
+                print('have bai = {} -> {}\n'.format(b[2]+'.bai',bam))
+
                 ##### duh, all getting merged atm
                 # dups_o='{}/{}.{}.dragen.combined.log'.format(os.path.dirname(b[2]),b[1],b[0])
                 # dups_l='{}/logs/{}.{}.dragen.log'.format(output_dir,b[1],b[0])
                 # print('have dups = {} -> {}'.format(dups_o,dups_l))
 
         else:
+
+            print("\n---------------------------------------------------------------");
             print("this is a legacy sample")
+            print("---------------------------------------------------------------\n");
 
             ###### argh, wtf!?! simpler to put this in else...
             ############ this could never have worked?!?
@@ -471,14 +568,20 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
                 # if not debug:
                 # if dontexecute == False: #For test purposes
                 ###### does nothing but run dragen
-                run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug)
+                run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug,r_list)
+                # run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug,rfo)
 
                 #### utteraly pointless
                 update_lane_metrics(sample,rg_lane_num,rg_fcillumid,rg_prepid,database)
 
         ####### f' me - just globbing...
-        component_bams = get_component_bams(sample,debug,database)
-        update_dragen_metadata_prepT_status(sample,component_bams,database,pseudo_prepid,debug)
+        if twat_global_restage_list_no_mapping==False:
+            component_bams = get_component_bams(sample,debug,database)
+            update_dragen_metadata_prepT_status(sample,component_bams,database,pseudo_prepid,debug)
+        else:
+            print("simply build restage list {}".format(r_list));
+            run_query("update prepT p join dragen_sample_metadata d on p.experiment_id=d.experiment_id set status = 'Marked_For_Restaging', is_merged = 81000 where failedprep = 0  and d.experiment_id = {}".format(pseudo_prepid),database)
+            # os._exit(0)
         # rm_query = "DELETE FROM {0} WHERE pseudo_prepid={1}".format("tmp_dragen",pseudo_prepid)
         # if debug:
         #    print(rm_query)
@@ -487,9 +590,13 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
     else:
         raise Exception("[legacy] Sample with bam files already exists!")
 
-def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
+def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug,r_list):
+
     output_dir = sample.metadata['output_dir']
+
+    ################# -f option!?!!?
     dragen_cmd = ['dragen', '-f', '-v', '-c', sample.metadata['conf_file'], '--watchdog-active-timeout', '600']
+
     if debug:
         print(' '.join(dragen_cmd))
     stderr_file_loc = ('{}/{}.{}.{}.{}.dragen.err'
@@ -500,27 +607,81 @@ def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug):
                       ).format(sample.metadata['log_dir'],sample.metadata['sample_name'],
                                sample.metadata['pseudo_prepid'],rg_fcillumid,rg_lane_num)
 
-    dragen_stderr = open(stderr_file_loc,'a')
-    with open(stdout_file_loc,'a') as dragen_stdout:
-        process = subprocess.Popen(dragen_cmd,stdout=subprocess.PIPE,stderr=dragen_stderr)
-        while True:
-            output =  process.stdout.readline().decode()
-            if output == '' and process.poll() is not None:
-                break
-            if output:
-                print(output)
-                dragen_stdout.write(output)
-        rc = process.poll()
-    dragen_stdout.close()
-    dragen_stderr.close()
-    if rc != 0:
-        ##### this we do want an email about!?!
-        # email_failure(dragen_cmd)
-        # emailit('alignment issue ' + stderr_file_loc,dragen_cmd)
-        # grep error /nfs/seqscratch_ssd/ALIGNMENT/BUILD37/DRAGEN/EXOME/GHARCAKUTC12uu121xx1.35982/logs/GHARCAKUTC12uu121xx1.35982.AD099KACXX.6.dragen.err
-        # grep error /nfs/seqscratch_ssd/ALIGNMENT/BUILD37/DRAGEN/EXOME/dukeepi704a.37111/logs/dukeepi704a.37111.C9BH8ANXX.4.dragen.err 
-        # grep error -r /nfs/seqscratch_ssd/ALIGNMENT/BUILD37/DRAGEN/GENOME/Schiz989772046.56601/logs/              
-        raise Exception("Dragen alignment did not complete successfully (check log)")
+    ###################################################################################                  
+    if twat_global_restage_list_no_mapping==False:
+
+        ############## clearly, re-release after top-up etc., is 'strictly' for the addition on new RGs so in general we should re-map components!?!
+        print("HERE WE SHOULD CHECK IF THIS RG HAS BEEN MAPPED PREVIOUSLY - CHECK FOR BAM AND CHECK-POINT FILES AND BYPASS!?!")
+        print("HERE WE SHOULD CHECK IF THIS RG HAS BEEN MAPPED PREVIOUSLY - CHECK FOR BAM AND CHECK-POINT FILES AND BYPASS!?!")
+        print("HERE WE SHOULD CHECK IF THIS RG HAS BEEN MAPPED PREVIOUSLY - CHECK FOR BAM AND CHECK-POINT FILES AND BYPASS!?!")
+
+        bored = ( sample.metadata['output_dir'], sample.metadata['sample_name'], sample.metadata['pseudo_prepid'], rg_fcillumid, rg_lane_num )
+        # from pprint import pprint as pp
+        # pp(bored)
+        cp1='{}/{}.{}.{}.{}.bam'.format(*bored)
+        cp2='{}/{}.{}.{}.{}.bam.bai'.format(*bored)
+        cp3='{}/{}.{}.{}.{}.bam.md5sum'.format(*bored)
+        cp4='{}/{}.{}.{}.{}.time_metrics.csv'.format(*bored)
+        cp5='{}/{}.{}.{}.{}-replay.json'.format(*bored)
+
+        print("checking for {}".format(cp1))
+        print("checking for {}".format(cp2))
+        print("checking for {}".format(cp3))
+        print("checking for {}".format(cp4))
+        print("checking for {}".format(cp5))
+
+        ################## REALLY SHOULD MAKE SURE THAT THERE ARE NO SINGLE RG WGS AS IT BYPASSES CHECKS!?!
+        if os.path.isfile(cp1) and os.path.isfile(cp2) and os.path.isfile(cp3) and os.path.isfile(cp4) and os.path.isfile(cp5) \
+          and os.path.getmtime(cp5)>= os.path.getmtime(cp4) \
+          and os.path.getmtime(cp4)>= os.path.getmtime(cp3) \
+          and os.path.getmtime(cp3)>= os.path.getmtime(cp2) \
+          and os.path.getmtime(cp2)>= os.path.getmtime(cp1):
+
+            print(">>>>> appears to be done <<<<<\n");
+            return
+            # pass
+        else:
+            print(">>>>> need to run it\n");
+
+        ############# without this it doesn't seem flush debug?!?
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+        # os._exit(1)
+
+        dragen_stderr = open(stderr_file_loc,'a')
+        with open(stdout_file_loc,'a') as dragen_stdout:
+            process = subprocess.Popen(dragen_cmd,stdout=subprocess.PIPE,stderr=dragen_stderr)
+            while True:
+                output =  process.stdout.readline().decode()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    print(output)
+                    dragen_stdout.write(output)
+            rc = process.poll()
+        dragen_stdout.close()
+        dragen_stderr.close()
+        if rc != 0:
+            ##### this we do want an email about!?!
+            # email_failure(dragen_cmd)
+            # emailit('alignment issue ' + stderr_file_loc,dragen_cmd)
+            # grep error /nfs/seqscratch_ssd/ALIGNMENT/BUILD37/DRAGEN/EXOME/GHARCAKUTC12uu121xx1.35982/logs/GHARCAKUTC12uu121xx1.35982.AD099KACXX.6.dragen.err
+            # grep error /nfs/seqscratch_ssd/ALIGNMENT/BUILD37/DRAGEN/EXOME/dukeepi704a.37111/logs/dukeepi704a.37111.C9BH8ANXX.4.dragen.err 
+            # grep error -r /nfs/seqscratch_ssd/ALIGNMENT/BUILD37/DRAGEN/GENOME/Schiz989772046.56601/logs/              
+            raise Exception("Dragen alignment did not complete successfully (check log)")
+    else:
+        print("simply build restage list");
+        ######### we should probably re-stage to scratch/restaging/
+        from pprint import pprint as pp
+        pp(vars(sample))
+        print("we append\n{}\n{}\n".format(sample.metadata['first_fastq1'],sample.metadata['first_fastq2']))
+        rfo=open(r_list,"a+")
+        rfo.write("{}\n{}\n".format(sample.metadata['first_fastq1'],sample.metadata['first_fastq2']))
+        rfo.close()
+        # os._exit(0)
+    ###################################################################################                  
+
     try:
         subprocess.call(['chmod','-R','775','{}'.format(output_dir)])
     except:
@@ -583,7 +744,7 @@ def update_queue(pseudo_prepid,database):
         state=80011
     elif who == "dragen2.igm.cumc.columbia.edu":
         state=80012
-    elif twat_global!=0:
+    elif twat_global_restage_list_no_mapping:
         print("we don't care")
     else:
         raise ValueError("{} is not allowed to run this".format(who))
@@ -709,11 +870,20 @@ def check_Fastq_Total_Size(sample,debug):
             fastq_filesize_sum += fastq_filesize
             print("  > checking fastq '{}' ({}GB)".format(fastq,'%.2f'%(fastq_filesize/gb)))
     print("Sum of Fastq size: {}".format(fastq_filesize_sum))
-    if sample_type == 'genome':
-        if fastq_filesize_sum < 25949672960: 
-        # if fastq_filesize_sum < 42949672960: # < 40GB
-            raise ValueError('genome fastq sum seems a bit small : {}'.format(fastq_filesize_sum))
-            user_input_fastq_size('lt',sample.metadata['sample_type'])
+
+    print("THIS IS REALLY A BITR POINTLESS NOW - let them go through and get rejected as absurd smaples!?!")
+    ##################### cannot recall where the update is done?!?
+    if sample_type == 'genome' or sample_type == 'genome_as_fake_exome':
+
+        # if fastq_filesize_sum < 10000: 
+        min = 2594 # min = 25949672960
+        if fastq_filesize_sum < min:
+            # if fastq_filesize_sum < 42949672960: # < 40GB
+            gb=min/(1024*1024*1024)
+            # run_query("UPDATE dragen_sample_metadata SET is_merged = 80113 where pseudo_prepid = {}".format(pseudo_prepid),database)
+            raise ValueError('Release Error; Genome FASTQ size too low ({0:.2f} GB).'.format(gb))
+            # user_input_fastq_size('lt',sample.metadata['sample_type'])
+
     elif sample_type == 'exome':
         #### why would it stall?!? at most it should register and warning and move on not block entire procedure for user input!?!
         # if fastq_filesize_sum > 32212254720: # > 30GB
@@ -765,7 +935,7 @@ def get_reads(sample,read_number,debug):
 def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
 
     ####################################### NOW: HERE WE SIMPLY INVOKE THE EXTERNAL SE ALIGNMENT WRAPPER
-    print("calling se alignment process")
+    print("calling se alignment process ({})".format(experiment_id))
 
     if no_prerelease_align==False:
 
@@ -811,7 +981,7 @@ def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
         # q=q+"WHERE is_merged = 80000 and sample_type != 'Genome' ORDER BY priority asc, sample_type desc LIMIT 1 "
         # q=q+"WHERE is_merged = 80000 and sample_type = 'Exome' order by pseudo_prepid desc LIMIT 1 "
     else:
-        q=q+("pseudo_prepid={}".format(experiment_id))
+        q=q+("pseudo_prepid={} group by experiment_id".format(experiment_id))
 
     connection = get_connection(database)
 
@@ -819,7 +989,7 @@ def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
 
         cur.execute(q)
         if cur.rowcount != 1:
-            print("[dp] there's nothing in dsm")
+            print("[dp] didn't retrive a sample to map from dsm ({})".format(cur.rowcount))
             sys.exit(0)
             # raise ValueError("couldn't get a sample")
 
@@ -866,12 +1036,22 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
     subprocess.call(['mkdir','-p',script_dir])
     subprocess.call(['mkdir','-p',log_dir])
 
-    if len(glob("{}/*.bam".format(output_dir)))!=0:
+    x = glob("{}/*.bam".format(output_dir))
+    if len(x)!=0:
         print(output_dir)
         print("EXTERNAL_BAM2BAM : Sample with bam files already exists!")
         if True:
-            print("TEMPORARY NASTY HACK");
-            os.system("rm -f {}/*.bam".format(output_dir))
+            x = glob("{}/*.bam".format(output_dir))
+            for i in x:
+                print( "TEMPORARY NASTY HACK : {}".format(i) );
+                if i.find('cram2bam')==-1:
+                    print( "wiping bam : {}".format(i) );
+                    os.system( "rm -f {}".format(i) )
+                else:
+                    print( "ignoring cram2bam intermediate : {}".format(i) );
+                # os.system("rm -f {}/*.bam".format(output_dir))
+            # exit(1)
+            # os.system("rm -f {}/*.bam".format(output_dir))
         else:
             run_query("UPDATE dragen_sample_metadata SET is_merged = 80113 where pseudo_prepid = {}".format(pseudo_prepid),database)
             exit(1)
@@ -910,34 +1090,43 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
 
     print(dragen_cmd)
 
-    dragen_stderr = open(stderr_file_loc,'a')
-    with open(stdout_file_loc,'a') as dragen_stdout:
+############################################################
+    # makes no sense here?!?
+    if twat_global_restage_list_no_mapping:
+        print("this makes no sense at all!?!")
+        os._exit(1)
+    else:
+        dragen_stderr = open(stderr_file_loc,'a')
+        with open(stdout_file_loc,'a') as dragen_stdout:
 
-        process = subprocess.Popen(dragen_cmd,stdout=subprocess.PIPE,stderr=dragen_stderr)
-        while True:
-            output =  process.stdout.readline().decode()
-            if output == '' and process.poll() is not None:
-                break
-            if output:
-                print(output)
-                dragen_stdout.write(output)
-        rc = process.poll()
+            process = subprocess.Popen(dragen_cmd,stdout=subprocess.PIPE,stderr=dragen_stderr)
+            while True:
+                output =  process.stdout.readline().decode()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    print(output)
+                    dragen_stdout.write(output)
+            rc = process.poll()
 
-    # with?!?
-    # dragen_stdout.close()
-    dragen_stderr.close()
+        # with?!?
+        # dragen_stdout.close()
+        dragen_stderr.close()
 
-    if rc != 0:
-        run_query("UPDATE dragen_sample_metadata SET is_merged = 80112 where pseudo_prepid = {}".format(pseudo_prepid),database)
-        print ("EXTERNAL_BAM2BAM : Dragen alignment did not complete successfully : {} ".format(dragen_cmd))
-        exit(1)
-        raise Exception("EXTERNAL_BAM2BAM : Dragen alignment did not complete successfully : {} ".format(dragen_cmd))
+        if rc != 0:
+            run_query("UPDATE dragen_sample_metadata SET is_merged = 80112 where pseudo_prepid = {}".format(pseudo_prepid),database)
+            print ("EXTERNAL_BAM2BAM : Dragen alignment did not complete successfully : {} ".format(dragen_cmd))
+            exit(1)
+            raise Exception("EXTERNAL_BAM2BAM : Dragen alignment did not complete successfully : {} ".format(dragen_cmd))
+############################################################
+
     try:
         subprocess.call(['chmod','-R','775','{}'.format(output_dir)])
     except:
         pass
 
-    qualified_bams_found = glob('{}/*bam'.format(output_dir))
+######## f'ing nasty!?!
+    qualified_bams_found = glob('{}/*prerel*bam'.format(output_dir))
     if len(qualified_bams_found) != 1:
         raise Exception("EXTERNAL: this is wrong : " + qualified_bams_found)
 
@@ -976,15 +1165,26 @@ if __name__ == "__main__":
 
     parser.add_argument("-r", "--reset", default=False, action="store_true") # make it an option flag with store_true?!?
     parser.add_argument("--no_prerelease_align", default=False, action="store_true") # make it an option flag with store_true?!?
+    parser.add_argument("--no_gvcf", default=False, action="store_true") # make it an option flag with store_true?!?
     parser.add_argument("-e", "--experiment_id", default=0, type=int)
+
+    parser.add_argument("--restage_list", default=False, action="store_true") # make it an option flag with store_true?!?
+
+    parser.add_argument("--no_cram_conversion", default=False, action="store_true") # make it an option flag with store_true?!?
 
     arg_list=parser.parse_args()
 
     if arg_list.experiment_id!=0:
         twat_global=arg_list.experiment_id
         arg_list.no_prerelease_align=False
+
+    if arg_list.restage_list==True:
+        twat_global_restage_list_no_mapping=arg_list.restage_list
     
-    main(arg_list.reset,arg_list.no_prerelease_align,arg_list.experiment_id)
+    if arg_list.no_cram_conversion==True:
+        twat_global_no_cram_conversion=arg_list.no_cram_conversion
+
+    main(arg_list.reset,arg_list.no_prerelease_align,arg_list.experiment_id,arg_list.no_gvcf)
     # main(run_type_flag, args.debug, args.dontexecute, database, args.seqscratch_drive)
 
 
