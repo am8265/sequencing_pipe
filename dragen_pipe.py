@@ -940,12 +940,13 @@ def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
     if no_prerelease_align==False:
 
         if False:
-            if os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")!=0:
+            if os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/PostBcl align")!=0:
+            # if os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")!=0:
                 print("\n\nproblem with se alignment process!\n\n")
                 # sleep(1)
                 raise Exception("\n\nproblem with se alignment process!\n\n")
         else:
-            os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/testing/dragen_align_se align")
+            os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/PostBcl align")
 
     q="SELECT d.sample_name,d.sample_type,d.experiment_id,d.capture_kit,d.pseudo_prepid,d.is_external ticket_num,d.mapping_input FROM dragen_sample_metadata d "
 ####### fuck sake!?!?
