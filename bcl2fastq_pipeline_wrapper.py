@@ -13,8 +13,6 @@ from collections import Counter
 from operator import itemgetter
 from utilities import *
 
-####### this rediculously runs bcl.py directly that submits to cluster and then submits post-bcl & storage as bcl job dependencies directly...
-
 def submit(config,args,run_info_dict,database):
     bcl2fastq_scratch_drive = config.get('locs','bcl2fastq_scratch_drive')
     archive_dir = config.get('locs','fastq_archive_drive')
@@ -100,16 +98,12 @@ def add_sge_header(config,file,fcillumid,step,hold):
     file.write('#$ -o {}/{}_{}.out\n'.format(log_dir,fcillumid,step))
     file.write('#$ -e {}/{}_{}.err\n'.format(log_dir,fcillumid,step))
     file.write('#$ -V\n')
-    ###### perhaps this should have a useful name like perhaps post_bcl2fastq_FC?!?
     file.write('#$ -N {}_{}\n'.format(step,fcillumid))
     file.write('#$ -M {}@cumc.columbia.edu\n'.format(get_user()))
     file.write('#$ -m bea\n')
     file.write('#\n')
-    ########### we're going to get ride of this and make the invocation blocking such as to run it locally on dragen1/2...
-    ########### can add later add in additional stuff like running dragen immediately
-    ########### first-thing-first need to start tracking FCs!?!
+
     if hold == True:
-        ##### this really 'should' be handled either via a shared function or by returning the job id...!?!
         file.write('#$ -hold_jid bcl_{}\n'.format(fcillumid))
     file.write('\n')
 

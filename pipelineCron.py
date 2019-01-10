@@ -19,14 +19,11 @@ def main(config):
             GROUP BY l.FCID
             ORDER BY MIN(PRIORITY) ASC , FROM_UNIXTIME(SEQEND) ASC
             """
-    #print(query)
-    # print("checking for flowcells")
     complete_flowcells = run_query(query,database)
     for fcillumid in complete_flowcells:
         fcillumid = fcillumid['FCILLUMID']
         check_and_run_flowcell(fcillumid,config,database)
     if complete_flowcells == ():
-        #print('No flowcells were found')
         pass
 
 def check_and_run_flowcell(fcillumid,config,database):

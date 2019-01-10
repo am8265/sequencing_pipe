@@ -84,105 +84,61 @@ def get_bed_file_loc(database,capture_kit):
     return bed_file_loc
 
 def get_fastq_loc(database, sample, rarp ):
-    # rarp['arse']='fdsafds';
-    # https://stackoverflow.com/questions/986006/how-do-i-pass-a-variable-by-reference
-    # If you pass a mutable object into a method, the method gets a reference to that same object and you can mutate it to your heart's delight, but if you rebind the reference in the method, the outer scope will know nothing about it,
-    # hence 
-    #   rarp.append('fdfd')
-    # not 
-    #   rarp='fff';
-    # print ("select count(1) count, data using query for location")
-    # new_fq = 0
-    total = 0
 
+    total = 0
     
     ##### people have been breaking the dir/file name combos wrt., the Lane.data json field so simpler to downgrade and patch up...
     NEW_GLOBS_FOR_DOWNGRADING_PATCH = []
-    
-
-    print("we have '{}' preps for this experiment".format(len(sample['prepid'])))
 
     for prepid in sample["prepid"]:
-        ###### grab absolutely ALL data for sample - BUT - needs to be changed to join via experiment_id and not prepid!?!
-        ###### grab absolutely ALL data for sample - BUT - needs to be changed to join via experiment_id and not prepid!?!
-        ###### grab absolutely ALL data for sample - BUT - needs to be changed to join via experiment_id and not prepid!?!
+
         query = ("SELECT rg_status,lanenum,fcillumid, data FROM Flowcell f JOIN Lane l ON f.FCID=l.FCID JOIN prepT p ON l.prepID=p.prepID "
             "WHERE (FailR1 IS NULL and FailR2 IS NULL) "
-            # let's do it with or without bam - i.e. just use the fastq from scratch location directly
-            # "WHERE data->'$.bam' is not null and (FailR1 IS NULL and FailR2 IS NULL) "
-######################### strictly should be checking is_released here!?!
-######################### strictly should be checking is_released here!?!
-######################### strictly should be checking is_released here!?!
             "AND l.prepID={0} AND f.fail=0 and (failedprep=0 or failedprep>=100) "
             # "GROUP BY f.fcid"
             ).format(prepid)
         info = run_query(query,database)
-        # from pprint import pprint as pp
         for d in info:
             total = total+1
-            # pp(d['data'])
-            ##### should we allow for fastq direct - i.e. align directly when in hurry?!?
             if d['data'] != None:
                 j=(json.loads(d['data']))
                 if 'bam' in j:
-                    print(d['rg_status'])
                     bam=j['bam']
-                    print("new flavour with {} @ {}".format(d['rg_status'],j['bam']['path']['scratch']))
-                    # pp(bam)
                     rarp.append( [ d['lanenum'], d['fcillumid'], '{}/{}'.format(bam['path']['scratch'],bam['basename']) ] )
                 else:
                     raise ValueError("since this only happens post alignment invocation this should be possible")
                 NEW_GLOBS_FOR_DOWNGRADING_PATCH.append( 
                         '/'.join( j['fastq']['path']['archive'].split('/')[:-3] )
                 )
-        # pp(info)
     ############# since we are retreiving multiple prepids in init we can actually do things this way!?!
-    ############# we can also hack it to allow for hybrids to work via ond procedure
-    # if ( len(sample['prepid'])>1 and len(rarp)==0 ) or len(rarp)>0:
-    # 181983,
+
     if sample['sample_name'][0:6]=="igm160" and ( int(sample['experiment_id'])>=180922 and int(sample['experiment_id'])<=182983 ):
-        print("> SUMMARY : F0CKW1T, CUN7 HANDLING. this should have been were we re-staged db bams for merging with topup SEs but instead is a BS hack for Gilead")
-        from pprint import pprint as pp
-        pp(sample)
-        print ("cunts")
+        print("> SUMMARY : this should have been were we re-staged db bams for merging with topup SEs but instead is a BS hack for Gilead")
         rarp.clear() # del rarp[:]
     elif len(rarp)>0:
         if len(rarp)!=total:
-            print("> SUMMARY : HYBRID : JUST HACK THIS BY ADDING IN KNOWN PATH TO NASTY GLOB STUFF BELOW!?!?")
-            print("annoying {}".format(len(rarp)))
-            # this actually causes a purely local change :
-            # rarp=[] # force legacy procedure
             rarp.clear() # del rarp[:]
-            print("annoying {}".format(len(rarp)))
-#            from pprint import pprint as pp
-#            pp(sample)
+
 #            if len(sample["prepid"])>1:
 #                query = ("update dragen_sample_metadata set is_merged = 80121 where pseudo_prepid = {}".format(sample['pseudo_prepid']))
 #                run_query(query,database)
 #                query = ("update Experiment set is_released = 'legacy_multiprep_error' where id = {}".format(sample['pseudo_prepid']))
 #                run_query(query,database)
-#                ### or fastq/bam ...
-#                print("We aren't allowing legacy_multiprep_error mixes - please patch all SEs")
 #                exit(1)
-#                raise ValueError("We aren't allowing hybrids or bam/fastq mixes at this time (should we make release require bam - we shouldn't get here without a bam present anyway)")
 #            else:
 #                query = ("update dragen_sample_metadata set is_merged = 80122 where pseudo_prepid = {}".format(sample['pseudo_prepid']))
 #                run_query(query,database)
 #                query = ("update Experiment set is_released = 'legacy_hybrid_error' where id = {}".format(sample['pseudo_prepid']))
 #                run_query(query,database)
-#                query = ("update prepT set status = 'Not allowing legacy-hybrid mixes - please patch all SEs' where experiment_id = {}".format(sample['pseudo_prepid']))
 #                run_query(query,database)
-#                print("We aren't allowing legacy_hybrid_error mixes - please patch all SEs")
 #                exit(1)
-#                raise ValueError("We aren't allowing hybrids or bam/fastq mixes at this time (should we make release require bam - we shouldn't get here without a bam present anyway)")
             ########## implement hybrid procedure directly with Experiment table along with metrics - i.e. at each bam finishing check if all bams for
-            ########## expt_id are mapped - if they're old trigger them for dragen_align_se else directly merge them and do stats...!?!?
+
         else:
-            print("> SUMMARY : NEW PRE-MAPPED PROCEDURE")
             return []
+
     else:
         print("> SUMMARY : LEGACY")
-        print("\n\t>legacy procedure : total={}, registered_fastq={}, preps={}\n\n".format(total,len(rarp),len(sample['prepid'])))
 
     found_locs = []
     #correcting the downstream consequences of "custom capture" as the sample_type
@@ -194,7 +150,6 @@ def get_fastq_loc(database, sample, rarp ):
         p_c+=1
         print ("> (get_fastq_loc) CHECKING PREPID = '{}', '{}' of '{}'".format(prepid,p_c,len(sample['prepid'])))
         external_or_legacy_flag = is_external_or_legacy_sample(prepid,database)
-        # pp(sample)
         ####### this is all an abomination!?!
         potential_locs = []
 
@@ -208,44 +163,25 @@ def get_fastq_loc(database, sample, rarp ):
             '/nfs/archive/p2018/FASTQ/EXOME','/nfs/archive/p2018/FASTQ/EXOME',
             '/nfs/fastq_temp/{}/'.format(corrected_sample_type),
             '/nfs/seqscratch_ssd/transfer_finished_symlinks/{}/'.format(corrected_sample_type),
-            # '/nfs/fastq_temp5/tx_temp/tx_3036/',
-            # '/nfs/fastq_temp2/{}_ssd/'.format(corrected_sample_type),       ##### truelly evil!?!
             '/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
             '/nfs/seqscratch*/tx_temp/tx_*/',
             '/nfs/igmdata01/{}/'.format(corrected_sample_type),
             '/nfs/fastq1[568]/{}/'.format(corrected_sample_type),
-            # '/nfs/stornext/seqfinal/casava1.8/whole_{}/'.format(corrected_sample_type),
-            # '/nfs/fastq_temp5/tx_2995/Project_CGND_12737_B01_GRM_WGS.fastq.2017-08-29/'
-            ###### this is causing so many issues that better to remove and add back later!?!
-            ###### i.e. just check ALL fastq error!?!
-            # '/nfs/seqsata*/seqfinal/whole_genome/'
         ])
 
         if external_or_legacy_flag == True:
 
             print(" > pure, evil name-coliding nonsense - in general will mix up multiply sequenced samples and truncate multiprep...")
             if sample["prepid"][0]<50000:
-            # if sample["prepid"][0]<22000:
-                # from pprint import pprint as pp
-                # pp(sample)
-                # print("avoid back contamination of older sequencing by newer")
-                # potential_locs = ['/nfs/stornext/seqfinal/casava1.8/whole_exome/'.format(corrected_sample_type)]
-                ##### fs isn't even mounted anymore so doing a copy
                 # potential_locs = ['/nfs/seqscratch_ssd/dsth/APPALING_ALS_ISSUE/'.format(corrected_sample_type)]
                 ##### needs to be compatible with other old samples - why aren't they run?!?!
                 potential_locs.insert(0,'/nfs/seqscratch_ssd/dsth/APPALING_ALS_ISSUE/'.format(corrected_sample_type))
 
-            print ("using globs for location")
             for potential_loc in potential_locs:
 
-                ###### use the above with sample name alone - i.e. need to make sure legacy and external samples are first AND visible...
-                ###### or we get the newer sapmle if sequence more than once - it doesn't use sample_type/capture_kit or anything!?!
                 potential_path = '{}/{}/*[0-9xXyY]'.format(potential_loc,sample_name)
-                print("globbing for legacy {}, {}".format(potential_loc,sample_name))
-                #print('Checking {} for fastqs....'.format(potential_loc))
                 fastq_loc = glob(potential_path)
                 if fastq_loc != []:
-                    print('LEGACY FOUND: {}'.format(potential_path))
                     for folder in fastq_loc:
                         found_locs.append(folder)
                     break
@@ -253,8 +189,6 @@ def get_fastq_loc(database, sample, rarp ):
             if fastq_loc == []:
                 raise FastqError('{} Fastq files not found'.format(sample_name))
         else:
-
-            print ("> using, but largely ignoring, query for location")
 
             query = ("SELECT DISTINCT SEQSATALOC,FCILLUMID,SAMPLE_TYPE FROM Flowcell f "
                 "JOIN Lane l ON f.FCID=l.FCID "
@@ -264,7 +198,6 @@ def get_fastq_loc(database, sample, rarp ):
                 "GROUP BY f.fcid"
             ).format(prepid)
 
-            print("using\n{}".format(query))
             flowcell_seqsatalocs = run_query(query,database)
 
             if len(flowcell_seqsatalocs)==0:
@@ -286,64 +219,40 @@ def get_fastq_loc(database, sample, rarp ):
 
             from pprint import pprint as pp
 
-            # print(seqsatalocs)
             f_c=0
             for flowcell in flowcell_seqsatalocs:
-                print(flowcell)
-                f_c+=1
-                print (" > CHECKING FLOWCELL = '{}', '{}' of '{}'".format(flowcell['FCILLUMID'],f_c,len(flowcell_seqsatalocs)))
 
-                ######### FUCK ME!?! this only actually checks the seqsata location when NONE of the hard-coded locations work?!?
+                f_c+=1
+
                 if flowcell['SEQSATALOC'] == '':
 
                     msg = ('Sample {} on flowcell {} is missing seqsataloc! Still sequencing?' ).format(sample_name,flowcell['FCILLUMID'])
                     raise ValueError(msg)
 
-                # pp(sample)
                 if sample['sample_name'][0:6]=="ALSNEU":
-                    print("This is offensitve!?!? : prepending 'actual' archive location!?!")
                     potential_locs.insert(0,'/nfs/{}/{}/'.format(flowcell['SEQSATALOC'],flowcell['SAMPLE_TYPE'].upper()))
                     pp(potential_locs)
 
                 if len(NEW_GLOBS_FOR_DOWNGRADING_PATCH):
-                    print("we patch in yet more paths for hybrids?!? : {}".format(NEW_GLOBS_FOR_DOWNGRADING_PATCH))
+
                     ##### duh, need to put list into list!?!?
                     # potential_locs.append(NEW_GLOBS_FOR_DOWNGRADING_PATCH)
                     potential_locs.extend(NEW_GLOBS_FOR_DOWNGRADING_PATCH)
 
-                # potential_locs = potential_locs.reverse
-                # pp(potential_locs)
-                # x=[]
-
-                # for cunt in potential_locs.reverse:
-                    # x.extend(cunt)
-
-                # potential_locs = x
-                # pp(potential_locs)
-                # exit(1)
-
                 for potential_loc in potential_locs:
 
-                    ##### use the above along with sample name and flowcell id
-
-                    ####### this BS always gets screwed by empty dirs!?!
                     # potential_path = '{}/{}/{}'.format(potential_loc,sample_name,flowcell['FCILLUMID'])
                     potential_path = '{}/{}/{}/*.gz'.format(potential_loc,sample_name,flowcell['FCILLUMID'])
                     if sample['sample_name'][0:6]=="ALSNEU":
                         print("This is offensitve!?!? : using even nastier glob!?!")
-                        ###### need to account for 'rep' and '_LIMS_CHANGE_OVER_DEPRECATION' suffixes?!?
                         potential_path = '{}/{}*/{}/*.gz'.format(potential_loc,sample_name,flowcell['FCILLUMID'])
 
-                    print("globbing for non-legacy {}".format(potential_path))
                     fastq_loc = glob(potential_path)
                     if fastq_loc != []:
 
-                        ####### dipshit!?!?
                         # potential_path.replace('/*.gz','')
                         potential_path=potential_path[0:-4]
-                        print('SEQSATA FOUND: {}'.format(potential_path))
 
-                        ########## dipshit!?!
                         ##### do we only get the first one and not check for ambiguity?!?
                         for folder in fastq_loc:
                             folder=os.path.dirname(folder)
@@ -361,9 +270,7 @@ def get_fastq_loc(database, sample, rarp ):
                     if fastq_loc != []:
                         potential_path=potential_path[0:-4]
                         # potential_path.replace('/*.gz','')
-                        print('FOUND: {}'.format(potential_path))
                         for folder in fastq_loc:
-                            ### fuckwit
                             folder=os.path.dirname(folder)
                             found_locs.append(folder)
                     else:
@@ -376,11 +283,10 @@ def get_fastq_loc(database, sample, rarp ):
     """For samples in the database we can exclude any samples that only have
     R1 data however for sampels that predate the database we have to manually
     check for R2 existance"""
+
     ###### oh, just horrible
-    ######### the 'legacy' ones may well find the non-legacy ones and end up with junk - i.e. like the exome/capture messup?!?
     found_locs=list(set(found_locs))
     final_locs = check_fastq_locs(found_locs)
-    print("final list of unique locations for all preps = '{}'".format(final_locs))
     return final_locs
 
 def check_fastq_locs(locs):
@@ -399,7 +305,6 @@ def check_fastq_locs(locs):
 def get_lanes(database,sample):
 
     lanes = []
-    # print("wtf='{}'".format(type(lanes)))
 
     dist_fc=[]
     ffs=False
@@ -418,16 +323,10 @@ def get_lanes(database,sample):
 
         lane = run_query(query,database)
 
-        from pprint import pprint as pp
-        # print('raw=')
-        # pp(lane) 
-
         leg_or_ext = is_external_or_legacy_sample(prepid,database)
 
-        # print("wtf='{}'".format(type(lanes)))
         if lane and leg_or_ext == False:
             for entry in lane:
-                # print("wtf='{}'".format(type(lanes)))
                 lanes.append((entry['lanenum'],entry['FCIllumID'],entry['prepID']))
                 dist_fc.append(entry['FCIllumID'])
         else: #In case of no database entry or external sample
@@ -445,14 +344,10 @@ def get_lanes(database,sample):
                     dist_fc.append(flowcell.split('/')[-1])
         ###### cretin - this makes it a tuple!?! what's it even for?!?
         # lanes = (lanes,)
-    print("[DS] we have {} distinct prepids and {} distinct fc".format(len(sample['prepid']),len(set(dist_fc))))
     if ffs and len(sample['prepid'])>len(set(dist_fc)):
         from pprint import pprint as pp
         pp(sample['prepid'])
         pp(set(dist_fc))
-        ##### ?!?
-        ##### ?!?
-        ##### ?!?
         # query = ("update dragen_sample_metadata set is_merged = 80140 where experiment_id = {}".format(sample['experiment_id']))
         # run_query(query,database)
         # raise ValueError("legacy globbing procedure is unable to locate distinct flowcells")
@@ -503,27 +398,19 @@ class dragen_sample:
         self.metadata['prepid'] = get_prepid(database,self.metadata)
         self.metadata['priority'] = get_priority(database,self.metadata)
         tracked_files=[]; # {}
-        # print("before={}".format(tracked_files))
         self.metadata['fastq_loc'] = get_fastq_loc(database,self.metadata,tracked_files)
         from pprint import pprint as pp
         pp(self.metadata['fastq_loc'])
-        # print("after={}".format(tracked_files))
         if len(self.metadata['fastq_loc'])==0 and len(tracked_files)==0:
             raise ValueError("this is very, very, very wrong")
         elif len(tracked_files)>0:
-            print("> WE HAVE {} TRACKED FILES AND {} LOCATIONS".format(len(tracked_files),len(self.metadata['fastq_loc'])))
             if len(self.metadata['fastq_loc'])>0:
                 raise ValueError("these are mutually exclusive")
             self.metadata['bams'] = tracked_files
-        print("> WE HAVE {} TRACKED FILES AND {} LOCATIONS".format(len(tracked_files),len(self.metadata['fastq_loc'])))
-        # from pprint import pprint as pp
-        # pp(vars(self))
-        # exit(1)
         self.metadata['lane'] = get_lanes(database,self.metadata)
         from pprint import pprint as pp
         pp(self.metadata['lane'])
         print("> handing back silly object thing")
-        # exit(1)
 
     def get_attribute(self, attribute):
         """return the value requested if present, otherwise raise a TypeError"""
