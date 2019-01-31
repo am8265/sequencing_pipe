@@ -106,7 +106,7 @@ def get_fastq_loc(database, sample, rarp ):
                     bam=j['bam']
                     rarp.append( [ d['lanenum'], d['fcillumid'], '{}/{}'.format(bam['path']['scratch'],bam['basename']) ] )
                 else:
-                    raise ValueError("since this only happens post alignment invocation this should be possible")
+                    raise ValueError("This means someone probably did something very silly indeed (post-pipe clean-up heuristics already triggered - just allow fall through?)") 
                 NEW_GLOBS_FOR_DOWNGRADING_PATCH.append( 
                         '/'.join( j['fastq']['path']['archive'].split('/')[:-3] )
                 )
@@ -169,6 +169,10 @@ def get_fastq_loc(database, sample, rarp ):
             '/nfs/fastq1[568]/{}/'.format(corrected_sample_type),
         ])
 
+        ####################### DO NOT USE THIS!?!
+        # print("i hate them : {}".format(external_or_legacy_flag))
+        # external_or_legacy_flag = True
+
         if external_or_legacy_flag == True:
 
             print(" > pure, evil name-coliding nonsense - in general will mix up multiply sequenced samples and truncate multiprep...")
@@ -205,7 +209,8 @@ def get_fastq_loc(database, sample, rarp ):
                 #### do single joined update?!?
                 query = ("update dragen_sample_metadata set is_merged = -2 where experiment_id = {}".format(sample['experiment_id']))
                 run_query(query,database)
-                query = ("update prepT set is_released = 0, status = 'Failed/Low-Qual Sample; Has no passing sequence events - will require deprecation', status_time = UNIX_TIMESTAMP(CURRENT_TIMESTAMP()) where experiment_id = {}".format(sample['experiment_id']))
+                query = ("update prepT set is_released = 0, status = 'Failed/Low-Qual Sample; Has no passing sequence events and probably should not have been released - will require deprecation', status_time = UNIX_TIMESTAMP(CURRENT_TIMESTAMP()) where experiment_id = {}".format(sample['experiment_id']))
+                # query = ("update prepT set is_released = 0, status = 'Failed/Low-Qual Sample; Has no passing sequence events - will require deprecation (FYI : if old must double check it is not the old seqsata bug)', status_time = UNIX_TIMESTAMP(CURRENT_TIMESTAMP()) where experiment_id = {}".format(sample['experiment_id']))
                 run_query(query,database)
                 query = ("update Experiment set is_released = 'release_rejected' where id = {}".format(sample['experiment_id']))
                 run_query(query,database)
@@ -217,7 +222,7 @@ def get_fastq_loc(database, sample, rarp ):
 
             print('we have the following locations from db to check : {}'.format(flowcell_seqsatalocs))
 
-            from pprint import pprint as pp
+            # from pprint import pprint as pp
 
             f_c=0
             for flowcell in flowcell_seqsatalocs:
@@ -231,7 +236,8 @@ def get_fastq_loc(database, sample, rarp ):
 
                 if sample['sample_name'][0:6]=="ALSNEU":
                     potential_locs.insert(0,'/nfs/{}/{}/'.format(flowcell['SEQSATALOC'],flowcell['SAMPLE_TYPE'].upper()))
-                    pp(potential_locs)
+                    potential_locs.insert(0,'/nfs/archive/p2018/FASTQ/EMERGENCY_SPACE_RELIEF/Redmine_3717/GENOME_ssd/')
+                    # pp(potential_locs)
 
                 if len(NEW_GLOBS_FOR_DOWNGRADING_PATCH):
 
@@ -244,9 +250,10 @@ def get_fastq_loc(database, sample, rarp ):
                     # potential_path = '{}/{}/{}'.format(potential_loc,sample_name,flowcell['FCILLUMID'])
                     potential_path = '{}/{}/{}/*.gz'.format(potential_loc,sample_name,flowcell['FCILLUMID'])
                     if sample['sample_name'][0:6]=="ALSNEU":
-                        print("This is offensitve!?!? : using even nastier glob!?!")
+                        # print("This is offensive!?!? : using even nastier glob!?!")
                         potential_path = '{}/{}*/{}/*.gz'.format(potential_loc,sample_name,flowcell['FCILLUMID'])
 
+                    print("This is offensive : {}".format(potential_path))
                     fastq_loc = glob(potential_path)
                     if fastq_loc != []:
 
@@ -259,7 +266,7 @@ def get_fastq_loc(database, sample, rarp ):
                             found_locs.append(folder)
                         break
 
-                print('sample={} and loc'.format(sample_name,fastq_loc))
+                # print('sample={} and loc'.format(sample_name,fastq_loc))
 
                 if fastq_loc == []:
 

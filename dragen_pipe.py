@@ -130,6 +130,9 @@ def no_work(database):
 
 def main(reset_dragen,no_prerelease_align,experiment_id,no_gvcf):
 
+    if "dragen2.igm.cumc.columbia.edu" == socket.gethostname():
+        subprocess.run(["echo -e '\e[38;5;196m'"],shell=True)
+
     ###### some of these should 'perhaps' be arguments?!?
     seqscratch_drive = 'seqscratch_ssd'
     database="sequenceDB"
@@ -148,8 +151,11 @@ def main(reset_dragen,no_prerelease_align,experiment_id,no_gvcf):
         print("not reseting system")
 
     if no_work(database) and no_gvcf==False:
-        os.system("/nfs/seqscratch_ssd/dsth/wgs_gvcf/run_caller_for_wgs.pl")
+        os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/misc/run_caller_for_wgs.pl")
+        # os.system("/nfs/seqscratch_ssd/dsth/wgs_gvcf/run_caller_for_wgs.pl")
         exit(1)
+    else:
+        print("not running gvcf generation")
 
     try:
 
@@ -563,7 +569,9 @@ def update_queue(pseudo_prepid,database):
     with connection.cursor() as cur:
 
         ########### clear previous errors - shouldn't be there!?!
-        q="update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}".format( state+10, state )
+        # q="update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}".format( state+10, state )
+        ###### usual gtac ball dropping situation - need so isolate propblem samples asap.
+        q="update dragen_sample_metadata set is_merged = {} WHERE is_merged = {}".format( state+50, state )
         print(q)
         cur.execute(q)
 
@@ -728,6 +736,9 @@ def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
         else:
             os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/PostBcl.2 align")
 
+    else:
+        print("no prerelease align")
+
     q="SELECT d.sample_name,d.sample_type,d.experiment_id,d.capture_kit,d.pseudo_prepid,d.is_external ticket_num,d.mapping_input FROM dragen_sample_metadata d "
     q+=" join prepT p on p.experiment_id=d.experiment_id where (failedprep=0 or failedprep=11 or failedprep>=100) and "
 
@@ -736,8 +747,10 @@ def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
         who=socket.gethostname()
         if who == "dragen2.igm.cumc.columbia.edu":
             q=q+"is_merged = 80000 ORDER BY d.experiment_id desc LIMIT 1 "
+            # q=q+"is_merged = 80000 and externaldata is null ORDER BY d.experiment_id desc LIMIT 1 "
         else:
-            q=q+"is_merged = 80000 ORDER BY d.experiment_id desc LIMIT 1 "
+            # q=q+"is_merged = 80000 ORDER BY d.experiment_id desc LIMIT 1 "
+            q=q+"is_merged = 80000 ORDER BY d.experiment_id asc LIMIT 1 "
 
     else:
         q=q+("pseudo_prepid={} group by experiment_id".format(experiment_id))
@@ -766,7 +779,10 @@ def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
         connection.close()
 
         from pprint import pprint as pp
+        pp(q)
+        print("we have {}".format(no_prerelease_align))
         pp(sample)
+        # exit(1)
         # wtf?!?
         return sample['sample_name'], sample['sample_type'], sample['pseudo_prepid'], sample['capture_kit'], int(sample['ticket_num']),sample['mapping_input']
 
