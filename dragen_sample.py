@@ -106,12 +106,16 @@ def get_fastq_loc(database, sample, rarp ):
                     bam=j['bam']
                     rarp.append( [ d['lanenum'], d['fcillumid'], '{}/{}'.format(bam['path']['scratch'],bam['basename']) ] )
                 else:
-                    raise ValueError("This means someone probably did something very silly indeed (post-pipe clean-up heuristics already triggered - just allow fall through?)") 
+                    print ("This means someone probably did something very silly indeed (post-pipe clean-up heuristics already triggered - just allow fall through?)") 
+                    # raise ValueError("This means someone probably did something very silly indeed (post-pipe clean-up heuristics already triggered - just allow fall through?)") 
                 NEW_GLOBS_FOR_DOWNGRADING_PATCH.append( 
                         '/'.join( j['fastq']['path']['archive'].split('/')[:-3] )
                 )
     ############# since we are retreiving multiple prepids in init we can actually do things this way!?!
 
+    if sample['sample_name'][0:7]=="IGMCOPD":
+        print("> SUMMARY : sick COPD samples")
+        rarp.clear() # del rarp[:]
     if sample['sample_name'][0:6]=="igm160" and ( int(sample['experiment_id'])>=180922 and int(sample['experiment_id'])<=182983 ):
         print("> SUMMARY : this should have been were we re-staged db bams for merging with topup SEs but instead is a BS hack for Gilead")
         rarp.clear() # del rarp[:]
@@ -160,7 +164,7 @@ def get_fastq_loc(database, sample, rarp ):
             potential_locs.insert(0,'/nfs/seqscratch_ssd/dsth/APPALING_ALS_ISSUE/'.format(corrected_sample_type))
 
         potential_locs.extend([
-            '/nfs/archive/p2018/FASTQ/EXOME','/nfs/archive/p2018/FASTQ/EXOME',
+            '/nfs/archive/p2018/FASTQ/{}'.format(corrected_sample_type),
             '/nfs/fastq_temp/{}/'.format(corrected_sample_type),
             '/nfs/seqscratch_ssd/transfer_finished_symlinks/{}/'.format(corrected_sample_type),
             '/nfs/fastq_temp2/{}/'.format(corrected_sample_type),

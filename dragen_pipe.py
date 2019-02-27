@@ -595,6 +595,7 @@ def set_seqtime(rg_fcillumid,sample,database):
             "FROM Flowcell WHERE FCIllumID='{}'").format(rg_fcillumid)
     seqtime = run_query(query,database)
     if seqtime:
+        ######## this isn't correct but it doesn't matter - i.e. it's giving the date only and not the time/timezone but merging puts that in on it's own
         seqtime = seqtime[0]['SEQTIME'].date().isoformat() #ISO8601 format for RGDT field
     else: #In case there is not flowcell information (Ex. old and external samples)
         seqtime = '1970-1-1'
@@ -731,10 +732,10 @@ def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
     if no_prerelease_align==False:
 
         if False:
-            if os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/PostBcl.2 align")!=0:
+            if os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/PostBcl align")!=0:
                 raise Exception("\n\nproblem with se alignment process!\n\n")
         else:
-            os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/PostBcl.2 align")
+            os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/PostBcl align")
 
     else:
         print("no prerelease align")
