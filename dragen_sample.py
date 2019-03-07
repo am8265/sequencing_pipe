@@ -213,7 +213,8 @@ def get_fastq_loc(database, sample, rarp ):
                 #### do single joined update?!?
                 query = ("update dragen_sample_metadata set is_merged = -2 where experiment_id = {}".format(sample['experiment_id']))
                 run_query(query,database)
-                query = ("update prepT set is_released = 0, status = 'Failed/Low-Qual Sample; Has no passing sequence events and probably should not have been released - will require deprecation', status_time = UNIX_TIMESTAMP(CURRENT_TIMESTAMP()) where experiment_id = {}".format(sample['experiment_id']))
+                query = ("update prepT set is_released = 0, status = 'Failed/Low-Qual Sample; Prep {} has no passing sequence events. The experiment will require deprecation to re-release', status_time = UNIX_TIMESTAMP(CURRENT_TIMESTAMP()) where experiment_id = {}".format(prepid,sample['experiment_id']))
+                # query = ("update prepT set is_released = 0, status = 'Failed/Low-Qual Sample; Has no passing sequence events and probably should not have been released - will require deprecation', status_time = UNIX_TIMESTAMP(CURRENT_TIMESTAMP()) where experiment_id = {}".format(sample['experiment_id']))
                 # query = ("update prepT set is_released = 0, status = 'Failed/Low-Qual Sample; Has no passing sequence events - will require deprecation (FYI : if old must double check it is not the old seqsata bug)', status_time = UNIX_TIMESTAMP(CURRENT_TIMESTAMP()) where experiment_id = {}".format(sample['experiment_id']))
                 run_query(query,database)
                 query = ("update Experiment set is_released = 'release_rejected' where id = {}".format(sample['experiment_id']))
