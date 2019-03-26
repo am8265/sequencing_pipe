@@ -5,6 +5,7 @@ based on their priority level in the Dragen pipeline queue
 """
 
 import argparse
+import time
 import os
 import sys
 import subprocess
@@ -120,6 +121,21 @@ def emailit(rarp,arse):
     server.sendmail(fromAddr,to,emailMsg.as_string())
     server.quit()
 
+def check_space(vol):
+    df = subprocess.Popen(["df",vol], stdout=subprocess.PIPE)
+    # print(df.stdout.readline()) # print(df.stdout.readline())
+    # split eithout arg for arbitrary whitespace  
+    # only want first of stdout, stderr # output = df.communicate()[0] 
+    # output = df.communicate()[0].decode("utf-8").split("\n")[2].split()
+    # all in 1K-blocks by default
+    size, used, available, percent, mount = df.communicate()[0].decode("utf-8").split("\n")[2].split()
+    available_t=float(int(available)/(1024*1024*1024))
+    # print('type={}, output="{}"'.format(type(output),output))
+    # [1].split()
+    print("size={}, used={}, available={}, percent={}, mountpoint={}".format(size,used,available,percent,mount));
+    return available_t
+    # return rg[0]["count"]==0 and dsm[0]["count"]==0
+
 def no_work(database):
     # from pprint import pprint as pp
     rg = run_query("select count(1) count from Lane where rg_status = 'fastq_ready'",database)
@@ -146,16 +162,30 @@ def main(reset_dragen,no_prerelease_align,experiment_id,no_gvcf):
 
     # saga sample errors causing system to hang on reset with restarts...
     if reset_dragen:
+        print("reseting dragen")
         os.system("dragen_reset")
     else:
         print("not reseting system")
 
-    if no_work(database) and no_gvcf==False:
+    ######### need to force this when space goes < 5T to make sure ssd drains off - start sending emails and force this
+    # if check_space("/nfs/seqscratch_ssd")<5.0 or (no_work(database) and no_gvcf==False):
+    if check_space("/nfs/seqscratch_ssd")<3.0:
+        print("too low on space to not clear any backlog")
+        time.sleep(30)
         os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/misc/run_caller_for_wgs.pl")
-        # os.system("/nfs/seqscratch_ssd/dsth/wgs_gvcf/run_caller_for_wgs.pl")
+        # let is continue here?!?
+        exit(1)
+    elif no_work(database) and no_gvcf==False:
+        print("nothing to align so do variant calling")
+        os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/misc/run_caller_for_wgs.pl")
         exit(1)
     else:
         print("not running gvcf generation")
+
+    if check_space("/nfs/seqscratch_ssd")<1.0:
+        print("there's insufficient space to continue")
+        time.sleep(30)
+        exit(1)
 
     try:
 
