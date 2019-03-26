@@ -171,7 +171,7 @@ def main(reset_dragen,no_prerelease_align,experiment_id,no_gvcf):
     # if check_space("/nfs/seqscratch_ssd")<5.0 or (no_work(database) and no_gvcf==False):
     if check_space("/nfs/seqscratch_ssd")<3.0:
         print("too low on space to not clear any backlog")
-        time.sleep(30)
+        # time.sleep(30)
         os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/misc/run_caller_for_wgs.pl")
         # let is continue here?!?
         exit(1)
