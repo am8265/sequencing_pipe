@@ -168,7 +168,7 @@ def get_fastq_loc(database, sample, rarp ):
             '/nfs/fastq_temp/{}/'.format(corrected_sample_type),
             '/nfs/seqscratch_ssd/transfer_finished_symlinks/{}/'.format(corrected_sample_type),
             '/nfs/fastq_temp2/{}/'.format(corrected_sample_type),
-            '/nfs/seqscratch*/tx_temp/tx_*/',
+            # '/nfs/seqscratch*/tx_temp/tx_*/',
             '/nfs/igmdata01/{}/'.format(corrected_sample_type),
             '/nfs/fastq1[568]/{}/'.format(corrected_sample_type),
         ])
@@ -178,6 +178,9 @@ def get_fastq_loc(database, sample, rarp ):
         # external_or_legacy_flag = True
 
         if external_or_legacy_flag == True:
+
+            potential_locs.insert(0,'/nfs/seqscratch*/tx_temp/tx_*/')
+            # potential_locs.insert(0,'/nfs/seqscratch10/tx_temp/tx_1111/')
 
             print(" > pure, evil name-coliding nonsense - in general will mix up multiply sequenced samples and truncate multiprep...")
             if sample["prepid"][0]<50000:

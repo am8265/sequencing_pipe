@@ -169,7 +169,9 @@ def main(reset_dragen,no_prerelease_align,experiment_id,no_gvcf):
 
     ######### need to force this when space goes < 5T to make sure ssd drains off - start sending emails and force this
     # if check_space("/nfs/seqscratch_ssd")<5.0 or (no_work(database) and no_gvcf==False):
-    if check_space("/nfs/seqscratch_ssd")<3.0:
+    ###### consider having a max number in queue too?!?
+    if check_space("/nfs/seqscratch_ssd")<12.0:
+    # if check_space("/nfs/seqscratch_ssd")<12.0:
         print("too low on space to not clear any backlog")
         # time.sleep(30)
         os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/misc/run_caller_for_wgs.pl")
@@ -182,7 +184,7 @@ def main(reset_dragen,no_prerelease_align,experiment_id,no_gvcf):
     else:
         print("not running gvcf generation")
 
-    if check_space("/nfs/seqscratch_ssd")<1.0:
+    if check_space("/nfs/seqscratch_ssd")<3.0:
         print("there's insufficient space to continue")
         time.sleep(30)
         exit(1)
