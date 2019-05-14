@@ -172,22 +172,23 @@ def main(reset_dragen,no_prerelease_align,experiment_id,no_gvcf):
     ###### consider having a max number in queue too?!?
     if check_space("/nfs/seqscratch_ssd")<12.0:
     # if check_space("/nfs/seqscratch_ssd")<12.0:
-        print("too low on space to not clear any backlog")
+        print("space is low - need to clear any backlog and continue on to alignment...")
         # time.sleep(30)
         os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/misc/run_caller_for_wgs.pl")
-        # let is continue here?!?
-        exit(1)
     elif no_work(database) and no_gvcf==False:
-        print("nothing to align so do variant calling")
+        print("nothing to align - run variant calling")
         os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/misc/run_caller_for_wgs.pl")
         exit(1)
     else:
         print("not running gvcf generation")
 
-    if check_space("/nfs/seqscratch_ssd")<3.0:
+    if check_space("/nfs/seqscratch_ssd")<2.5:
+    # if check_space("/nfs/seqscratch_ssd")<3.0:
         print("there's insufficient space to continue")
         time.sleep(30)
         exit(1)
+    else:
+        print("will run")
 
     try:
 
