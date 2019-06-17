@@ -58,7 +58,7 @@ def get_priority(database,sample):
 def get_pseudo_prepid(database,sample):
     query = ("SELECT DISTINCT p_prepid "
             "FROM prepT p "
-            "WHERE CHGVID='{sample_name}' "
+            "WHERE sample_internal_name='{sample_name}' "
             "AND SAMPLE_TYPE='{sample_type}' "
             "AND (failedprep=0 or failedprep>=100)"
             ).format(**sample)
@@ -351,7 +351,7 @@ def get_lanes(database,sample):
                 fastqs = glob(flowcell + '/*fastq.gz')
                 lane = []
                 for fastq in fastqs:
-                    lane_num = fastq[fastq.find('L00')+3]
+                    lane_num = fastq[fastq.find('_L00')+4]
                     lane.append(lane_num)
                 lane_nums = set(sorted(lane))
                 for lane_num in lane_nums:
@@ -432,8 +432,8 @@ class dragen_sample:
         if attribute in self.metadata:
             return self.metadata[attribute]
         else:
-            raise TypeError("{attribute} is not defined for {CHGVID}".format(
-                attribute=attribute, CHGVID=self.CHGVID))
+            raise TypeError("{attribute} is not defined for {sample_internal_name}".format(
+                attribute=attribute, sample_internal_name=self.sample_internal_name))
 
     def get_dict(self):
         """return a dict of the values of this sample"""

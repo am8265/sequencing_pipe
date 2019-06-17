@@ -251,8 +251,8 @@ def create_sss_from_database(fcillumid,machine,run_info_dict,config,database):
             # empty strings are for 'Sample_Plate,Sample_Well,I7_Index_ID'
             # Description contains expected lane fraction, picomolar amount, flowcell user
             sql = "SELECT l.LaneNum Lane,\
-                pt.CHGVID SampleID,\
-                pt.CHGVID SampleID,\
+                pt.sample_internal_name SampleID,\
+                pt.sample_internal_name SampleID,\
                 '',\
                 '',\
                 '',\

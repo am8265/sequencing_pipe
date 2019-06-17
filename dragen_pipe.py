@@ -271,10 +271,10 @@ def main(reset_dragen,no_prerelease_align,experiment_id,no_gvcf):
         connection = get_connection(database)
         with connection.cursor() as cursor:
             # if wipe:
-                # cursor.execute("update prepT set is_released = 0, failedprep = 11, status = %s where p_prepid = %s and chgvid = %s",(msg,pseudo_prepid,sample_name))
+                # cursor.execute("update prepT set is_released = 0, failedprep = 11, status = %s where p_prepid = %s and sample_internal_name = %s",(msg,pseudo_prepid,sample_name))
                 # cursor.execute("delete from dragen_sample_metadata where pseudo_prepid = %s and sample_name = %s",(pseudo_prepid,sample_name))
             # else:
-            cursor.execute("update prepT set status = %s where p_prepid = %s and chgvid = %s",(msg,pseudo_prepid,sample_name))
+            cursor.execute("update prepT set status = %s where p_prepid = %s and sample_internal_name = %s",(msg,pseudo_prepid,sample_name))
             cursor.execute("update dragen_sample_metadata set is_merged = 80100 where pseudo_prepid = %s and sample_name = %s",(pseudo_prepid,sample_name))
 
             connection.commit()
@@ -663,7 +663,9 @@ def get_first_read(sample,rg_lane_num,rg_fcillumid):
     #Using first fastq as template for all fastq.gz
     for fastqLoc in sample.metadata['fastq_loc']:
         if rg_fcillumid in fastqLoc.split('/')[-1]:
-            RGfastqStr ='{0}/*L00{1}_R1_*.fastq.gz'.format(fastqLoc,rg_lane_num)
+            ######## AZIPF have FASTQ filenames of \w+L\d{3} names so just use standard '_' delimiter to avoid - this is terrible stuff!?!
+            # RGfastqStr ='{0}/*L00{1}_R1_*.fastq.gz'.format(fastqLoc,rg_lane_num)
+            RGfastqStr ='{0}/*_L00{1}_R1_*.fastq.gz'.format(fastqLoc,rg_lane_num)
             print(RGfastqStr)
             RGfastqs = glob(RGfastqStr)
             if len(RGfastqs)==0:
@@ -752,8 +754,8 @@ def get_reads(sample,read_number,debug):
         print(sample.metadata['fastq_loc'])
     fastq_loc = sample.metadata['fastq_loc'][0]
     if debug:
-        print('{0}/*L00*_R{1}_001.fastq.gz'.format(fastq_loc,read_number))
-    read = glob('{0}/*L00*_R{1}_001.fastq.gz'.format(fastq_loc,read_number))
+        print('{0}/*_L00*_R{1}_001.fastq.gz'.format(fastq_loc,read_number))
+    read = glob('{0}/*_L00*_R{1}_001.fastq.gz'.format(fastq_loc,read_number))
     #The fastqs might still be on the quantum tapes
     if read == []:
         raise Exception("Fastq file not found!")
@@ -779,8 +781,11 @@ def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
     if experiment_id == 0:
 
         who=socket.gethostname()
-        if who == "dragen2.igm.cumc.columbia.edu":
-            q=q+"is_merged = 80000 ORDER BY d.experiment_id desc LIMIT 1 "
+        if who == "dragen1.igm.cumc.columbia.edu":
+        # if who != "dragen2.igm.cumc.columbia.edu":
+        ###### just get the diagseq done before the AZ...?!?
+            # q=q+"is_merged = 80000 ORDER BY d.experiment_id desc LIMIT 1 "
+            q=q+"is_merged = 80000 ORDER BY d.sample_name desc LIMIT 1 "
             # q=q+"is_merged = 80000 and externaldata is null ORDER BY d.experiment_id desc LIMIT 1 "
         else:
             # q=q+"is_merged = 80000 ORDER BY d.experiment_id desc LIMIT 1 "

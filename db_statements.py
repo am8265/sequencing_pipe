@@ -70,7 +70,7 @@ GET_FLOWCELL_RECIPE = """
     """
 
 GET_POOLID_FROM_DBID = """
-    SELECT CHGVID
+    SELECT sample_internal_name
     FROM SampleT
     WHERE sample_id = "{sample_id}"
     """
@@ -88,7 +88,7 @@ GET_FLOWCELL_PROJECTS = """
 GET_GAFBIN_FROM_SAMPLE_NAME = """
     SELECT REPLACE(GAFBIN,' ','') as GAFBIN
     FROM SampleT
-    WHERE CHGVID = "{CHGVID}"
+    WHERE sample_internal_name = "{sample_internal_name}"
     """
 
 GET_TOTAL_NUM_LANES_FROM_FLOWCELL = """
