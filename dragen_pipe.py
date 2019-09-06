@@ -109,7 +109,7 @@ def emailit(rarp,arse):
     # to=['dsth@cantab.net','dh2880@cumc.columbia.edu']
     # to=['dh2880@cumc.columbia.edu']
     # to=['igm-bioinfo@columbia.edu'] # 'dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
-    to=['dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
+    to=['dh2880@cumc.columbia.edu','nb2975@cumc.columbia.edu','igm-bioinfo@columbia.edu'] # 'mml2204@cumc.columbia.edu']
     emailMsg['To'] = ', '.join(to)
     body='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
     body +='"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">'
@@ -429,7 +429,7 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
 
                 rg_lane_num,rg_fcillumid,rg_prepid = laneFCID
 
-                lane_table = run_query("select count(1) count, data from Lane l join Flowcell f on l.fcid=f.fcid where prepid={} and fcillumid='{}' and lanenum={}".format(rg_prepid,rg_fcillumid,rg_lane_num),database)[0]
+                lane_table = run_query("select count(1) count, data from Lane l join Flowcell f on l.fcid=f.fcid where prepid={} and fcillumid='{}' and lanenum='{}'".format(rg_prepid,rg_fcillumid,rg_lane_num),database)[0]
                 if lane_table["count"]==1:
                     if lane_table["data"] == None:
                         print("legacy internal - just map it...")

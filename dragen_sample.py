@@ -113,6 +113,10 @@ def get_fastq_loc(database, sample, rarp ):
                 )
     ############# since we are retreiving multiple prepids in init we can actually do things this way!?!
 
+######## DIP%$@# MESSED UP NAMING AGAIN!?!? - force old-style running
+    if sample['sample_name']=="Diagseq2305f833":
+        print("sick of fixing that %$#@$%#'s mess ups - instead of wiping for old-style that wasn't working hacked this by over-writing in dragen_pipe!?!")
+        # rarp.clear() # del rarp[:]
     if sample['sample_name'][0:7]=="IGMCOPD":
         print("> SUMMARY : sick COPD samples")
         rarp.clear() # del rarp[:]
