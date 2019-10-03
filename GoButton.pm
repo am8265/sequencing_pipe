@@ -86,8 +86,14 @@ sub sample_age {
     my$age=sprintf("%.2f",($now-$wdf)/(60*60));
     print STDERR qq{${p}hours=$age\n} if($x >=0);
     if($x==1||$x==-2||$age>3){ # ?
+        die qq{set ATAV_HOST\n} if(!$ENV{ATAV_HOST});
+        my$ahost=$ENV{ATAV_HOST};
+        die qq{set ATAV_USER\n} if(!$ENV{ATAV_USER});
+        my$auser=$ENV{ATAV_USER};
+        die qq{set ATAV_PASS\n} if(!$ENV{ATAV_PASS});
+        my$apass=$ENV{ATAV_PASS};
         print qq{${p}dumping samples from WalDB\n} if($x>=-1);
-        my$cmd=q{mysqldump --skip-lock-tables --skip-triggers -udh2880 -p1qaz@WSX -hannodb06 WalDB sample > }.$wd;
+        my$cmd=qq{mysqldump --skip-lock-tables --skip-triggers -u$auser -p$apass -h$ahost WalDB sample > }.$wd;
         # print qq{$cmd\n};
         system($cmd) && die;
         print qq{${p}loading samples from WalDB\n} if($x>=-1);
