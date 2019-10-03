@@ -102,14 +102,15 @@ def emailit(rarp,arse):
         os._exit(1)
 
     smtpserver = 'localhost'
-    fromAddr = 'dh2880@cumc.columbia.edu'
+    fromAddr = 'igm-bioinfo@columbia.edu'
     emailMsg = MM('alternative') #email.MIMEMultipart.MIMEMultipart('alternative')
     emailMsg['Subject'] = rarp
     emailMsg['From'] = fromAddr
+    to=['dh2880@cumc.columbia.edu']
+    # to=['dh2880@cumc.columbia.edu','ce2373@cumc.columbia.edu','nb2975@cumc.columbia.edu'] # 'mml2204@cumc.columbia.edu']
+    to=['igm-bioinfo@columbia.edu'] # 'dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
     # to=['dsth@cantab.net','dh2880@cumc.columbia.edu']
-    # to=['dh2880@cumc.columbia.edu']
-    # to=['igm-bioinfo@columbia.edu'] # 'dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
-    to=['dh2880@cumc.columbia.edu','nb2975@cumc.columbia.edu','igm-bioinfo@columbia.edu'] # 'mml2204@cumc.columbia.edu']
+    # to=['igm-bioinfo@columbia.edu','nb2975@cumc.columbia.edu'] # 'mml2204@cumc.columbia.edu']
     emailMsg['To'] = ', '.join(to)
     body='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" '
     body +='"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">'
@@ -174,10 +175,10 @@ def main(reset_dragen,no_prerelease_align,experiment_id,no_gvcf):
     # if check_space("/nfs/seqscratch_ssd")<12.0:
         print("space is low - need to clear any backlog and continue on to alignment...")
         # time.sleep(30)
-        os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/misc/run_caller_for_wgs.pl")
+        os.system("/nfs/seqscratch09/informatics/tmp/RunAux.pl")
     elif no_work(database) and no_gvcf==False:
         print("nothing to align - run variant calling")
-        os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/misc/run_caller_for_wgs.pl")
+        os.system("/nfs/seqscratch09/informatics/tmp/RunAux.pl")
         exit(1)
     else:
         print("not running gvcf generation")
@@ -410,8 +411,6 @@ def run_sample(sample,dontexecute,config,seqscratch_drive,database,debug):
             for b in sample.metadata['bams']:
 
                 bc=bc+1
-                sys.stdout.write('[{}/{}] : bam thing from dragen_sample = '.format(bc,len(sample.metadata['bams'])))
-                sys.stdout.write('\n')
 
                 bam='{}/{}'.format(output_dir,os.path.basename(b[2]))
                 if not os.path.exists(bam):
@@ -767,10 +766,10 @@ def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
     if no_prerelease_align==False:
 
         if False:
-            if os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/PostBcl align")!=0:
+            if os.system("/nfs/seqscratch09/informatics/bin/GoButton align")!=0:
                 raise Exception("\n\nproblem with se alignment process!\n\n")
         else:
-            os.system("/nfs/seqscratch_ssd/dsth/DNA_PIPE/PostBcl align")
+            os.system("/nfs/seqscratch09/informatics/bin/GoButton align")
 
     else:
         print("no prerelease align")

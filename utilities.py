@@ -355,6 +355,8 @@ def check_flowcell_complete(fcillumid,bcl_dir,run_folder_path,machine_type,datab
         #    print("RunComplete.txt check: OK!")
 
 def get_user():
+    ##### this is causing other things to break while porting to pipe so hard-coding for now as i'm tired and there's not much time left
+    return 'dh2880'
     p = os.popen('echo $USER')
     userName = p.readline().strip()
     p.close()

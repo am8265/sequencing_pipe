@@ -183,8 +183,8 @@ def get_fastq_loc(database, sample, rarp ):
 
         if external_or_legacy_flag == True:
 
-            potential_locs.insert(0,'/nfs/seqscratch*/tx_temp/tx_*/')
-            # potential_locs.insert(0,'/nfs/seqscratch10/tx_temp/tx_1111/')
+            #potential_locs.insert(0,'/nfs/seqscratch*/tx_temp/tx_*/')
+            potential_locs.insert(0,'/nfs/tx/in/')
 
             print(" > pure, evil name-coliding nonsense - in general will mix up multiply sequenced samples and truncate multiprep...")
             if sample["prepid"][0]<50000:
@@ -194,7 +194,7 @@ def get_fastq_loc(database, sample, rarp ):
 
             for potential_loc in potential_locs:
 
-                potential_path = '{}/{}/*[0-9xXyY]'.format(potential_loc,sample_name)
+                potential_path = '{}/*[0-9]/{}/FASTQ/'.format(potential_loc,sample_name)
                 fastq_loc = glob(potential_path)
                 if fastq_loc != []:
                     for folder in fastq_loc:
@@ -313,11 +313,11 @@ def check_fastq_locs(locs):
 
     valid_locs = []
     for loc in locs:
-        read2 = glob("{loc}/*R2_[0-9]*fastq*".format(loc=loc))
+        read2 = glob("{loc}/*R2*fastq*".format(loc=loc))
         if read2 != []:
             valid_locs.append(loc)
         else:
-            raise ValueError('Did not find fastq mate pair for: {} i.e. {}/*R2_[0-9]*fastq* !!!'.format(loc,loc))
+            raise ValueError('Did not find fastq mate pair for: {} i.e. {}/*R2*fastq* !!!'.format(loc,loc))
     return valid_locs
 
 
