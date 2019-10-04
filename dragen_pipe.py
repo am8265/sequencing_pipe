@@ -108,7 +108,7 @@ def emailit(rarp,arse):
     emailMsg['From'] = fromAddr
     to=['dh2880@cumc.columbia.edu']
     # to=['dh2880@cumc.columbia.edu','ce2373@cumc.columbia.edu','nb2975@cumc.columbia.edu'] # 'mml2204@cumc.columbia.edu']
-    to=['igm-bioinfo@columbia.edu'] # 'dh2880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
+    # to=['igm-bioinfo@columbia.edu'] # '880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
     # to=['dsth@cantab.net','dh2880@cumc.columbia.edu']
     # to=['igm-bioinfo@columbia.edu','nb2975@cumc.columbia.edu'] # 'mml2204@cumc.columbia.edu']
     emailMsg['To'] = ', '.join(to)
@@ -586,14 +586,14 @@ def update_queue(pseudo_prepid,database):
 
     who=socket.gethostname()
     state=0;
-    if who == "dragen1.igm.cumc.columbia.edu":
-        state=80011
-    elif who == "dragen2.igm.cumc.columbia.edu":
-        state=80012
-    elif twat_global_restage_list_no_mapping:
-        print("we don't care")
-    else:
-        raise ValueError("{} is not allowed to run this".format(who))
+    # if who == "dragen1.igm.cumc.columbia.edu":
+    state=80011
+    # elif who == "dragen2.igm.cumc.columbia.edu":
+        # state=80012
+    # elif twat_global_restage_list_no_mapping:
+        # print("we don't care")
+    # else:
+        # raise ValueError("{} is not allowed to run this".format(who))
 
     connection = get_connection(database)
     print(" db= {} and pp= {}".format(database,pseudo_prepid))
