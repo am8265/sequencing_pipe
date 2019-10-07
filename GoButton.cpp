@@ -6165,7 +6165,7 @@ int release_manual(int argc, char **argv) { // , opts::MysqlUser & myuser) {
     // cout << "This wrong " << getenv("USER") << "\n";
     { rarp::NLISTS bored_beyond_words;
     db::get_named_rows("seqdb",bored_beyond_words,"SELECT userid FROM users WHERE NETID= '%s'",getenv("USER"));
-    assert(bored_beyond_words.size()==1);
+    if(bored_beyond_words.size()!=1) cout << "unable to find userid for " << getenv("USER") << "\n",exit(1)
     userids=bored_beyond_words[0]["userid"]; }
     // cout << "using " << userids << "\n";
     // char const * serv = "seqprod";
