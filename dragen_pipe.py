@@ -106,9 +106,9 @@ def emailit(rarp,arse):
     emailMsg = MM('alternative') #email.MIMEMultipart.MIMEMultipart('alternative')
     emailMsg['Subject'] = rarp
     emailMsg['From'] = fromAddr
-    to=['dh2880@cumc.columbia.edu']
+    # to=['dh2880@cumc.columbia.edu']
     # to=['dh2880@cumc.columbia.edu','ce2373@cumc.columbia.edu','nb2975@cumc.columbia.edu'] # 'mml2204@cumc.columbia.edu']
-    # to=['igm-bioinfo@columbia.edu'] # '880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
+    to=['igm-bioinfo@columbia.edu'] # '880@cumc.columbia.edu','mml2204@cumc.columbia.edu']
     # to=['dsth@cantab.net','dh2880@cumc.columbia.edu']
     # to=['igm-bioinfo@columbia.edu','nb2975@cumc.columbia.edu'] # 'mml2204@cumc.columbia.edu']
     emailMsg['To'] = ', '.join(to)
