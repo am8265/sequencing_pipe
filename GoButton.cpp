@@ -5376,7 +5376,7 @@ if(strcmp(getenv("USER"),"dh2880")==0) {
     cout << x.str();
     message+=x.str(); }
 
-    sendmail("dsth@cantab.net","Daniel Hughes <dh2880@columbia.edu>","Release summary",message.data());
+    sendmail("dsth@cantab.net,dh2880@columbia.edu,nb2975@cumc.columbia.edu","Daniel Hughes <dh2880@columbia.edu>","Release summary",message.data());
     cout << "SUMMARY\n" << message << "\n\n";
 
     mysql_close(con);
@@ -5950,7 +5950,7 @@ int main(int argc, char **argv){
     using std::cerr;
     using std::string;
 
-    if(strcmp(getenv("USER"),"pipe")!=0) cout << "run me as pipe\n",exit(1);
+    // if(strcmp(getenv("USER"),"pipe")!=0) cout << "run me as pipe\n",exit(1);
 
     { char hostname[1024];
     gethostname(hostname,1024);
@@ -6165,7 +6165,7 @@ int release_manual(int argc, char **argv) { // , opts::MysqlUser & myuser) {
     // cout << "This wrong " << getenv("USER") << "\n";
     { rarp::NLISTS bored_beyond_words;
     db::get_named_rows("seqdb",bored_beyond_words,"SELECT userid FROM users WHERE NETID= '%s'",getenv("USER"));
-    if(bored_beyond_words.size()!=1) cout << "unable to find userid for " << getenv("USER") << "\n",exit(1)
+    if(bored_beyond_words.size()!=1) cout << "unable to find userid for " << getenv("USER") << "\n",exit(1);
     userids=bored_beyond_words[0]["userid"]; }
     // cout << "using " << userids << "\n";
     // char const * serv = "seqprod";
