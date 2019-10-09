@@ -95,8 +95,8 @@ namespace opts {
             sprintf(_connstr,"mysql -u%s -p%s -h%s sequenceDB",_user,_pass,_host); 
             sprintf(_connstr_quick_hack,"%s -BN -e ",_connstr);
 
-            if(strcmp(_user,"dh2880")==0 || strcmp(_user,"dsth")==0 )
-              cout << "we have " << _user << "\n" << /* "we have " << _pass << "\n" << */ "we have " << _host << "\n";
+            // if(strcmp(_user,"dh2880")==0 || strcmp(_user,"dsth")==0 )
+              // cout << "we have " << _user << "\n" << /* "we have " << _pass << "\n" << */ "we have " << _host << "\n";
 
             //// should do a test connection here to check it all works??!!?!?
 
@@ -3218,7 +3218,7 @@ void align(int /* argc */, char ** /* argv */) {
     sprintf(arsv2,"update Lane set rg_status = '%s' where rg_status = '%s'; select row_count() updated ", ering,mping);
     NLIST u = db::get_named_row("seqdb",arsv2); 
     if(u["updated"]=="1") cout << "marked previous error as " << mping << "\n";
-    else if(u["updated"]=="0") cout << "nothing to mark as " << mping << "\n";
+    else if(u["updated"]=="0") cout << "nothing to mark\n";//  as " << mping << "\n";
     else assert(0); }
 
         NLISTS fc;
@@ -3235,7 +3235,6 @@ void align(int /* argc */, char ** /* argv */) {
           "limit 1");
         
         if(fc.size()==0) {
-            cout << "There's nothing to align (fastq_ready->fastq_mapping->fastq_mapped). Bye.\n";
             exit(0);
         }
 
@@ -5941,7 +5940,7 @@ int main(int argc, char **argv){
 
     { char hostname[1024];
     gethostname(hostname,1024);
-    cout << "running on " << hostname << "\n";
+    cout << "running on " << hostname << " @ " << time(0) << "\n";
     if(strstr(hostname,"atav")==0 && strstr(hostname,"dragen")==0) {
     // if(memcmp(hostname,"atav",4)!=0 && memcmp(hostname,"dragen",6)!=0) {
         cout << "run me from atav/dragen\n";
