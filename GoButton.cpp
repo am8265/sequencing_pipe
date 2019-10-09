@@ -2772,12 +2772,12 @@ using namespace std;
 
 void /* int */ check_pipeline_output(int argc , char ** argv) {
 // void /* int */ check_pipeline_output(int /* argc */, char ** /* argv */) {
-    cout << "check_pipeline_output\n";
+    // cout << "check_pipeline_output\n";
     --argc;
     ++argv;
     // this was extreme paranoia - had to implement checks in major hurry so double implemented and never removed...
     // why aren't we invoking directly as with pipeline?!?
-    cout << "run md5sum\n";
+    // cout << "run md5sum\n";
     submit_and_post_checks(true);
 
     /* 
@@ -3032,7 +3032,7 @@ void metrics(int /* argc */, char ** /* argv */) {
         " order by rg_insert asc limit 1 ");
 
     if(fc.size()==0) {
-        cout << "There's nothing to do metrics for. Bye.\n";
+        // cout << "There's nothing to do metrics for. Bye.\n";
         return;
         // exit(0);
     }
@@ -3490,13 +3490,14 @@ void protect(int /* argc */, char ** /* argv */) {
         return;
     } else cout << "will run\n"; }
 
+    /* 
     char hostname[1024];
     gethostname(hostname,1024);
     if(memcmp(hostname,"igm-atav",8)!=0 && memcmp(hostname,"atav",4)!=0) {
         cout << "run me from atav machine\n";
         return;
         //exit(1);
-    }
+    } */
 
     NLISTS fc;
     get_se_group_by_uniform_status(fc,"fastq_archiving");
@@ -3511,7 +3512,6 @@ void protect(int /* argc */, char ** /* argv */) {
     // = get_an_se_by_status("fastq_archiving");
     // NLIST x = get_an_se_by_status("fastq_archiving");
     if(fc.size()==0) { // if(x.size()==0) {
-        cout << "there's nothing to protect (fastq_archiving -> protect_lock -> fastq_archived)\n";
         return;
         // exit(0);
     }
@@ -3703,7 +3703,6 @@ void archive(int /* argc */, char ** /* argv */) {
         "limit 1");
 
     if(fc.size()==0) {
-        cout << "there's nothing to archive (fastq_mapped -> archive_lock -> fastq_archiving)\n";
         return;
         // exit(0);
     }
@@ -5404,7 +5403,7 @@ void submit_and_post_checks(bool post_checks = false) {
     ///// need to build this path!?!
     // char const * mod[] = { BASE_DIR "/bin/GoButton.pm", "/home/dsth/Trabalho/DNA_PIPE/Refactor/GoButton.pm" };
     char const * mod[] = { "/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/GoButton.pm", "/home/dsth/Trabalho/DNA_PIPE/Refactor/GoButton.pm" };
-    cout << "we have " << BASE_DIR << " and " << SCRIPT_DIR << "\n";
+    // cout << "we have " << BASE_DIR << " and " << SCRIPT_DIR << "\n";
     char * my_argv[] = { (char*) "", (char*) (( strcmp(getenv("HOSTNAME"),"centos6")==0 )?*(mod+1):*mod) }; 
     my_perl = perl_alloc();
     perl_construct(my_perl);
@@ -5420,7 +5419,7 @@ void submit_and_post_checks(bool post_checks = false) {
     XPUSHs(sv_2mortal(newSVpv(opts::myuser.pass(),strlen(opts::myuser.pass()))));
 
     if(!post_checks) {
-        cout << "submit\n";
+        // cout << "submit\n";
         sleep(3);
 
         XPUSHs(sv_2mortal(newSVpv("push",strlen("push")))); 
@@ -5435,7 +5434,7 @@ void submit_and_post_checks(bool post_checks = false) {
         }else cout << "\n\nno rescue run\n\n"; 
 
     }else{
-        cout << "post_checks\n";
+        // cout << "post_checks\n";
         sleep(3);
         XPUSHs(sv_2mortal(newSVpv("archive_md5",strlen("archive_md5")))); 
     }
