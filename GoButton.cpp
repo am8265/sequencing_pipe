@@ -6231,7 +6231,7 @@ int release_manual(int argc, char **argv) { // , opts::MysqlUser & myuser) {
         if(line[l]=='\n') line[l]='\0';
         for (int i = 0; i<l; ++i) {
             // if(!::isalpha(line[i])) {
-            if( ! ( (line[i]>='a'&&line[i]<='z') || (line[i]>='A'&&line[i]<='Z') || (line[i]>='0'&&line[i]<='9') ) ) 
+            if( ! ( (line[i]>='a'&&line[i]<='z') || (line[i]>='A'&&line[i]<='Z') || (line[i]>='0'&&line[i]<='9') ) && line[i]!='-' ) 
               cout << "there are stray non-permitted characters in the file '" << line[i] << "'\n", exit(1);
         }
 
