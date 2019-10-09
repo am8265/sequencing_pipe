@@ -4338,42 +4338,30 @@ void release_merged_rgs(
             }
         }
 
-        if(dsm["sample_type"]=="Genome_As_Fake_Exome") {
+        // simple way to avoid this is to replace into 
+        rarp::NLIST ars2 = db::get_named_row("seqdb",
+            "update dragen_pipeline_step set finish_time = CURRENT_TIMESTAMP(), step_status = 'completed' where pseudo_prepid = %s and pipeline_step_id = 1; select row_count() as affected",
+            dsm["experiment_id"].data()
+        );
 
-            // THE gVCF MUST GO TO THE COMMON LOCATION TOO AND GET REGISTERED IN DQM - CAN ARCHIVE BUT MUST UPDATE!?!
-            // wgs metrics in WGS_Mean_Cov etc..
-            do_void_thing("update dragen_sample_metadata set is_merged = 200000 where pseudo_prepid = %s",dsm["experiment_id"].data());
-            do_void_thing("update prepT set status = 'Queued_For_WGS_gVCF', status_time = unix_timestamp() where experiment_id = %s",dsm["experiment_id"].data());
-            return;
+        // for (rarp::NLIST::iterator it = ars2.begin(); it!=ars2.end(); it++ ) cout << "ars2["<< it->first <<"] "<< it->second << "\n"; 
 
-        }else{
-
-
-            // simple way to avoid this is to replace into 
-            rarp::NLIST ars2 = db::get_named_row("seqdb",
-              "update dragen_pipeline_step set finish_time = CURRENT_TIMESTAMP(), step_status = 'completed' where pseudo_prepid = %s and pipeline_step_id = 1; select row_count() as affected",
-              dsm["experiment_id"].data()
-            );
-
-            // for (rarp::NLIST::iterator it = ars2.begin(); it!=ars2.end(); it++ ) cout << "ars2["<< it->first <<"] "<< it->second << "\n"; 
-
-            if(ars2["affected"]=="0") {
-                /////// MUST WIPE DPS OR WILL CAUSE MORE HASSLES LATER!?!
-                do_void_thing( REPLACE_INTO_DPS, dsm["experiment_id"].data(),"completed" );
-            }else {
-                cout << "running with " << dsm["experiment_id"].data() << "\n";
-                assert(ars2["affected"]=="1");
-            }
-        
-            do_void_thing("update dragen_sample_metadata set is_merged = 1 where pseudo_prepid = %s",dsm["experiment_id"].data());
-            do_void_thing("update prepT set status = 'Released_to_Pipeline', status_time = unix_timestamp() where experiment_id = %s",dsm["experiment_id"].data());
-
-            time_t t = time(0); struct tm * tm_s = localtime(&t); char blah[1024]; strftime(blah,1024,"%c",tm_s); fputs(blah,log); fputc('\n',log);
-
-            // fputs(bored2,log); fputc('\n',log); fputs(bored1,log); fputc('\n',log);
-            fputs(final_checkpoint.data(),log);
-            fputc('\n',log);
+        if(ars2["affected"]=="0") {
+            /////// MUST WIPE DPS OR WILL CAUSE MORE HASSLES LATER!?!
+            do_void_thing( REPLACE_INTO_DPS, dsm["experiment_id"].data(),"completed" );
+        }else {
+            cout << "running with " << dsm["experiment_id"].data() << "\n";
+            assert(ars2["affected"]=="1");
         }
+    
+        do_void_thing("update dragen_sample_metadata set is_merged = 1 where pseudo_prepid = %s",dsm["experiment_id"].data());
+        do_void_thing("update prepT set status = 'Released_to_Pipeline', status_time = unix_timestamp() where experiment_id = %s",dsm["experiment_id"].data());
+
+        time_t t = time(0); struct tm * tm_s = localtime(&t); char blah[1024]; strftime(blah,1024,"%c",tm_s); fputs(blah,log); fputc('\n',log);
+
+        // fputs(bored2,log); fputc('\n',log); fputs(bored1,log); fputc('\n',log);
+        fputs(final_checkpoint.data(),log);
+        fputc('\n',log);
 
     }
 
