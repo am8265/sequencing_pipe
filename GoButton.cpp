@@ -67,6 +67,8 @@ namespace opts {
     bool commit = false, force = false;
     char const * serv = "seqprod";
 
+    static bool email = true;
+
     using std::cout;
     using std::cerr;
 
@@ -5414,11 +5416,10 @@ void submit_and_post_checks(bool post_checks = false) {
         time_t t = time(0);
         srand(t); int r = rand(), h = r%HOW_OFTEN==0; printf("> %d, %d -> %d\n",r,HOW_OFTEN,h);
         if(1) { // if(h) { 
-            cout << "\n\nrescue run\n\n"; 
             // silly but wanna make sure qstat is all caught up?!?...?!?
             // sleep(30);
             XPUSHs(sv_2mortal(newSVpv("push_back",strlen("push_back")))); 
-        }else cout << "\n\nno rescue run\n\n"; 
+        } 
 
     }else{
         // cout << "post_checks\n";
@@ -5443,7 +5444,9 @@ void load(int, char **);
 
 namespace email_bits {
 
-    void lims_driven_summary() {
+    void lims_driven_summary(int, char **) {
+
+        // bool email = true; // argc==2 && strcmp(argv[1],"email")==0;
 
         using namespace std;
         time_t since=1527843600, now = time(0);
@@ -5453,21 +5456,14 @@ namespace email_bits {
             struct tm * tmp = localtime(&day);
             char silly[1024];
             strftime(silly,sizeof silly, "%FT%TZ", tmp);
-            rarp::NLIST c = db::get_named_row("seqdb","select count(1) count,group_concat(concat(machine,':',chemver,':',fcillumid)) list from Flowcell where dateread1 < '%s' and daterta > '%s'",silly,silly);
+            rarp::NLIST c = db::get_named_row("seqdb","select count(1) count,group_concat(concat(machine,':',chemver,':',fcillumid,':',date_format(dateread1,'%%d-%%H-%%i'),':',date_format(daterta,'%%d-%%H-%%i'),':',round((unix_timestamp(daterta)-unix_timestamp(dateread1))/3600,2) )) list from Flowcell where ( dateread1 < '%s' or seqtime < %llu ) and daterta > '%s'",silly,day,silly);
+            // rarp::NLIST c = db::get_named_row("seqdb","select count(1) count,group_concat(concat(machine,':',chemver,':',fcillumid,':',date_format(dateread1,'%%d-%%H-%%i'),':',date_format(daterta,'%%d-%%H-%%i'),':',timediff(daterta,dateread1) )) list from Flowcell where ( dateread1 < '%s' or seqtime < %llu ) and daterta > '%s'",silly,day,silly);
             // int blarp = atoi(c["count"].data());
             // float util = 100 * blarp / capacity;
             strtmp
             << string(silly).substr(0,10) << " " 
-            << 
-                (   
-                    tmp->tm_wday==0?"Sun":
-                    tmp->tm_wday==1?"Mon":
-                    tmp->tm_wday==2?"Tue":
-                    tmp->tm_wday==3?"Wed":
-                    tmp->tm_wday==4?"Thu":
-                    tmp->tm_wday==5?"Fri":"Sat"
-                )
-            << " " 
+            << ( tmp->tm_wday==0?"Sun": tmp->tm_wday==1?"Mon": tmp->tm_wday==2?"Tue": tmp->tm_wday==3?"Wed":
+                    tmp->tm_wday==4?"Thu": tmp->tm_wday==5?"Fri":"Sat" ) << " " 
             << "(" << tmp->tm_yday << ")" 
             << " : " << c["count"] ;
             if(c["list"]!="NULL") strtmp << " ("<<c["list"] << ")";
@@ -5475,6 +5471,8 @@ namespace email_bits {
         }
         cout << strtmp.str();
         // sendmail("dh2880@columbia.edu,dsth@cantab.net,jb4393@cumc.columbia.edu","dh2880@columbia.edu","Flowcell Utilisation Summary",strtmp.str().data());
+        if(opts::email) sendmail("igm-bioinfo@columbia.edu,jb4393@cumc.columbia.edu","igm-bioinfo@columbia.edu","Flowcell Utilisation Summary",strtmp.str().data());
+        else sendmail("dh2880@columbia.edu,dsth@cantab.net","igm-bioinfo@columbia.edu","Flowcell Utilisation Summary",strtmp.str().data());
     }
 
     // #define DAYS "90"
@@ -5570,7 +5568,7 @@ namespace email_bits {
     typedef std::pair<long long, std::string> WHATWHEN;
 
 
-    void daily(int argc, char **argv) {
+    void daily(int, char **) {
 
         // if(strcmp(getenv("USER"),"dh2880")!=0) exit(0);
 
@@ -5580,16 +5578,16 @@ namespace email_bits {
 
         { char host[256]; gethostname(host,sizeof host); assert(strcmp(host,"igm-atav01.igm.cumc.columbia.edu")==0); }
 
-        bool email = argc==2 && strcmp(argv[1],"email")==0;
+        // bool email = true; // argc==2 && strcmp(argv[1],"email")==0;
 
-        if(email) {
+        if(opts::email) {
             cout << "will email\n";
             time_t const now_t = time(0);
             char * now = ctime(&now_t);
             if(!now) cout << "unable to get time\n",exit(1);
             cout << "time is " << now;
             cout << "the hour is " << localtime(&now_t)->tm_hour << "\n";
-            assert(localtime(&now_t)->tm_hour==5);
+            // assert(localtime(&now_t)->tm_hour==5);
         }
 
         std::map<std::string,RUNINFO> runs;
@@ -5910,15 +5908,38 @@ namespace email_bits {
 
         cout << "\n" << lazy_bored.str() << "\n";
             
-        { stringstream body;
+        { stringstream body;// ,tmp;
+
+        body << "<style><th, td {padding: 5px;}\nth, td {text-align: left;}\nth ding: 5px;}\n</style>\n"
+            << "<table align=\"left\" cellpadding=\"5\" border=\"1\" style=\"border:1px solid black;border-collapse:collapse;width:95%\">\n"
+            << "<tr bgcolor=\"#d7d7d7\">"
+            << "<th><font color=\"#2996cc\">Slot</font></th>"
+            << "<th><font color=\"#2996cc\">State</font></th></tr>\n";
+
         char const *ml[] = { "N1A", "N1B", "N2A", "N2B", "N3A", "N3B" };
         for (unsigned int i = 0; i<sizeof ml/sizeof ml[0]; ++i) {
             std::map<string,WHATWHEN>::const_iterator it = info.find(ml[i]);
-            if(it!=info.end()) body << it->first << " : " << it->second.second << "\n";
-            else body << ml[i] << " : Idle for longer than check interval (" << DAYS << " days)\n";
+
+            /* if(it!=info.end()) body << it->first << " : " << it->second.second << "\n";
+            else body << ml[i] << " : Idle for longer than check interval (" << DAYS << " days)\n"; */
+
+            body << "<tr bgcolor=\"#d7d7d7\"></td><td>";
+
+            if(it!=info.end()) body << it->first << "</td><td>" << it->second.second << "\n";
+            else body << ml[i] << "</td><td> Idle for longer than check interval (" << DAYS << " days)\n";
+
+            body << "</td></tr>";
+
         }
+
+        body << "</table>";
+
         cout << body.str();
-        if(email) sendmail("dh2880@columbia.edu,jb4393@cumc.columbia.edu,dg2875@cumc.columbia.edu,vsa2105@cumc.columbia.edu","Daniel Hughes <dh2880@columbia.edu>","NovaSeq occupancy report",body.str().data()); }
+
+        if(opts::email) sendmail("jb4393@cumc.columbia.edu,dg2875@cumc.columbia.edu,vsa2105@cumc.columbia.edu,igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true);
+        else sendmail("dh2880@columbia.edu,dsth@cantab.net","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true); 
+
+        }
 
         cout << "\nfinal messages " << nasty_lazy_message.size() << "\n";
         for (int i=0; i<(int)nasty_lazy_message.size(); ++i) {
@@ -6009,7 +6030,7 @@ int main(int argc, char **argv){
 
         }else if ( strcmp(1[argv],"weekly_summary")==0 ) {
 
-            email_bits::lims_driven_summary();
+            email_bits::lims_driven_summary(argc,argv);
             return 0;
 
         }else if(strcmp(*(argv+1),"submit")==0) {
