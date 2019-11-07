@@ -1,0 +1,1 @@
+/usr/bin/c++      CMakeFiles/xmltest.dir/xmltest.cpp.o  -o xmltest -rdynamic libtinyxml2.so.6.2.0 -Wl,-rpath,/home/dh2880/pipeline/sequencing_pipe/testing/tinyxml2/build 
