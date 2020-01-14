@@ -606,6 +606,7 @@ namespace fastq {
             FCT.insert(make_pair("DRXX","NovaSeq S1 flowcell"));
             FCT.insert(make_pair("DMXX","NovaSeq S2 flowcell"));
             FCT.insert(make_pair("DSXX","NovaSeq S4 flowcell"));
+            FCT.insert(make_pair("DSXY","NovaSeq S4 flowcell (hack)"));
             FCT.insert(make_pair("ALXX","HiSeqX (8-lane) flowcell"));
             FCT.insert(make_pair("CCXX","HiSeqX (8-lane) flowcell"));
             FCT.insert(make_pair("CCXY","HiSeqX (8-lane) flowcell"));
@@ -1883,7 +1884,7 @@ void update_actual_lane_fractions_from_html(rarp::NLISTS & hs,rarp::NLISTS & rgs
     sprintf(subject,"Flowcell %s lane/sample yield summaries (%d/%s)",fcid.data(),ly,fcyield);
     // { char what[2048]; getcwd(what,sizeof what); cout << "using " << what << "\n"; }
     // sprintf(fer2, "/nfs/goldstein/software/mutt-1.5.23/bin/mutt -e \"set content_type=text/html\" -s \"Flowcell %s lane/sample yield summaries (%d/%s)\" dh2880@cumc.columbia.edu < " FLOWCELL_REPORT,fcid.data(),ly,fcyield);
-    sendmail("dh2880@cumc.columbia.edu,dsth@cantab.net","dh2880@cumc.columbia.edu",subject,tmp.str().data(),true);
+    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",subject,tmp.str().data(),true);
 
 }
     
@@ -2357,7 +2358,7 @@ int bcl(int argc, char **argv) {
         if(fcid.empty()) cout << "there's nothing to do\n",exit(0); 
         
         string msg = "FLOWCELL READY FOR BCL CONVERSION " + fcid;
-        sendmail("dh2880@cumc.columbia.edu,dsth@cantab.net","dh2880@cumc.columbia.edu",msg.data(),"As above.");
+        sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",msg.data(),"As above.");
 
         if(argc==1 || strcmp(argv[1],"run")!=0) cout << "won't run\n", exit(0);
         // cout << "using " << fcid << "\n";
@@ -2540,7 +2541,7 @@ int bcl(int argc, char **argv) {
     if(isregfile((run_dir+"/CopyComplete.txt").data())) cout << "copy finished\n";
     else cout << "copy doesn't seem to have finished : " << run_dir << "/CopyComplete.txt" ,exit(1);
 
-    sendmail("dh2880@cumc.columbia.edu,dsth@cantab.net","dh2880@cumc.columbia.edu",string("Running FC "+fcid).data(),"That's all.");
+    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",string("Running FC "+fcid).data(),"That's all.");
 
     // int run_it_in_fork(int argc, char ** argv){
     // cout << "must relocate lock to here!?!\n";
@@ -4526,7 +4527,7 @@ void release_single_rg(
     if(dsm["sample_type"]=="Genome_As_Fake_Exome") {
 
         // cout << "this should NEVER happen\n";
-        sendmail("dsth@cantab.net","Daniel Hughes <dh2880@columbia.edu>","Single RG WGS sample","Just grab from dragen metrics");
+        sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Single RG WGS sample","Just grab from dragen metrics");
         // cout << "we use " << dir << "/" << SEs[0] << "\n";
         string mapping_metrics = dir + "/" + SEs[0];
         assert(mapping_metrics.substr(mapping_metrics.length()-4,4)==".bam");
@@ -4551,7 +4552,7 @@ void release_single_rg(
 
         }else do_void_thing("update Experiment set merge_metrics_capturemean = %0.2f where id = %s",capmean,dsm["experiment_id"].data());
 
-    }else sendmail("dsth@cantab.net","Daniel Hughes <dh2880@columbia.edu>","Single RG sample","Must implement capture metrics for this - though RG metrics should avoid premature release"); }
+    }else sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Single RG sample","Must implement capture metrics for this - though RG metrics should avoid premature release"); }
 
     // "internal genomes should NEVER get here!?! 
     // if we start doing single RG exomes then need to implement coverage checks
@@ -5364,7 +5365,7 @@ if(strcmp(getenv("USER"),"dh2880")==0) {
     cout << x.str();
     message+=x.str(); }
 
-    sendmail("dsth@cantab.net,dh2880@columbia.edu,nb2975@cumc.columbia.edu","Daniel Hughes <dh2880@columbia.edu>","Release summary",message.data());
+    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Release summary",message.data());
     cout << "SUMMARY\n" << message << "\n\n";
 
     mysql_close(con);
@@ -5472,7 +5473,7 @@ namespace email_bits {
         cout << strtmp.str();
         // sendmail("dh2880@columbia.edu,dsth@cantab.net,jb4393@cumc.columbia.edu","dh2880@columbia.edu","Flowcell Utilisation Summary",strtmp.str().data());
         if(opts::email) sendmail("igm-bioinfo@columbia.edu,jb4393@cumc.columbia.edu","igm-bioinfo@columbia.edu","Flowcell Utilisation Summary",strtmp.str().data());
-        else sendmail("dh2880@columbia.edu,dsth@cantab.net","igm-bioinfo@columbia.edu","Flowcell Utilisation Summary",strtmp.str().data());
+        else sendmail("igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","Flowcell Utilisation Summary",strtmp.str().data());
     }
 
     // #define DAYS "90"
@@ -5631,7 +5632,7 @@ namespace email_bits {
             if(runs.count(run_info[3].substr(1,9))) {
                 nasty_lazy_message.push_back(run_info[3].substr(1,9) + " has been seen before - " + dirs[i].substr(0,dirs[i].length()-8) + " is likely to be an aborted run and should be removed.");
                 for(int y=0; y<29;++y) cout << "we have seen this flowcell before - ignore likely aborited run!?! - this should send an email asking them to clean-up their mess!?!\n";
-                sendmail("dh2880@columbia.edu","Daniel Hughes <dh2880@columbia.edu>",(dirs[i].substr(0,dirs[i].length()-8) + " appears to be an aborted run.").data(),"Please check and if so remove it.\n");
+                sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",(dirs[i].substr(0,dirs[i].length()-8) + " appears to be an aborted run.").data(),"Please check and if so remove it.\n");
                 continue;
             }
 
@@ -5726,7 +5727,7 @@ namespace email_bits {
                     cout << "SUMMARY : this flowcell has started but NOT been registered - we send an obnoxious email reminding them not to do this\n";
                     nasty_lazy_message.push_back(it->first + " has started but NOT been registered - we send an obnoxious email reminding them not to do this\n");
                     // sleep(3);
-                    sendmail("dh2880@columbia.edu","Daniel Hughes <dh2880@columbia.edu>",(it->first + " has not been registered.").data(),"\n");
+                    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",(it->first + " has not been registered.").data(),"\n");
                     continue;
                 }else if(!it->second.lims_made){
 
@@ -5754,7 +5755,7 @@ namespace email_bits {
                     cout << "USING " << update << "\n";
                     string up = db::get_named_row("seqdb",update)["updated"];
                     up = up=="0" ? up="Make flowcell error for " + it->first : "Make flowcell " + it->first + " ("+up+")";
-                    sendmail("dh2880@columbia.edu","Daniel Hughes <dh2880@columbia.edu>",up.data(),update);
+                    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",up.data(),update);
                     cout << "message " << up << "\n";
 
                 }
@@ -5806,7 +5807,7 @@ namespace email_bits {
                     cout << "\tlims_delete_bcl_time_complete= "<<it->second.lims_delete_bcl_time_complete<<"\n";
                     cout << "\trun_dir= "<<it->second.run_dir<<"\n";
                     if(it->second.run_dir!=it->second.lims_rundir) {
-                        sendmail("dh2880@columbia.edu","Daniel Hughes <dh2880@columbia.edu>",(it->first + " has a rundir mismatch!").data(),"Please investigate.\n");
+                        sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",(it->first + " has a rundir mismatch!").data(),"Please investigate.\n");
                         nasty_lazy_message.push_back(string("ERROR: ") + it->first + " rundir mismatch!?! previous="+it->second.lims_rundir+", new="+it->second.run_dir);
                     }
                 }
@@ -5937,7 +5938,7 @@ namespace email_bits {
         cout << body.str();
 
         if(opts::email) sendmail("jb4393@cumc.columbia.edu,dg2875@cumc.columbia.edu,vsa2105@cumc.columbia.edu,igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true);
-        else sendmail("dh2880@columbia.edu,dsth@cantab.net","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true); 
+        else sendmail("igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true); 
 
         }
 
@@ -6166,7 +6167,7 @@ int release_manual(int argc, char **argv) { // , opts::MysqlUser & myuser) {
     for (int o = 0; o < argc; ++o ) {
         parp << "[" << o << "] "<< argv[o] << "\n";
     }
-    sendmail("dsth@cantab.net","Daniel Hughes <dh2880@columbia.edu>",rarp.str().data(),parp.str().data()); }
+    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",rarp.str().data(),parp.str().data()); }
 
     string userids;
     // cout << "This wrong " << getenv("USER") << "\n";
@@ -6359,7 +6360,7 @@ int release_manual(int argc, char **argv) { // , opts::MysqlUser & myuser) {
     
     if(list.size()==0) {
         /// whatever, can't be bothered to clean up...?!?
-        sendmail("dsth@cantab.net","Daniel Hughes <dh2880@columbia.edu>","Release summary",message.data());
+        sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Release summary",message.data());
         return 0;
     }
 
@@ -6441,7 +6442,7 @@ int release_manual(int argc, char **argv) { // , opts::MysqlUser & myuser) {
     cout << x.str();
     message+=x.str(); }
 
-    sendmail("dsth@cantab.net","Daniel Hughes <dh2880@columbia.edu>","Release summary",message.data());
+    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Release summary",message.data());
 
     mysql_close(con);
 
