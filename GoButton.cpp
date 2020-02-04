@@ -605,6 +605,7 @@ namespace fastq {
             FCT.insert(make_pair("ABXX","HiSeq 2000"));
             FCT.insert(make_pair("DRXX","NovaSeq S1 flowcell"));
             FCT.insert(make_pair("DMXX","NovaSeq S2 flowcell"));
+            FCT.insert(make_pair("BCX3","NovaSeq S2 flowcell (hack)"));
             FCT.insert(make_pair("DSXX","NovaSeq S4 flowcell"));
             FCT.insert(make_pair("DSXY","NovaSeq S4 flowcell (hack)"));
             FCT.insert(make_pair("ALXX","HiSeqX (8-lane) flowcell"));
@@ -1181,15 +1182,15 @@ class Core {
         proj_type=doc[0].FindMember("project")->value.FindMember("project_type")->value.GetString();
         if(sow.empty()) sow="None";
 
-        cout << "\nsub_project_name="<< sub_project_name<< "("<<subproj<< ") of " << "project="<< project<< "(" 
-        << doc[0].FindMember("project")->value.FindMember("id")->value.GetInt() << ") [type="<< proj_type << "/"<<sow <<"] (" << who << ")\n";
+        //cout << "\nsub_project_name="<< sub_project_name<< "("<<subproj<< ") of " << "project="<< project<< "(" 
+        //<< doc[0].FindMember("project")->value.FindMember("id")->value.GetInt() << ") [type="<< proj_type << "/"<<sow <<"] (" << who << ")\n";
 
-        cout << "approved="<< approved<< "\n";
+        //cout << "approved="<< approved<< "\n";
 
         _is_releasable=doc[0].FindMember("project")->value.FindMember("release_approved")->value.GetBool();
         _is_approved=approved;
-        cout << "_is_releasable= " << _is_releasable << "\n"
-          << "_is_approved= " << _is_approved << "\n";
+        //cout << "_is_releasable= " << _is_releasable << "\n"
+         // << "_is_approved= " << _is_approved << "\n";
 
         _min_wgs=
           ( doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.IsNull() 
@@ -1199,8 +1200,8 @@ class Core {
         _min_wes=doc[0].FindMember("project")->value.FindMember("exome_target_min_coverage")->value.IsNull()?
           get_min_wes():doc[0].FindMember("project")->value.FindMember("exome_target_min_coverage")->value.GetFloat();
 
-        cout << "_min_wes= " << _min_wes << "\n"
-          << "_min_wgs= " << _min_wgs << "\n";
+        //cout << "_min_wes= " << _min_wes << "\n"
+        //  << "_min_wgs= " << _min_wgs << "\n";
 
         assert(doc[0].FindMember("project")->value.FindMember("rnaseq_min_unique_fragments")->value.IsNull());
 
@@ -1233,7 +1234,7 @@ class Core {
     // float min_releasable(char const * why, int current) { /// tkae type and value or just type
     bool hits_coverage(std::string const & st,float cov) { 
         assert(st=="Genome"||st=="Exome");
-        std::cout << "we have " << st << " with cov= " << cov << " and wes_min= "<<_min_wes << " and wgs_min= " << _min_wgs << "\n";
+        //std::cout << "we have " << st << " with cov= " << cov << " and wes_min= "<<_min_wes << " and wgs_min= " << _min_wgs << "\n";
 
         // if(cov>120) assert(0);
 
@@ -1884,7 +1885,7 @@ void update_actual_lane_fractions_from_html(rarp::NLISTS & hs,rarp::NLISTS & rgs
     sprintf(subject,"Flowcell %s lane/sample yield summaries (%d/%s)",fcid.data(),ly,fcyield);
     // { char what[2048]; getcwd(what,sizeof what); cout << "using " << what << "\n"; }
     // sprintf(fer2, "/nfs/goldstein/software/mutt-1.5.23/bin/mutt -e \"set content_type=text/html\" -s \"Flowcell %s lane/sample yield summaries (%d/%s)\" dh2880@cumc.columbia.edu < " FLOWCELL_REPORT,fcid.data(),ly,fcyield);
-    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",subject,tmp.str().data(),true);
+    // sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",subject,tmp.str().data(),true);
 
 }
     
@@ -2357,8 +2358,8 @@ int bcl(int argc, char **argv) {
 
         if(fcid.empty()) cout << "there's nothing to do\n",exit(0); 
         
-        string msg = "FLOWCELL READY FOR BCL CONVERSION " + fcid;
-        sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",msg.data(),"As above.");
+        //string msg = "FLOWCELL READY FOR BCL CONVERSION " + fcid;
+        //sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",msg.data(),"As above.");
 
         if(argc==1 || strcmp(argv[1],"run")!=0) cout << "won't run\n", exit(0);
         // cout << "using " << fcid << "\n";
@@ -2541,7 +2542,7 @@ int bcl(int argc, char **argv) {
     if(isregfile((run_dir+"/CopyComplete.txt").data())) cout << "copy finished\n";
     else cout << "copy doesn't seem to have finished : " << run_dir << "/CopyComplete.txt" ,exit(1);
 
-    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",string("Running FC "+fcid).data(),"That's all.");
+    //sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",string("Running FC "+fcid).data(),"That's all.");
 
     // int run_it_in_fork(int argc, char ** argv){
     // cout << "must relocate lock to here!?!\n";
@@ -5089,7 +5090,7 @@ int auto_merge() { // int argc, char **argv) {
 
         // cout << "\n-------------------\n\n";
         if(cun2[i]["l_capmean_sum"]=="0") {
-            cout << "I don't do legacy samples - use 'release' procedure or 'rg metrics' page\n";
+            // cout << "I don't do legacy samples - use 'release' procedure or 'rg metrics' page\n";
             continue;
         }
 
@@ -5119,7 +5120,7 @@ int auto_merge() { // int argc, char **argv) {
             }
 
         }else{
-            cout << "same pool " << --pool_count << "\n";
+            //cout << "same pool " << --pool_count << "\n";
         }
 
         pool.push_back(atof(cun2[i]["l_capmean_sum"].data()));
@@ -5727,7 +5728,7 @@ namespace email_bits {
                     cout << "SUMMARY : this flowcell has started but NOT been registered - we send an obnoxious email reminding them not to do this\n";
                     nasty_lazy_message.push_back(it->first + " has started but NOT been registered - we send an obnoxious email reminding them not to do this\n");
                     // sleep(3);
-                    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",(it->first + " has not been registered.").data(),"\n");
+                    //sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",(it->first + " has not been registered.").data(),"\n");
                     continue;
                 }else if(!it->second.lims_made){
 
