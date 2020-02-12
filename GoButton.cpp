@@ -4553,7 +4553,9 @@ void release_single_rg(
 
         }else do_void_thing("update Experiment set merge_metrics_capturemean = %0.2f where id = %s",capmean,dsm["experiment_id"].data());
 
-    }else sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Single RG sample","Must implement capture metrics for this - though RG metrics should avoid premature release"); }
+    }else {} 
+   //sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Single RG sample","Must implement capture metrics for this - though RG metrics should avoid premature release"); 
+  }
 
     // "internal genomes should NEVER get here!?! 
     // if we start doing single RG exomes then need to implement coverage checks
@@ -6168,7 +6170,8 @@ int release_manual(int argc, char **argv) { // , opts::MysqlUser & myuser) {
     for (int o = 0; o < argc; ++o ) {
         parp << "[" << o << "] "<< argv[o] << "\n";
     }
-    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",rarp.str().data(),parp.str().data()); }
+    //sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",rarp.str().data(),parp.str().data()); 
+   }
 
     string userids;
     // cout << "This wrong " << getenv("USER") << "\n";
