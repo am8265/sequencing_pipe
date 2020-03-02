@@ -4528,7 +4528,7 @@ void release_single_rg(
     if(dsm["sample_type"]=="Genome_As_Fake_Exome") {
 
         // cout << "this should NEVER happen\n";
-        sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Single RG WGS sample","Just grab from dragen metrics");
+        // sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Single RG WGS sample","Just grab from dragen metrics");
         // cout << "we use " << dir << "/" << SEs[0] << "\n";
         string mapping_metrics = dir + "/" + SEs[0];
         assert(mapping_metrics.substr(mapping_metrics.length()-4,4)==".bam");
@@ -6364,7 +6364,7 @@ int release_manual(int argc, char **argv) { // , opts::MysqlUser & myuser) {
     
     if(list.size()==0) {
         /// whatever, can't be bothered to clean up...?!?
-        sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Release summary",message.data());
+        // sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Release summary",message.data());
         return 0;
     }
 
