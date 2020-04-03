@@ -4385,13 +4385,13 @@ void merge_multiple(
 
     using namespace std;
 
-    merge_cmd = "/nfs/goldstein/software/jdk1.8.0_05/bin/java -Xms12g -Xmx16g -jar /nfs/goldstein/software/picard-tools-2.2.1/picard.jar MergeSamFiles " 
+    merge_cmd = "/nfs/goldstein/software/jdk1.8.0_05/bin/java -Xms10g -Xmx14g -jar /nfs/goldstein/software/picard-tools-2.2.1/picard.jar MergeSamFiles " 
       // + merge_cmd + " O="+ merge_intermediate +" TMP_DIR=/nfs/seqscratch_ssd/MERGE_TEMP MAX_RECORDS_IN_RAM=10000000 VALIDATION_STRINGENCY=STRICT";
       + merge_cmd + " O="+ merge_intermediate +" TMP_DIR=/nfs/seqscratch_ssd/MERGE_TEMP MAX_RECORDS_IN_RAM=10000000 VALIDATION_STRINGENCY=LENIENT";
 
     // cout << "change this to sambamba and samtools and simply parse out flagstat in entryppoint checks\n";
 
-    string markdups_cmd = "/nfs/goldstein/software/jdk1.8.0_05/bin/java -Xms12g -Xmx16g -jar /nfs/goldstein/software/picard-tools-2.2.1/picard.jar MarkDuplicates "
+    string markdups_cmd = "/nfs/goldstein/software/jdk1.8.0_05/bin/java -Xms10g -Xmx14g -jar /nfs/goldstein/software/picard-tools-2.2.1/picard.jar MarkDuplicates "
       " I="+ dir 
       +dsm["sample_name"] +"."
       +dsm["experiment_id"]
