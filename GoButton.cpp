@@ -183,6 +183,7 @@ char const * Q1 = "select "
   " and e.sample_type in ('Genome', 'Exome') "
   " and e.is_released in ('not_released', 'release_rejected') "
   // 'could' impose flowcell and pool grouping here?!?
+  " and pool.is_releasable = 1 "
   " group by e.id order by e.sample_type, p.poolid; ";
 
 char const * REPLACE_INTO_DPS = 
@@ -608,6 +609,8 @@ namespace fastq {
             FCT.insert(make_pair("BCX3","NovaSeq S2 flowcell (hack)"));
             FCT.insert(make_pair("DSXX","NovaSeq S4 flowcell"));
             FCT.insert(make_pair("DSXY","NovaSeq S4 flowcell (hack)"));
+            FCT.insert(make_pair("BGX5","NovaSeq S4 flowcell (hack EGI)"));
+            FCT.insert(make_pair("BGX7","NovaSeq S4 flowcell (hack EGI)"));
             FCT.insert(make_pair("ALXX","HiSeqX (8-lane) flowcell"));
             FCT.insert(make_pair("CCXX","HiSeqX (8-lane) flowcell"));
             FCT.insert(make_pair("CCXY","HiSeqX (8-lane) flowcell"));
