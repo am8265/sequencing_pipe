@@ -5943,7 +5943,7 @@ namespace email_bits {
 
         cout << body.str();
 
-        if(opts::email) sendmail("jb4393@cumc.columbia.edu,dg2875@cumc.columbia.edu,vsa2105@cumc.columbia.edu,igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true);
+        if(opts::email) sendmail("jb4393@cumc.columbia.edu,dg2875@cumc.columbia.edu,igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true);
         else sendmail("igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true); 
 
         }
