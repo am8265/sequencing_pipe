@@ -4735,7 +4735,10 @@ for (rarp::NLIST::iterator it = dsm.begin(); it!=dsm.end(); it++ ) cout << " dsm
                 continue; // run=false;
             }
 
-            do_void_thing("update dragen_sample_metadata set sample_type = 'Genome_As_Fake_Exome', capture_kit = 'Roche' where pseudo_prepid = %s",dsm["pseudo_prepid"].data());
+            // do_void_thing("update dragen_sample_metadata set sample_type = 'Genome_As_Fake_Exome', capture_kit = 'Roche' where pseudo_prepid = %s",dsm["pseudo_prepid"].data());
+            // change the capture from "Roche" to "Genome_v1". - 2020/11/22 (hc)
+            do_void_thing("update dragen_sample_metadata set sample_type = 'Genome_As_Fake_Exome', capture_kit = 'Genome_v1' where pseudo_prepid = %s",dsm["pseudo_prepid"].data());
+
             dsm["sample_type"]="Genome_As_Fake_Exome";
             dsm["capture_kit"]="Roche";
 
