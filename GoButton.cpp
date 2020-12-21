@@ -4740,7 +4740,9 @@ for (rarp::NLIST::iterator it = dsm.begin(); it!=dsm.end(); it++ ) cout << " dsm
             do_void_thing("update dragen_sample_metadata set sample_type = 'Genome_As_Fake_Exome', capture_kit = 'Genome_v1' where pseudo_prepid = %s",dsm["pseudo_prepid"].data());
 
             dsm["sample_type"]="Genome_As_Fake_Exome";
-            dsm["capture_kit"]="Roche";
+            // dsm["capture_kit"]="Roche";
+            dsm["capture_kit"]= "Genome_v1";
+            
 
             if(!isdir(newdir.data())) cout << "NEW DIR IS NOT PRESENT\n",exit(1);
 
