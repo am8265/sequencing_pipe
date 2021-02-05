@@ -5376,7 +5376,7 @@ if(strcmp(getenv("USER"),"dh2880")==0) {
     cout << x.str();
     message+=x.str(); }
 
-    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Release summary",message.data());
+    sendmail("nb2975@cumc.columbia.edu,hc3247@cumc.columbia.edu","nb2975@cumc.columbia.edu","Release summary",message.data());
     cout << "SUMMARY\n" << message << "\n\n";
 
     mysql_close(con);
@@ -5483,7 +5483,7 @@ namespace email_bits {
         }
         cout << strtmp.str();
         // sendmail("dh2880@columbia.edu,dsth@cantab.net,jb4393@cumc.columbia.edu","dh2880@columbia.edu","Flowcell Utilisation Summary",strtmp.str().data());
-        if(opts::email) sendmail("igm-bioinfo@columbia.edu,jb4393@cumc.columbia.edu","igm-bioinfo@columbia.edu","Flowcell Utilisation Summary",strtmp.str().data());
+        if(opts::email) sendmail("rl3055@cumc.columbia.edu,igm-bioinfo@columbia.edu,jb4393@cumc.columbia.edu","igm-bioinfo@columbia.edu","Flowcell Utilisation Summary",strtmp.str().data());
         else sendmail("igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","Flowcell Utilisation Summary",strtmp.str().data());
     }
 
@@ -5643,7 +5643,7 @@ namespace email_bits {
             if(runs.count(run_info[3].substr(1,9))) {
                 nasty_lazy_message.push_back(run_info[3].substr(1,9) + " has been seen before - " + dirs[i].substr(0,dirs[i].length()-8) + " is likely to be an aborted run and should be removed.");
                 for(int y=0; y<29;++y) cout << "we have seen this flowcell before - ignore likely aborited run!?! - this should send an email asking them to clean-up their mess!?!\n";
-                sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",(dirs[i].substr(0,dirs[i].length()-8) + " appears to be an aborted run.").data(),"Please check and if so remove it.\n");
+                sendmail("nb2975@cumc.columbia.edu,hc3247@cumc.columbia.edu","nb2975@cumc.columbia.edu",(dirs[i].substr(0,dirs[i].length()-8) + " appears to be an aborted run.").data(),"Please check and if so remove it.\n");
                 continue;
             }
 
@@ -5766,7 +5766,7 @@ namespace email_bits {
                     cout << "USING " << update << "\n";
                     string up = db::get_named_row("seqdb",update)["updated"];
                     up = up=="0" ? up="Make flowcell error for " + it->first : "Make flowcell " + it->first + " ("+up+")";
-                    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",up.data(),update);
+                    sendmail("nb2975@cumc.columbia.edu,hc3247@cumc.columbia.edu","nb2975@cumc.columbia.edu",up.data(),update);
                     cout << "message " << up << "\n";
 
                 }
@@ -5818,7 +5818,7 @@ namespace email_bits {
                     cout << "\tlims_delete_bcl_time_complete= "<<it->second.lims_delete_bcl_time_complete<<"\n";
                     cout << "\trun_dir= "<<it->second.run_dir<<"\n";
                     if(it->second.run_dir!=it->second.lims_rundir) {
-                        sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",(it->first + " has a rundir mismatch!").data(),"Please investigate.\n");
+                        sendmail("nb2975@cumc.columbia.edu,hc3247@cumc.columbia.edu","nb2975@cumc.columbia.edu",(it->first + " has a rundir mismatch!").data(),"Please investigate.\n");
                         nasty_lazy_message.push_back(string("ERROR: ") + it->first + " rundir mismatch!?! previous="+it->second.lims_rundir+", new="+it->second.run_dir);
                     }
                 }
@@ -5948,7 +5948,7 @@ namespace email_bits {
 
         cout << body.str();
 
-        if(opts::email) sendmail("jb4393@cumc.columbia.edu,dg2875@cumc.columbia.edu,igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true);
+        if(opts::email) sendmail("rl3055@cumc.columbia.edu,jb4393@cumc.columbia.edu,dg2875@cumc.columbia.edu,igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true);
         else sendmail("igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true); 
 
         }
@@ -6454,7 +6454,7 @@ int release_manual(int argc, char **argv) { // , opts::MysqlUser & myuser) {
     cout << x.str();
     message+=x.str(); }
 
-    sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu","Release summary",message.data());
+    sendmail("nb2975@cumc.columbia.edu,hc3247@cumc.columbia.edu","nb2975@cumc.columbia.edu","Release summary",message.data());
 
     mysql_close(con);
 
