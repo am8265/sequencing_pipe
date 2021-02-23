@@ -1461,10 +1461,10 @@ inline void link_file(char const *adir, char const *bdir, char const *file) {
     assert(ret==0);
     assert(S_ISREG(s1.st_mode));
     if(s1.st_nlink==1) {
-        // cout << "we link " << fa << " to " << fb << "\n";
+        cout << "we link " << fa << " to " << fb << "\n";
         assert(link(fa,fb)==0);
     }else if(s1.st_nlink==2) {
-        // cout << "no need to link " << fa << " to " << fb << "\n";
+        cout << "no need to link " << fa << " to " << fb << "\n";
         assert(isregfile(fb));
     }else cout << "this is wrong\n";
 }
@@ -6069,6 +6069,47 @@ int main(int argc, char **argv){
 
             // deprecate(*(argv+2));
            
+    }
+    else if (argc==4 && strcmp(*(argv+1),"debug")==0) {
+
+        if(strcmp(*(argv+2),"pipe")==0) {
+            if(strcmp(*(argv+3),"metrics")==0){
+                metrics(argc,argv);
+            }
+            else if(strcmp(*(argv+3),"protect")==0){
+                protect(argc,argv);
+            }
+            else if(strcmp(*(argv+3),"archive")==0){
+                archive(argc,argv);
+            }
+            else if (strcmp(*(argv+3),"check_pipeline_output")==0) {
+                post_pipe::check_pipeline_output(argc,argv);
+            }
+            else if (strcmp(*(argv+3),"cleanup_pipeline_scratch")==0){
+                --argc, ++argv;
+                --argc, ++argv;
+                --argc, ++argv;
+                post_pipe::cleanup_pipeline_scratch(argc,argv);
+            }
+        }
+        
+        if(strcmp(*(argv+2),"run")==0) {
+            // set it as false, auto_merged will be a dry run. 
+            opts::commit=true;
+            
+            if(strcmp(*(argv+3),"auto_merge")==0){
+                auto_merge();
+            }
+
+            else if(strcmp(*(argv+3),"auto_release")==0){
+                auto_release();
+            }
+            
+            else if(strcmp(*(argv+3),"submit_and_post_checks")==0){
+                submit_and_post_checks();
+            }
+
+        }
     }
 
     // }else cerr << "unknown mode '" << *(argv+1) << "'\n",exit(1);
