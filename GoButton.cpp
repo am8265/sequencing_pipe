@@ -63,7 +63,7 @@
 
 namespace opts {
     float wgs_min = 29.3, // 30.0, /// this is put into capture but whatever?!?
-      wes_min = 65.0;
+      wes_min = 60.0;
     bool commit = false, force = false;
     char const * serv = "seqprod";
 
