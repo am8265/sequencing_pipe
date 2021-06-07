@@ -1032,13 +1032,23 @@ namespace pipey {
 #define SINLGE_CMD2(N,X,Y,Z) { char b1[1024]; strcpy(b1,(Z)); SINLGE_CMD(N,b1,(X),(Y)) }
 
 namespace core { 
-
+    // legacy vars used in hits_coverage 
     // static float min_wes, min_wgs;
     static float min_wes = opts::wes_min, min_wgs = opts::wgs_min;
     // static float min_wes = 75.0, min_wgs = 29.0;
 
     float get_min_wes() { return min_wes; }
     float get_min_wgs() { return min_wgs; }
+
+    static float default_min_wes = 60.0, default_min_wgs = 30.0;
+    static float default_min_wgs_smaller = 27.0, default_min_wgs_ccds10 = 0.95, default_min_wes_smaller = 50.0, default_min_wes_ccds10 = 0.95; 
+    
+    float get_default_min_wgs() { return default_min_wgs; }
+    float get_default_min_wes() { return default_min_wes; }
+    float get_default_min_wgs_smaller() { return default_min_wgs_smaller; }
+    float get_default_min_wgs_ccds10() { return default_min_wgs_ccds10; }
+    float get_default_min_wes_smaller() { return default_min_wes_smaller; }
+    float get_default_min_wes_ccds10() { return default_min_wes_ccds10; }
 
     size_t process_response(char *ptr, size_t, size_t nmemb, void *userdata) {
     // size_t process_response(char *ptr, size_t size, size_t nmemb, void *userdata) {
@@ -1064,16 +1074,31 @@ class Core {
     Core();
     float _min_wes, _min_wgs;
 
+    // wgs_ccds10x and wes_ccds10x are the same !? 
+    bool _is_wgs_target_set,  _is_wgs_target_min_set,  _is_wgs_ccds10x_set; 
+    bool _is_wes_target_set,  _is_wes_target_min_set,  _is_wes_ccds10x_set; 
+
+    bool _wgs_case_1, _wgs_case_2, _wgs_case_3 ;  
+    bool _wes_case_1, _wes_case_2, _wes_case_3 ;  
+
+    float _wgs_target_val,  _wgs_target_min_val,  _wgs_ccds10x_val; 
+    float _wes_target_val,  _wes_target_min_val,  _wes_ccds10x_val; 
+
+    std::fstream misc_log; 
+    
+    int _project_id; 
+    std::string _project_name; 
+
   public:
 
     // static float get_min_wes() { return min_wes; }
     // static float get_min_wgs() { return min_wgs; }
 
-    Core(char const * query) : _useful_name(new char[2048]) { 
+    Core(char const * query, bool run = true) : _useful_name(new char[2048]) { 
 
         using std::cout;
         using std::string;
-
+        using std::fstream; 
         CURL *curl;
         CURLcode res;
 
@@ -1082,9 +1107,15 @@ class Core {
 
         char search[2048];
         memset(search,0,sizeof(search));
-        strcpy(search,"https://core.igm.cumc.columbia.edu/core/api/subproject/?");
+        if (run ){        
+            strcpy(search,"https://core.igm.cumc.columbia.edu/core/api/subproject/?");
+        }
+        else {
+            strcpy(search,"https://biodev.igm.cumc.columbia.edu/core/api/subproject/?");
+            // strcpy(search,"https://core.igm.cumc.columbia.edu/core/api/subproject/?");
+        }
         strcat(search,query);
-
+        
         //
         //Accept: application/json; indent=4
         //   curl_easy_setopt(curl, CURLOPT_POSTFIELDS, 
@@ -1135,7 +1166,7 @@ class Core {
 
         string project =doc[0].FindMember("project")->value.FindMember("project_name")->value.GetString(),
           sub_project_name =doc[0].FindMember("sub_project_name")->value.GetString();
-
+        std::cout << subproj << "\t" << approved << "\t" << project << "\t" << std::endl; 
         string sow="";
         if(!doc[0].FindMember("contract_uri")->value.IsNull()) sow=doc[0].FindMember("contract_uri")->value.GetString();
 
@@ -1195,13 +1226,15 @@ class Core {
         //cout << "_is_releasable= " << _is_releasable << "\n"
          // << "_is_approved= " << _is_approved << "\n";
 
+        // hc: change genome_target_min_coverage to genome_target_coverage based on the new policy.
         _min_wgs=
-          ( doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.IsNull() 
+          ( doc[0].FindMember("project")->value.FindMember("genome_target_coverage")->value.IsNull() 
           ) ?
             // || doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.GetFloat()==0.0 ) ?
-          get_min_wgs():doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.GetFloat();
-        _min_wes=doc[0].FindMember("project")->value.FindMember("exome_target_min_coverage")->value.IsNull()?
-          get_min_wes():doc[0].FindMember("project")->value.FindMember("exome_target_min_coverage")->value.GetFloat();
+          get_min_wgs():doc[0].FindMember("project")->value.FindMember("genome_target_coverage")->value.GetFloat();
+          
+        _min_wes=doc[0].FindMember("project")->value.FindMember("exome_target_coverage")->value.IsNull()?
+          get_min_wes():doc[0].FindMember("project")->value.FindMember("exome_target_coverage")->value.GetFloat();
 
         //cout << "_min_wes= " << _min_wes << "\n"
         //  << "_min_wgs= " << _min_wgs << "\n";
@@ -1228,11 +1261,127 @@ class Core {
 
         // assert(doc2[0].HasMember("exome_target_coverage"));
         // assert(doc2[0].HasMember("rnaseq_target_unique_fragments"));
+        
+        /*
+        process the curl outputs to get the value , as well as whether it's set (to-do)
+        */
 
+        _is_wgs_target_set = !doc[0].FindMember("project")->value.FindMember("genome_target_coverage")->value.IsNull() ;
+        _is_wgs_target_min_set = !doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.IsNull() ;
+        _is_wgs_ccds10x_set =!doc[0].FindMember("project")->value.FindMember("genome_min_ccds_10x_percent")->value.IsNull() ;
+
+        _is_wes_target_set = !doc[0].FindMember("project")->value.FindMember("exome_target_coverage")->value.IsNull() ;
+        _is_wes_target_min_set = !doc[0].FindMember("project")->value.FindMember("exome_target_min_coverage")->value.IsNull() ; 
+        _is_wes_ccds10x_set = !doc[0].FindMember("project")->value.FindMember("exome_min_ccds_10x_percent")->value.IsNull() ; 
+
+        _wgs_case_1 = _is_wgs_target_set && _is_wgs_target_min_set && _is_wgs_ccds10x_set;  
+        _wgs_case_2 = (_is_wgs_target_set == true ) && ( (_is_wgs_target_min_set == false) && (_is_wgs_ccds10x_set == false ));  
+        _wgs_case_3 = (_is_wgs_target_set == false ) && (_is_wgs_target_min_set == false) && (_is_wgs_ccds10x_set == false );  
+
+        _wes_case_1 = _is_wes_target_set && _is_wes_target_min_set && _is_wes_ccds10x_set;  
+        _wes_case_2 = (_is_wes_target_set == true ) && ( (_is_wes_target_min_set == false) && (_is_wes_ccds10x_set == false ));  
+        _wes_case_3 = (_is_wes_target_set == false ) && (_is_wes_target_min_set == false) && (_is_wes_ccds10x_set == false );  
+        // cout << "what3\n";
+        // cout << _is_wgs_target_set << std::endl;
+        // cout << _is_wgs_target_min_set << std::endl;
+        // cout << _is_wgs_ccds10x_set << std::endl;
+        // cout << _is_wes_target_set << std::endl;
+        // cout << _is_wes_target_min_set << std::endl;
+        // cout << _is_wes_ccds10x_set << std::endl;
+
+        _wgs_target_val = (_is_wgs_target_set)? 
+        doc[0].FindMember("project")->value.FindMember("genome_target_coverage")->value.GetFloat(): 888888.8f;   
+        // cout << _wgs_target_val << std::endl; 
+
+        _wgs_target_min_val = (_is_wgs_target_min_set)? 
+        doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.GetFloat(): 888888.8f; 
+        // cout << _wgs_target_min_val << std::endl; 
+
+        _wgs_ccds10x_val = (_is_wgs_ccds10x_set)? 
+        doc[0].FindMember("project")->value.FindMember("genome_min_ccds_10x_percent")->value.GetFloat(): 888888.8f; 
+        // cout << _wgs_ccds10x_val << std::endl; 
+
+        _wes_target_val = (_is_wes_target_set)? 
+        doc[0].FindMember("project")->value.FindMember("exome_target_coverage")->value.GetFloat(): 888888.8f;    
+        // cout << _wes_target_val << std::endl; 
+        _wes_target_min_val = (_is_wes_target_min_set)? 
+        doc[0].FindMember("project")->value.FindMember("exome_target_min_coverage")->value.GetFloat(): 888888.8f; 
+        // cout << _wes_target_min_val << std::endl; 
+        _wes_ccds10x_val = (_is_wes_ccds10x_set)? 
+        doc[0].FindMember("project")->value.FindMember("exome_min_ccds_10x_percent")->value.GetFloat(): 888888.8f; 
+        // cout << _wes_ccds10x_val << std::endl; 
+
+        // open the misc log file 
+        // char log_file[] = "/nfs/seqscratch09/informatics/logs/misc/misc_log.txt";
+        string log_file = "/nfs/seqscratch09/informatics/logs/misc/misc_log_core_test.txt";
+
+        if (run){
+            log_file = "/nfs/seqscratch09/informatics/logs/misc/misc_log_core.txt";
+        }
+
+        misc_log.open(log_file, std::fstream::in | std::fstream::out | std::fstream::app);
+
+        if (!misc_log) {
+            cout << "Cannot open log file , file does not exist. Creating new file..";
+            misc_log.open(log_file,  fstream::in | fstream::out | fstream::trunc);
+        }
+        _project_id = doc[0].FindMember("id")->value.GetInt();
+        // cout << "project id: " << _project_id << std::endl;
+        _project_name = doc[0].FindMember("project")->value.FindMember("project_name")->value.GetString();
+        // cout << "project name: " << _project_name << std::endl;
 
     }
 
-    ~Core() { delete[] _useful_name; }
+    // ~Core() { delete[] _useful_name; }
+    ~Core() { 
+        misc_log.close();
+        delete[] _useful_name; 
+    }
+    int get_project_id () {
+        return _project_id;
+    }
+
+    std::string get_project_name() {
+        return _project_name;
+    }
+
+    float get_wgs_target_val() { return _wgs_target_val; }
+    float get_wgs_target_min_val() { return _wgs_target_min_val; }  
+    float get_wgs_ccds10x_val() {return _wgs_ccds10x_val;} 
+    float get_wes_target_val() {return _wes_target_val; }  
+    float get_wes_target_min_val() {return _wes_target_min_val; }  
+    float get_wes_ccds10x_val() {return _wes_ccds10x_val; } 
+
+    bool is_core_properly_setup(std::string const & st) {
+        assert(st=="Genome"||st=="Exome");
+        
+        if(st=="Genome") return _wgs_case_1 || _wgs_case_2 || _wgs_case_3;
+        if(st=="Exome") return _wes_case_1 || _wes_case_2 || _wes_case_3;
+    }
+
+    void log_wrong_core_setup(){
+        misc_log << get_project_name() << " (ID: " << get_project_id() << " ) is not properly set up! " << std::endl;
+        misc_log << "Genome Target Coverage: " << _is_wgs_target_set << std::endl;
+        misc_log << "Genome Target Minimum Coverage: " << _is_wgs_target_min_set << std::endl;   
+        misc_log << "Minimum CCDS Bases Coverage 10X: " <<  _is_wgs_ccds10x_set << std::endl; 
+        
+        misc_log << "Exome Target Coverage: " << _is_wes_target_set << std::endl;   
+        misc_log << "Exome Target Minimum Coverage: " << _is_wes_target_min_set << std::endl; 
+        misc_log << "Minimum CCDS Bases Coverage 10X: " << _is_wes_ccds10x_set << std::endl;
+
+        misc_log << std::endl;
+    }
+
+    void print_core_setup(){
+        std::cout << "Project Config for " << get_project_name() << " (ID: " << get_project_id() << " )" << std::endl;
+        std::cout << "Genome Target Coverage: " << _is_wgs_target_set << std::endl;
+        std::cout << "Genome Target Minimum Coverage: " << _is_wgs_target_min_set << std::endl;   
+        std::cout << "Minimum CCDS Bases Coverage 10X: " <<  _is_wgs_ccds10x_set << std::endl; 
+        
+        std::cout << "Exome Target Coverage: " << _is_wes_target_set << std::endl;   
+        std::cout << "Exome Target Minimum Coverage: " << _is_wes_target_min_set << std::endl; 
+        std::cout << "Minimum CCDS Bases Coverage 10X: " << _is_wes_ccds10x_set << std::endl;
+    }
 
     // float min_releasable(char const * why, int current) { /// tkae type and value or just type
     bool hits_coverage(std::string const & st,float cov) { 
@@ -1255,6 +1404,82 @@ class Core {
     bool is_approved() const { return _is_approved; }
     bool is_releasable() const { return _is_releasable; }
     char const * useful_name() const { return _useful_name; }
+
+    bool hits_coverage_new(std::string const & st,float cov, float ccds10) { 
+        assert(st=="Genome"||st=="Exome");
+        //std::cout << "we have " << st << " with cov= " << cov << " and wes_min= "<<_min_wes << " and wgs_min= " << _min_wgs << "\n";
+
+        // if(cov>120) assert(0);
+
+        // if(st=="Genome") return cov>=_min_wgs;
+        // if(st=="Exome") return cov>=_min_wes;
+        // return false;
+
+        if (st == "Genome"){
+            if ( _wgs_case_1) {
+                if (cov > _wgs_target_val) {
+                    return true;
+                }
+                // the input from the core is always "95"; but here ccds10 is a decimal number; 
+                // so we time it with 100; the core needs to be consistent
+                else if (cov > _wgs_target_min_val && ccds10 * 100. > _wgs_ccds10x_val){
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            }
+            if (_wgs_case_2 ){
+                return (cov > _wgs_target_val);
+            }
+            if (_wgs_case_3) {
+                return default_check(st, cov, ccds10);
+            }
+        }
+
+        if (st == "Exome") {
+            if ( _wes_case_1) {
+
+                if (cov > _wes_target_val) {
+                    return true;
+                }
+                else if (cov > _wes_target_min_val && ccds10 * 100. > _wes_ccds10x_val){
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            }
+            if (_wes_case_2 ){
+                return (cov > _wes_target_val);
+            }
+            if (_wes_case_3) {
+                return default_check(st, cov, ccds10);
+            }
+        }
+        return false;
+    }
+
+    // bool customized_check(std::string const & st,float cov, float ccds10){
+    //     return fasle;
+    // }
+
+    bool default_check(std::string const & st,float cov, float ccds10) {
+
+        if (st == "Genome") {
+            if (cov > get_default_min_wgs()) return true;
+            if (cov > get_default_min_wgs_smaller() && ccds10 > get_default_min_wgs_ccds10()) return true;
+            return false;
+        }
+
+        if (st == "Exome") {
+            if (cov > get_default_min_wes()) return true;
+            if (cov > get_default_min_wes_smaller() && ccds10 > get_default_min_wes_ccds10()) return true;
+            return false;
+        }
+        return false;
+    }
+
 };
      
     // static float min_wes = 75.0, min_wgs = 29.0;
@@ -3910,6 +4135,14 @@ template<typename A, typename B> inline void do_void_thing(const char * const q,
     if(system(preptq)!=0) { std::cout << "what : " << preptq << "\n\n\n"; exit(1); } 
 }
 
+template<typename A, typename B, typename C> inline void do_void_thing(const char * const q, A a, B b, C c) {
+    char preptq[16*1024], preptq2[16*1024]; 
+    strcpy(preptq,opts::myuser.connstr_quick_hack());
+    sprintf(preptq2,q,a,b, c);
+    sprintf(preptq+strlen(opts::myuser.connstr_quick_hack()),"\"%s\"",preptq2);
+    if(system(preptq)!=0) { std::cout << "what : " << preptq << "\n\n\n"; exit(1); } 
+}
+
 /* template<typename A> */ inline void update_status(rarp::NLIST /* using operator[] : const */ & dsm, int b,std::string & e, std::string const & s) {
     char preptq[16*1024]; 
     strcpy(preptq,opts::myuser.connstr_quick_hack());
@@ -4301,7 +4534,18 @@ void release_merged_rgs(
         // cout << "core_q= " << core_q << "\n";
         core::Core core_info(core_q.data());
 
+        // if those three threshhold is no properly set. then we dont proceed. 
+        // and log these mistakes to pipe.log 
+        // for all the changes, make sure these changes will not prohibit GoButton Run pick up the sample 
+        // do release_merged_rgs 
+        string seq_type = (dsm["sample_type"]=="Genome_As_Fake_Exome")?"Genome":"Exome";
+        if (! core_info.is_core_properly_setup(seq_type)){
+            core_info.log_wrong_core_setup();
+            return; 
+        }
+
         float capmean=-0.0,capmedian=-0.0;
+        float ccds10x=-0.0;
 
         // if touching core tables MUST use rowcount!!?!?!?!
         // don't undo prepT.is_released for billing reasons?!?
@@ -4310,37 +4554,45 @@ void release_merged_rgs(
             capmean=atof(get_single_line_output_as_string("grep \"WgsCoverageMean\" %s | awk '{print $2}'",bored).data()),
               capmedian=atof(get_single_line_output_as_string("grep \"WgsCoverageMedian\" %s | awk '{print $2}'",bored).data());
             // cout << "has coverage = " << capmean << "\n";
+            ccds10x = atof(get_single_line_output_as_string("grep \"CapCoverageBases10Pct\" %s | awk '{print $2}'",bored).data());
 
-            if( !core_info.hits_coverage("Genome",capmean) ) { // capmean < ( core::get_min_wgs() 
+
+            if( !core_info.hits_coverage_new("Genome",capmean, ccds10x) ) { // capmean < ( core::get_min_wgs() 
 
                 // if(capmean < ( 0.97 * opts::wgs_min ) ) {
                 // do_void_thing("update dragen_sample_metadata set is_merged = 200001 where pseudo_prepid = %s",dsm["experiment_id"].data());
                 do_void_thing("delete from dragen_sample_metadata where pseudo_prepid = %s",dsm["experiment_id"].data());
                 do_void_thing("delete from dragen_pipeline_step where pseudo_prepid = %s",dsm["experiment_id"].data());
-                do_void_thing("update Experiment set is_released = 'not_released', merge_metrics_capturemean = %0.2f where id = %s",capmean,dsm["experiment_id"].data());
+
+                // do_void_thing("update Experiment set is_released = 'not_released', merge_metrics_capturemean = %0.2f where id = %s",capmean,dsm["experiment_id"].data());
+                do_void_thing("update Experiment set is_released = 'not_released', merge_metrics_capturemean = %0.2f, RawCapCoverageBases10Pct = %0.2f where id = %s",capmean, ccds10x, dsm["experiment_id"].data());
+                
                 // do_void_thing("update Experiment set is_released = 'release_rejected' where id = %s",dsm["experiment_id"].data());
                 do_void_thing("update prepT set status = 'Release_Rejected_UnderCov(%0.2f)', status_time = unix_timestamp() where experiment_id = %s",capmean,dsm["experiment_id"].data());
                 return;
             }else{
-                do_void_thing("update Experiment set merge_metrics_capturemean = %0.2f where id = %s",capmean,dsm["experiment_id"].data());
+                do_void_thing("update Experiment set merge_metrics_capturemean = %0.2f, RawCapCoverageBases10Pct = %0.2f  where id = %s",capmean, ccds10x,  dsm["experiment_id"].data());
             }
         }else{
             capmean=atof(get_single_line_output_as_string("grep \"CapCoverageMean\" %s | awk '{print $2}'",bored).data()),
               capmedian=atof(get_single_line_output_as_string("grep \"CapCoverageMedian\" %s | awk '{print $2}'",bored).data());
+            ccds10x = atof(get_single_line_output_as_string("grep \"CapCoverageBases10Pct\" %s | awk '{print $2}'",bored).data());
             // cout << "has coverage = " << capmean << "\n";
 
-            if( !core_info.hits_coverage("Exome",capmean) ) { // capmean < ( core::get_min_wes() ) 
+            if( !core_info.hits_coverage_new("Exome",capmean, ccds10x) ) { // capmean < ( core::get_min_wes() ) 
 
                 // if(capmean < ( 0.97 * opts::wes_min ) ) {
                 do_void_thing("delete from dragen_sample_metadata where pseudo_prepid = %s",dsm["experiment_id"].data());
                 do_void_thing("delete from dragen_pipeline_step where pseudo_prepid = %s",dsm["experiment_id"].data());
+
                 // do_void_thing("update Experiment set is_released = 'release_rejected' where id = %s",dsm["experiment_id"].data());
-                do_void_thing("update Experiment set is_released = 'not_released', merge_metrics_capturemean = %0.2f where id = %s",capmean,dsm["experiment_id"].data());
+                do_void_thing("update Experiment set is_released = 'not_released', merge_metrics_capturemean = %0.2f , RawCapCoverageBases10Pct = %0.2f where id = %s",capmean, ccds10x, dsm["experiment_id"].data());
+                
                 // do_void_thing("update Experiment set is_released = 'not_released' where id = %s",dsm["experiment_id"].data());
                 do_void_thing("update prepT set status = 'Release_Rejected_UnderCov(%0.2f)', status_time = unix_timestamp() where experiment_id = %s",capmean,dsm["experiment_id"].data());
                 return;
             }else{
-                do_void_thing("update Experiment set merge_metrics_capturemean = %0.2f where id = %s",capmean,dsm["experiment_id"].data());
+                do_void_thing("update Experiment set merge_metrics_capturemean = %0.2f , RawCapCoverageBases10Pct = %0.2f where id = %s",capmean, ccds10x, dsm["experiment_id"].data());
             }
         }
 
@@ -5963,6 +6215,12 @@ namespace email_bits {
     }
 }
 
+std::string float2string(float myFloat) {
+  std::ostringstream ss;
+  ss << myFloat;
+  return ss.str();  
+}
+
 int main(int argc, char **argv){
 
     using std::cout;
@@ -6113,7 +6371,7 @@ int main(int argc, char **argv){
     }
 
     // }else cerr << "unknown mode '" << *(argv+1) << "'\n",exit(1);
-    
+
     cout << "bye\n";
 
     return 0;
