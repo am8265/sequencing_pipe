@@ -1166,7 +1166,7 @@ class Core {
 
         string project =doc[0].FindMember("project")->value.FindMember("project_name")->value.GetString(),
           sub_project_name =doc[0].FindMember("sub_project_name")->value.GetString();
-        std::cout << subproj << "\t" << approved << "\t" << project << "\t" << std::endl; 
+        // std::cout << subproj << "\t" << approved << "\t" << project << "\t" << std::endl; 
         string sow="";
         if(!doc[0].FindMember("contract_uri")->value.IsNull()) sow=doc[0].FindMember("contract_uri")->value.GetString();
 
@@ -1226,15 +1226,24 @@ class Core {
         //cout << "_is_releasable= " << _is_releasable << "\n"
          // << "_is_approved= " << _is_approved << "\n";
 
-        // hc: change genome_target_min_coverage to genome_target_coverage based on the new policy.
+        // hc: change genome_target_min_coverage to genome_target_coverage based on the new policy. - may 2021
+        // _min_wgs=
+        //   ( doc[0].FindMember("project")->value.FindMember("genome_target_coverage")->value.IsNull() 
+        //   ) ?
+        //     // || doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.GetFloat()==0.0 ) ?
+        //   get_min_wgs():doc[0].FindMember("project")->value.FindMember("genome_target_coverage")->value.GetFloat();
+          
+        // _min_wes=doc[0].FindMember("project")->value.FindMember("exome_target_coverage")->value.IsNull()?
+        //   get_min_wes():doc[0].FindMember("project")->value.FindMember("exome_target_coverage")->value.GetFloat();
+
+        // hc: change back - june 2021
         _min_wgs=
-          ( doc[0].FindMember("project")->value.FindMember("genome_target_coverage")->value.IsNull() 
+          ( doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.IsNull() 
           ) ?
             // || doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.GetFloat()==0.0 ) ?
-          get_min_wgs():doc[0].FindMember("project")->value.FindMember("genome_target_coverage")->value.GetFloat();
-          
-        _min_wes=doc[0].FindMember("project")->value.FindMember("exome_target_coverage")->value.IsNull()?
-          get_min_wes():doc[0].FindMember("project")->value.FindMember("exome_target_coverage")->value.GetFloat();
+          get_min_wgs():doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.GetFloat();
+        _min_wes=doc[0].FindMember("project")->value.FindMember("exome_target_min_coverage")->value.IsNull()?
+          get_min_wes():doc[0].FindMember("project")->value.FindMember("exome_target_min_coverage")->value.GetFloat();
 
         //cout << "_min_wes= " << _min_wes << "\n"
         //  << "_min_wgs= " << _min_wgs << "\n";
