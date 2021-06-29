@@ -5326,7 +5326,7 @@ for (rarp::NLIST::iterator it = dsm.begin(); it!=dsm.end(); it++ ) cout << " dsm
 
 // #endif
 
-int auto_merge(bool test = false) { // int argc, char **argv) {
+int auto_merge(bool test ) { // int argc, char **argv) {
     
     using namespace std;
 
@@ -5456,18 +5456,18 @@ if(test) {
                 cun2[i]["sum_rg_statuses"]!="fastq_archived:okay"
                 && cun2[i]["sum_rg_statuses"]!="fastq_archived:contaminated,fastq_archived:okay"
             ) {
-                // cout << "this isn't ready for release - i.e. all useable RGs should be fastq_archived & okay!?!\n";
+                cout << "this isn't ready for release - i.e. all useable RGs should be fastq_archived & okay!?!\n";
             }else if(!core_info.is_releasable()) { // if(!core_info.is_approved()) {
                 // cout << "this is not an approved project!?! - blocking " << cun2[i]["sample_internal_name"] << " - " << cun2[i]["e_experiment_id"] << "\n";
                 char msg[2048];
                 sprintf(msg,"update prepT set status = 'Error - %s is not an approved subproject' where ( failedprep=0 or failedprep>=100) and experiment_id = %s ; select row_count() updated ",core_info.useful_name(),cun2[i]["e_experiment_id"].data());
-                // cout << "using " << msg << "\n";
+                cout << "using " << msg << "\n";
                 rarp::NLIST x = db::get_named_row("seqdb",msg);
                 // cout << "updated="<<x["updated"]<<"\n";
                 // exit(1);
             }else if( stamp_current==stamp_new ) {
-                // cout << "SAME_RGS : previous= " << stamp_current << " new= " << stamp_new <<"\n";
-                // cout << "we must check that approval status hasn't changed\n";
+                cout << "SAME_RGS : previous= " << stamp_current << " new= " << stamp_new <<"\n";
+                cout << "we must check that approval status hasn't changed\n";
             }else if( core_info.hits_coverage(cun2[i]["sample_type"],rg_mean_sums)
 
               /* (cun2[i]["sample_type"]=="Exome" && (rg_mean_sums>opts::wes_min)) // (cun2[i]["sample_type"]=="Exome" && (rg_mean_sums>(opts::wes_min*1.05)))
@@ -5480,7 +5480,7 @@ if(test) {
                 // *1.05))) ) { // terrible_mb_measure>115000 ) ) { // for this 30x is fine!?!||rg_mean_sums>82.5))
                 // (cun2[i]["sample_type"]=="Genome" && (rg_mean_sums>(opts::wgs_min*1.05))) ) { // terrible_mb_measure>115000 ) ) { // for this 30x is fine!?!||rg_mean_sums>82.5))
                 // (cun2[i]["sample_type"]=="Genome" && terrible_mb_measure>115000 ) ) { // for this 30x is fine!?!||rg_mean_sums>82.5))
-                // cout << "\n\t\tWILL RELEASE " << cun2[i]["sample_type"] << " : " << rg_mean_sums << "\n\n";
+                cout << "\n\t\tWILL RELEASE " << cun2[i]["sample_type"] << " : " << rg_mean_sums << "\n\n";
                 
                 will++;
                 FUNKY f;
@@ -5504,11 +5504,11 @@ if(test) {
                 );
 
                 wont++;
-                // cout << "\n\t\tWON'T RELEASE '" << cun2[i]["sum_statuses"] << "'\n\n";
+                cout << "\n\t\tWON'T RELEASE '" << cun2[i]["sum_statuses"] << "'\n\n";
                 char arsv2 [2048];
                 if(terrible_mb_measure<500) sprintf(arsv2,"update prepT set status = 'Error - Requires HTS investigation' where ( failedprep=0 or failedprep>=100) and experiment_id = %s ; select row_count() updated ",cun2[i]["e_experiment_id"].data());
                 else sprintf(arsv2,"update prepT set status = 'Not eligible for autorelease - Requires manual HTS release or topup (yield=%.02f/%.02f)' where ( failedprep=0 or failedprep>=100) and experiment_id = %s ; select row_count() updated ",terrible_mb_measure,rg_mean_sums,cun2[i]["e_experiment_id"].data());
-                // cout << "using " << arsv2 << "\n";
+                cout << "using " << arsv2 << "\n";
                 rarp::NLIST x = db::get_named_row("seqdb",arsv2);
                 // cout << "updated="<<x["updated"]<<"\n";
                 // assert(x["updated"]=="1" || x["updated"]=="0" || x["updated"]=="2");
