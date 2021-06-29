@@ -4853,7 +4853,7 @@ void release_single_rg(
 
 }
 
-int auto_merge();
+int auto_merge(bool test = false);
 void auto_release();
 
 void auto_release() { // int argc, char **argv) {
@@ -5326,7 +5326,7 @@ for (rarp::NLIST::iterator it = dsm.begin(); it!=dsm.end(); it++ ) cout << " dsm
 
 // #endif
 
-int auto_merge() { // int argc, char **argv) {
+int auto_merge(bool test = false) { // int argc, char **argv) {
     
     using namespace std;
 
@@ -5353,15 +5353,15 @@ int auto_merge() { // int argc, char **argv) {
     string message, cur_pool="";
     int pool_count=1;
 
-    // cout << "there are " << cun2.size() << " samples to check for release eligibility.\n";
+    cout << "there are " << cun2.size() << " samples to check for release eligibility.\n";
 
     std::map<int,FUNKY> list;
     std::vector<float> pool;
     for (unsigned int i = 0 ; i < cun2.size(); ++i ) {
 
-        // cout << "\n-------------------\n\n";
+        cout << "\n-------------------\n\n";
         if(cun2[i]["l_capmean_sum"]=="0") {
-            // cout << "I don't do legacy samples - use 'release' procedure or 'rg metrics' page\n";
+            cout << "I don't do legacy samples - use 'release' procedure or 'rg metrics' page\n";
             continue;
         }
 
@@ -5403,6 +5403,11 @@ int auto_merge() { // int argc, char **argv) {
           stamp_new = string(core_info.is_releasable()?"+:":"-:")+cun2[i]["NEW_RGS_STAMP"];
         // cout << "stamp_current="<<stamp_current<<"\nstamp_new="<<stamp_new<<"\n\n";
 if(strcmp(getenv("USER"),"dh2880")==0) {
+          cout << "Sample info:\n";
+          for (rarp::NLIST::iterator it=cun2[i].begin(); it!=cun2[i].end(); it++) { cout << " ["<<it->first << "]\t"<<it->second <<"\n"; }
+}
+
+if(test) {
           cout << "Sample info:\n";
           for (rarp::NLIST::iterator it=cun2[i].begin(); it!=cun2[i].end(); it++) { cout << " ["<<it->first << "]\t"<<it->second <<"\n"; }
 }
@@ -6365,7 +6370,7 @@ int main(int argc, char **argv){
             opts::commit=true;
             
             if(strcmp(*(argv+3),"auto_merge")==0){
-                auto_merge();
+                auto_merge(true);
             }
 
             else if(strcmp(*(argv+3),"auto_release")==0){
