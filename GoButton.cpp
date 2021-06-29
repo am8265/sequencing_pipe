@@ -61,6 +61,8 @@
 // int merge_and_release(int, char **);
 // inline bool isregfile(const char* fn) { struct stat test; if (stat(fn, &test) != 0) { return false; }  return S_ISREG(test.st_mode); }                                   
 
+using namespace std;
+
 namespace opts {
     float wgs_min = 29.3, // 30.0, /// this is put into capture but whatever?!?
       wes_min = 60.0;
@@ -4853,7 +4855,7 @@ void release_single_rg(
 
 }
 
-int auto_merge(bool test = false);
+int auto_merge(bool test = false, std::string test_sample_name = "auto_merge_test_sample");
 void auto_release();
 
 void auto_release() { // int argc, char **argv) {
@@ -5326,7 +5328,7 @@ for (rarp::NLIST::iterator it = dsm.begin(); it!=dsm.end(); it++ ) cout << " dsm
 
 // #endif
 
-int auto_merge(bool test ) { // int argc, char **argv) {
+int auto_merge(bool test, std::string test_sample_name ) { // int argc, char **argv) {
     
     using namespace std;
 
@@ -5359,11 +5361,16 @@ int auto_merge(bool test ) { // int argc, char **argv) {
     std::vector<float> pool;
     for (unsigned int i = 0 ; i < cun2.size(); ++i ) {
 
-        cout << "\n-------------------\n\n";
+        // cout << "\n-------------------\n\n";
         if(cun2[i]["l_capmean_sum"]=="0") {
             cout << "I don't do legacy samples - use 'release' procedure or 'rg metrics' page\n";
             continue;
         }
+        if (test){
+            if(cun2[i]["sample_internal_name"] != test_sample_name) {
+                continue;
+            }
+        }        
 
         // cout << "STATUS_OF_RGS: previous= " << cun2[i]["CURRENT_RGS_STAMP"] << " new= " << cun2[i]["NEW_RGS_STAMP"] <<"\n";
         // cout << "> sample ["<<i<<"]\n";
@@ -5424,14 +5431,14 @@ if(test) {
             if(borederer[0]==':') borederer=borederer.substr(1,borederer.length()-1); }
 
             rel++;
-            // cout << "dsm_experiment_id= " << cun2[i]["dsm_experiment_id"] << "\n";
-            // cout << "dqm_experiment_id= "<< cun2[i]["dqm_experiment_id"]<< "\n";
-            // cout << "e_is_released " << cun2[i]["dsm_experiment_id"] << "\n";
-            // cout << "w_experiment_id= " << cun2[i]["w_experiment_id"] << "\n";
-            // cout << "\n\n\tthis has been released already!?!\n\n";
+            cout << "dsm_experiment_id= " << cun2[i]["dsm_experiment_id"] << "\n";
+            cout << "dqm_experiment_id= "<< cun2[i]["dqm_experiment_id"]<< "\n";
+            cout << "e_is_released " << cun2[i]["e_is_released"] << "\n";
+            cout << "w_experiment_id= " << cun2[i]["w_experiment_id"] << "\n";
+            cout << "\n\n\tthis has been released already!?!\n\n";
             char msg[2048];
             sprintf(msg,"update prepT set status = 'This requires full deprecation and re-release (synch samples:%s)' where ( failedprep=0 or failedprep>=100) and experiment_id = %s ; select row_count() updated ",borederer.data(),cun2[i]["e_experiment_id"].data());
-            // cout << "using " << msg << "\n";
+            cout << "using " << msg << "\n";
             rarp::NLIST x = db::get_named_row("seqdb",msg);
             // cout << "got " << x["updated"]<<"\n";
             continue;
@@ -5439,7 +5446,7 @@ if(test) {
 
         }else{
 
-            // cout << "\n\n\tchecking yields!?!\n\n";
+            cout << "\n\n\tchecking yields!?!\n\n";
             float terrible_mb_measure=atof(cun2[i]["l_lane_sum"].data()), rg_mean_sums=atof(cun2[i]["l_capmean_sum"].data());
 
             // cout << "terrible_mb_measure= " << terrible_mb_measure << ", rg_mean_sums= " << rg_mean_sums << "\n\n";
@@ -6381,6 +6388,16 @@ int main(int argc, char **argv){
                 submit_and_post_checks();
             }
 
+        }
+    }
+    else if (argc==5 && strcmp(*(argv+1),"debug")==0) {
+        if(strcmp(*(argv+2),"run")==0) {
+            // set it as false, auto_merged will be a dry run. 
+            opts::commit=true;
+            
+            if(strcmp(*(argv+3),"auto_merge")==0){
+                auto_merge(true, *(argv+4));
+            }
         }
     }
 
