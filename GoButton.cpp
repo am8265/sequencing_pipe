@@ -166,7 +166,8 @@ char const * Q1 = "select "
   " group_concat(rg_status) rg_statuses, " 
   " group_concat(rg_metrics_status) rg_metrics_statuses, group_concat(l.id order by l.id) NEW_RGS_STAMP, e.rgs CURRENT_RGS_STAMP, " 
   " dqm.experiment_id dqm_experiment_id, "
-  " d.experiment_id dsm_experiment_id, d.is_merged d_ism "
+  " d.experiment_id dsm_experiment_id, d.is_merged d_ism,  "
+  " concat( 'id=', e.subproject_id ) CORE_QUERY_NEW "
   " from Lane l                      "
   " join    Flowcell f                  on l.fcid               =f.fcid "
   " join         prepT p                     on l.prepid                 =p.prepid "
@@ -539,6 +540,11 @@ namespace db {
     std::string get_core_query(std::string whater) { 
         return db::get_named_row("seqdb","select replace( concat( 'gaf_bin=', e.gafbin, '&irb_protocol__irb_protocol=', e.protocol, '&fund_code__fund_code=', e.fundcode, '&sub_project_name=', e.subproject ), ' ', '+' ) CORE_QUERY from SampleT s join Experiment e on s.sample_id=e.sample_id where id = %s",whater.data())["CORE_QUERY"]; 
     }
+
+    std::string get_core_query_NEW(std::string whater) { 
+                return db::get_named_row("seqdb","select concat( 'id=', e.subproject_id ) CORE_QUERY_NEW from SampleT s join Experiment e on s.sample_id=e.sample_id where id = %s",whater.data())["CORE_QUERY_NEW"]; 
+    }
+
 
 }
 
@@ -4539,7 +4545,8 @@ void release_merged_rgs(
             unlink(merge_intermediate.data());
         } // else cout << "there is no merge intermediate " << merge_intermediate << "\n";
 
-        string core_q = db::get_core_query(dsm["experiment_id"]);
+        // string core_q = db::get_core_query(dsm["experiment_id"]);
+        string core_q = db::get_core_query_NEW(dsm["experiment_id"]);
 
         assert(isregfile(bored));
 
@@ -4787,7 +4794,9 @@ void release_single_rg(
     using namespace std;
 
     // this is very bad!?! same as in merge other than for how we get values - don't go this!?!
-    string core_q = db::get_core_query(dsm["experiment_id"]);
+    // string core_q = db::get_core_query(dsm["experiment_id"]);
+    string core_q = db::get_core_query_NEW(dsm["experiment_id"]);
+
     cout << "core_q= " << core_q << "\n";
     core::Core core_info(core_q.data());
 
@@ -5367,7 +5376,9 @@ int auto_merge(bool test, std::string test_sample_name ) { // int argc, char **a
             cout << "I don't do legacy samples - use 'release' procedure or 'rg metrics' page\n";
             continue;
         }
-        if (test){
+        if (test && test_sample_name != "auto_merge_test_sample"){ 
+            // skip all all samples that are not specified test sample. 
+            // running auto_merge(true) will process and release samples. 
             if(cun2[i]["sample_internal_name"] != test_sample_name) {
                 continue;
             }
@@ -5405,8 +5416,10 @@ int auto_merge(bool test, std::string test_sample_name ) { // int argc, char **a
         pool.push_back(atof(cun2[i]["l_capmean_sum"].data()));
 
         // cout << "we check project info here\n";
-        // cout << "running " << cun2[i]["CORE_QUERY"] << "\n";
-        core::Core core_info(cun2[i]["CORE_QUERY"].data());
+        cout << "running " << cun2[i]["CORE_QUERY_NEW"] << "\n";
+        // core::Core core_info(cun2[i]["CORE_QUERY"].data());
+        core::Core core_info(cun2[i]["CORE_QUERY_NEW"].data());
+
         string stamp_current = cun2[i]["CURRENT_RGS_STAMP"],
           stamp_new = string(core_info.is_releasable()?"+:":"-:")+cun2[i]["NEW_RGS_STAMP"];
         // cout << "stamp_current="<<stamp_current<<"\nstamp_new="<<stamp_new<<"\n\n";
@@ -6378,7 +6391,7 @@ int main(int argc, char **argv){
             opts::commit=true;
             
             if(strcmp(*(argv+3),"auto_merge")==0){
-                auto_merge(true);
+                auto_merge(true); // will release samples and output sample info
             }
 
             else if(strcmp(*(argv+3),"auto_release")==0){
