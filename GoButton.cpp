@@ -1250,9 +1250,13 @@ class Core {
           ( doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.IsNull() 
           ) ?
             // || doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.GetFloat()==0.0 ) ?
-          get_min_wgs():doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.GetFloat();
+          // get_min_wgs():doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.GetFloat();
+          get_default_min_wgs_smaller():doc[0].FindMember("project")->value.FindMember("genome_target_min_coverage")->value.GetFloat();
+
         _min_wes=doc[0].FindMember("project")->value.FindMember("exome_target_min_coverage")->value.IsNull()?
-          get_min_wes():doc[0].FindMember("project")->value.FindMember("exome_target_min_coverage")->value.GetFloat();
+          // get_min_wes():doc[0].FindMember("project")->value.FindMember("exome_target_min_coverage")->value.GetFloat();
+          get_default_min_wes_smaller():doc[0].FindMember("project")->value.FindMember("exome_target_min_coverage")->value.GetFloat();
+
 
         //cout << "_min_wes= " << _min_wes << "\n"
         //  << "_min_wgs= " << _min_wgs << "\n";
