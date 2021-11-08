@@ -6239,7 +6239,8 @@ namespace email_bits {
 
         cout << body.str();
 
-        if(opts::email) sendmail("rl3055@cumc.columbia.edu,jb4393@cumc.columbia.edu,dg2875@cumc.columbia.edu,igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true);
+        // if(opts::email) sendmail("rl3055@cumc.columbia.edu,jb4393@cumc.columbia.edu,dg2875@cumc.columbia.edu,igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true);
+        if(opts::email) sendmail("rl3055@cumc.columbia.edu,jb4393@cumc.columbia.edu,ag2239@cumc.columbia.edu,igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true);
         else sendmail("igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu","NovaSeq occupancy report",body.str().data(),true); 
 
         }
