@@ -629,6 +629,7 @@ namespace fastq {
             FCT.insert(make_pair("AMXX","HiSeq RR v2"));
             FCT.insert(make_pair("BCXX","HiSeq Rapid Run (2-lane) v1.5/v2 (HiSeq 1500/2500)"));
             FCT.insert(make_pair("BCXY","HiSeq Rapid Run (2-lane) v2 (HiSeq 1500/2500)"));
+            FCT.insert(make_pair("DRXY","NovaSeq S4 flowcell"));
         }
 
         std::vector<std::vector<std::string> > info;
