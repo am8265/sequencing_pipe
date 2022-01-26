@@ -1,0 +1,3 @@
+NOTE: 
+This has to be compiled in a centos7 enviroment (dragen4, dev3,.. etc) ! Otherwise, it will not work for the dragen4 machine. 
+ 
