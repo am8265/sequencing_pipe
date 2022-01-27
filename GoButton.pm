@@ -79,6 +79,7 @@ sub sample_age {
     my@x=caller(0);
     my$p=qq{$x[3]\t:\t};
     my$wd='/nfs/seqscratch09/informatics/tmp/WalDB.sample.sql'; # my$wd=$ENV{HOME}.'/WalDB.sample.sql';
+    # my$wd='/nfs/seqscratch_ssd/informatics/tmp/WalDB.sample.sql'; # my$wd=$ENV{HOME}.'/WalDB.sample.sql';
     # why?!?
     chomp(my$wdf=`stat -c %Y ${wd} 2>/dev/null`);
     $wdf||=0;
@@ -304,6 +305,7 @@ sub get_running {
 }
 
 sub get_sdir { return q{/nfs/seqscratch09/informatics/logs/gatk/}; }
+# sub get_sdir { return q{/nfs/seqscratch_ssd/informatics/logs/gatk/}; }
 
 sub get_uname {
     my$x=shift;
@@ -646,8 +648,9 @@ sub run_stuff {
 
     print qq{\n----\nwho= '$wm'\n\n----\nsge= '$sgem'\n\n----\nsh= $sh\n\n----\n};
 
-    die qq{there's no script file $sh for $dir} if(!-e$sh);
-
+    # die qq{there's no script file $sh for $dir} if(!-e$sh);
+    print qq{there's no script file $sh for $dir} if(!-e$sh);
+    
     # paranoid double check of most recent jobs - i.e. we have a list of running jobs?!?
     if(!&GoButton::is_running($jid)) {
         print qq{wrapper jid ($jid) is missing\n};
@@ -705,7 +708,8 @@ sub push_back {
         while(my$d=<$x>){
             chomp($d);
             my$pp;
-            if($d=~/\.(\d+)\/sge_wrapper\.log/){ $pp=$1; }else{ die; }
+            # if($d=~/\.(\d+)\/sge_wrapper\.log/){ $pp=$1; }else{ die; }
+            if($d=~/\.(\d+)\/sge_wrapper\.log/){ $pp=$1; }else{ last; }
             &run_stuff($pp,$js,qq{($d)});
         }
     } }
