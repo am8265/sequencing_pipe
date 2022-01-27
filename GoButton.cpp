@@ -4087,7 +4087,8 @@ bool bam_check(char const * bamf, rarp::NLIST & x) {
 
     // cout << "ARGH\n"<<cmd<<"\n";
 
-    Popen ps(cmd,16*1024,"r");
+    // Popen ps(cmd,16*1024,"r");
+    Popen ps(cmd,32*1024,"r");
     int lc=0, hc=0;
     char * z; // , blah[2048];
     bool fr = false;
