@@ -3704,7 +3704,7 @@ void /* rarp::NLISTS */ get_se_group_by_uniform_status(rarp::NLISTS & fc, char c
       "join prepT p on l.prepid=p.prepid "
         " join adapter a on a.id=p.adapter_id "
       " where "
-      " (l.fcid,l.prepid) = (select fcid,prepid from Lane group by prepid,fcid "
+      "p.end_point != 'pgl_clia' and (l.fcid,l.prepid) = (select fcid,prepid from Lane group by prepid,fcid "
       "having count(rg_status not in ('%s') or null ) = 0 limit 1) ", y);
 
     // paranoid!?!
