@@ -630,7 +630,6 @@ namespace fastq {
             FCT.insert(make_pair("BCXX","HiSeq Rapid Run (2-lane) v1.5/v2 (HiSeq 1500/2500)"));
             FCT.insert(make_pair("BCXY","HiSeq Rapid Run (2-lane) v2 (HiSeq 1500/2500)"));
             FCT.insert(make_pair("DRXY","NovaSeq S4 flowcell"));
-            FCT.insert(make_pair("DSX3","NovaSeq S4 flowcell"));
         }
 
         std::vector<std::vector<std::string> > info;
@@ -3329,8 +3328,8 @@ NLIST u = db::get_named_row("seqdb",arsv2); assert(u["updated"]=="1"); }
     float dups=-0.0, map=-0.0;
     long long useable=0, tot=0;
 
-    { char const * TOT = "MAPPING/ALIGNING SUMMARY,,Total input reads,", * DUP ="MAPPING/ALIGNING SUMMARY,,Number of duplicate reads (marked),",
-        * MAP = "MAPPING/ALIGNING SUMMARY,,Mapped reads,", * USE = "MAPPING/ALIGNING SUMMARY,,Number of unique & mapped reads (excl. dups),";
+    { char const * TOT = "MAPPING/ALIGNING SUMMARY,,Total input reads,", * DUP ="MAPPING/ALIGNING SUMMARY,,Number of duplicate marked reads,",
+        * MAP = "MAPPING/ALIGNING SUMMARY,,Mapped reads,", * USE = "MAPPING/ALIGNING SUMMARY,,Number of unique & mapped reads (excl. duplicate marked reads),";
     char info[2048];
     FILE * file_to_check = fopen(base_metrics.data(),"r");
     assert(file_to_check);
@@ -3340,7 +3339,9 @@ NLIST u = db::get_named_row("seqdb",arsv2); assert(u["updated"]=="1"); }
         }else if(memcmp(MAP,info,strlen(MAP))==0) {
             map = atof(strrchr(info,',')+1);
         }else if(memcmp(TOT,info,strlen(TOT))==0) {
-            tot = atol(strrchr(info,',')+1);
+            //tot = atol(strrchr(info,',')+1);
+            vector<string> y; tokenise(y,info,',');
+            tot = atol(y[3].data());
         }else if(memcmp(USE,info,strlen(USE))==0) {
             vector<string> x; tokenise(x,info,',');
             useable = atol(x[3].data());
@@ -3707,7 +3708,10 @@ void /* rarp::NLISTS */ get_se_group_by_uniform_status(rarp::NLISTS & fc, char c
       "having count(rg_status not in ('%s') or null ) = 0 limit 1) ", y);
 
     // paranoid!?!
-    for (unsigned int h=0;h<fc.size();++h) assert(fc[h]["rg_status"]==y);
+    for (unsigned int h=0;h<fc.size();++h) {
+    cout << fc[h]["rg_status"] << "this is << " << fc[h]["PU"] << "\n"; 
+ assert(fc[h]["rg_status"]==y);
+  }
     // return fc;
 }
 
