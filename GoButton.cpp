@@ -2917,7 +2917,7 @@ tinyxml2::XMLElement *& rp,
       "join adapter on adapter.id=p.adapter_id "
       "join pool on pool.id=p.poolid "
       "join samplesTOrun sr on sr.seqid=l.seqid " "join Experiment e on p.experiment_id=e.id " "join SampleT s on s.sample_id=e.sample_id "
-      "where fcillumid = '%s' order by lanenum, prepid",
+      "where fcillumid = '%s' and p.end_point != 'pgl_clia' order by lanenum, prepid",
       fcid.data()
     ); // ,l+1);
     
@@ -3704,7 +3704,7 @@ void /* rarp::NLISTS */ get_se_group_by_uniform_status(rarp::NLISTS & fc, char c
       "join prepT p on l.prepid=p.prepid "
         " join adapter a on a.id=p.adapter_id "
       " where "
-      "p.end_point != 'pgl_clia' and (l.fcid,l.prepid) = (select fcid,prepid from Lane group by prepid,fcid "
+      " p.end_point != 'pgl_clia' and (l.fcid,l.prepid) = (select l.fcid,l.prepid from Lane l, prepT p where l.prepID = p.prepID and p.end_point != 'pgl_clia' group by l.prepid,l.fcid "
       "having count(rg_status not in ('%s') or null ) = 0 limit 1) ", y);
 
     // paranoid!?!
@@ -3757,7 +3757,7 @@ void protect(int /* argc */, char ** /* argv */) {
         return;
         //exit(1);
     } */
-
+    
     NLISTS fc;
     get_se_group_by_uniform_status(fc,"fastq_archiving");
     for (unsigned int h=0;h<fc.size();++h) {
@@ -5385,10 +5385,11 @@ int auto_merge(bool test, std::string test_sample_name ) { // int argc, char **a
         // cout << "\n-------------------\n\n";
         if(cun2[i]["l_capmean_sum"]=="0") {
             cout << "I don't do legacy samples - use 'release' procedure or 'rg metrics' page\n";
+            cout<<"a\n";
             continue;
         }
         if (test && test_sample_name != "auto_merge_test_sample"){ 
-            // skip all all samples that are not specified test sample. 
+         cout<<"b\n";   // skip all all samples that are not specified test sample. 
             // running auto_merge(true) will process and release samples. 
             if(cun2[i]["sample_internal_name"] != test_sample_name) {
                 continue;
@@ -5399,7 +5400,7 @@ int auto_merge(bool test, std::string test_sample_name ) { // int argc, char **a
         // cout << "> sample ["<<i<<"]\n";
         // this is basically pointless now that they want brute force release!?!
         if(cur_pool!=cun2[i]["pool_name"]) {
-
+        cout<<"c\n";
             cur_pool=cun2[i]["pool_name"];
             // cout << "previous pool count " << pool_count << "\n";
             // assert(pool_count==1);
@@ -5422,6 +5423,7 @@ int auto_merge(bool test, std::string test_sample_name ) { // int argc, char **a
 
         }else{
             //cout << "same pool " << --pool_count << "\n";
+            cout<<"d\n";
         }
 
         pool.push_back(atof(cun2[i]["l_capmean_sum"].data()));
@@ -5447,7 +5449,7 @@ if(test) {
         // fflush(stdout);
 
         if(  cun2[i]["dsm_experiment_id"]!="NULL"  || cun2[i]["dqm_experiment_id"]!="NULL"  || cun2[i]["e_is_released"]!="not_released"  || cun2[i]["w_experiment_id"]!="NULL" ) {
-
+           cout<<"e\n";
             string borederer;
             { if(cun2[i]["dsm_experiment_id"]!="NULL") borederer+="sm";
             if(cun2[i]["dqm_experiment_id"]!="NULL") borederer+=":qm"; 
