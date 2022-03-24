@@ -6832,7 +6832,7 @@ void load(int argc, char **argv) {
         if(argc==1){
             db::get_named_rows("seqdb",stuff,
             BORED_SQL " where (dsm.pseudo_prepid <= 110000 || dsm.pseudo_prepid >= 120000) "
-            " and dsm.is_merged = 30 "
+            " and dsm.is_merged = 30 and  qc.PercentContamination < 0.08"
             " order by dsm.end_point desc, p.p_prepid desc limit 1");
         }else{
             cout << "grabbing single sample " << argv[1] << "\n";
