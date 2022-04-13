@@ -472,7 +472,7 @@ def run_dragen_on_read_group(sample,rg_fcillumid,rg_lane_num,debug,r_list):
 
     output_dir = sample.metadata['output_dir']
 
-    dragen_cmd = ['dragen', '-f', '-v', '-c', sample.metadata['conf_file'], '--watchdog-active-timeout', '600']
+    dragen_cmd = ['dragen', '-f', '-v', '-c', sample.metadata['conf_file'], '--qc-cross-cont-vcf', '/opt/edico/config/sample_cross_contamination_resource_GRCh37.vcf.gz', '--watchdog-active-timeout', '600']
 
     if debug:
         print(' '.join(dragen_cmd))
@@ -875,7 +875,7 @@ def run_sample_external(config,database,seqscratch_drive,sample_type,capture_kit
     with open(conf_file,'w') as cf:
         cf.write(final_config_cont)
 
-    dragen_cmd = ['dragen', '-f', '-v', '-c', conf_file, '--watchdog-active-timeout', '600']
+    dragen_cmd = ['dragen', '-f', '-v', '-c', conf_file, '--qc-cross-cont-vcf', '/opt/edico/config/sample_cross_contamination_resource_GRCh37.vcf.gz', '--watchdog-active-timeout', '600']
 
     stderr_file_loc = ('{}/{}.{}.dragen.err').format(log_dir,sample_name,pseudo_prepid)
     stdout_file_loc = ('{}/{}.{}.dragen.out').format(log_dir,sample_name,pseudo_prepid)
