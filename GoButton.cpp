@@ -2918,7 +2918,7 @@ tinyxml2::XMLElement *& rp,
       "join adapter on adapter.id=p.adapter_id "
       "join pool on pool.id=p.poolid "
       "join samplesTOrun sr on sr.seqid=l.seqid " "join Experiment e on p.experiment_id=e.id " "join SampleT s on s.sample_id=e.sample_id "
-      "where fcillumid = '%s' and p.end_point != 'pgl_clia' order by lanenum, prepid",
+      "where fcillumid = '%s' and p.status != 'In DragenDB' and p.end_point != 'pgl_clia' order by lanenum, prepid",
       fcid.data()
     ); // ,l+1);
     
@@ -3583,7 +3583,7 @@ void align(int /* argc */, char ** /* argv */) {
                 if(!fh) cout << "problem writting conf file " << ext_conf << "\n",exit(1);
                 fh << cf;
                 fh.close();
-                cmd=" -v -c " + ext_conf + " ";
+                cmd=" -v -c " + ext_conf + " --qc-cross-cont-vcf /opt/edico/config/sample_cross_contamination_resource_GRCh37.vcf.gz ";
 
             }else if(fc[0]["sample_type"]=="RNAseq"){
 
@@ -3706,7 +3706,7 @@ void /* rarp::NLISTS */ get_se_group_by_uniform_status(rarp::NLISTS & fc, char c
         " join adapter a on a.id=p.adapter_id "
       " where "
       " p.end_point != 'pgl_clia' and (l.fcid,l.prepid) = (select l.fcid,l.prepid from Lane l, prepT p where l.prepID = p.prepID and p.end_point != 'pgl_clia' group by l.prepid,l.fcid "
-      "having count(rg_status not in ('%s') or null ) = 0 limit 1) ", y);
+      "having count(rg_status not in ('%s') or rg_status is null ) = 0 limit 1) ", y);
 
     // paranoid!?!
     for (unsigned int h=0;h<fc.size();++h) {
