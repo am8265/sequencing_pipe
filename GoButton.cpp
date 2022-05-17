@@ -1447,7 +1447,7 @@ class Core {
                 }
                 // the input from the core is always "95"; but here ccds10 is a decimal number; 
                 // so we time it with 100; the core needs to be consistent
-                else if (cov > _wgs_target_min_val && ccds10 * 100. > _wgs_ccds10x_val){
+                else if (cov > _wgs_target_min_val && ccds10 * 100. >= _wgs_ccds10x_val){
                     return true;
                 }
                 else {
@@ -1468,7 +1468,7 @@ class Core {
                 if (cov > _wes_target_val) {
                     return true;
                 }
-                else if (cov > _wes_target_min_val && ccds10 * 100. > _wes_ccds10x_val){
+                else if (cov > _wes_target_min_val && ccds10 * 100. >= _wes_ccds10x_val){
                     return true;
                 }
                 else {
@@ -1493,13 +1493,13 @@ class Core {
 
         if (st == "Genome") {
             if (cov > get_default_min_wgs()) return true;
-            if (cov > get_default_min_wgs_smaller() && ccds10 > get_default_min_wgs_ccds10()) return true;
+            if (cov > get_default_min_wgs_smaller() && ccds10 >= get_default_min_wgs_ccds10()) return true;
             return false;
         }
 
         if (st == "Exome") {
             if (cov > get_default_min_wes()) return true;
-            if (cov > get_default_min_wes_smaller() && ccds10 > get_default_min_wes_ccds10()) return true;
+            if (cov > get_default_min_wes_smaller() && ccds10 >= get_default_min_wes_ccds10()) return true;
             return false;
         }
         return false;
@@ -3707,9 +3707,9 @@ void /* rarp::NLISTS */ get_se_group_by_uniform_status(rarp::NLISTS & fc, char c
         " join adapter a on a.id=p.adapter_id "
       " where "
       " p.end_point != 'pgl_clia' and (l.fcid,l.prepid) = (select l.fcid,l.prepid from Lane l, prepT p where l.prepID = p.prepID and p.end_point != 'pgl_clia' group by l.prepid,l.fcid "
-      "having count(rg_status not in ('%s') or rg_status is null ) = 0 limit 1) ", y);
-
-    // paranoid!?!
+      //"having count(rg_status not in ('%s') or rg_status is null ) = 0 limit 1) ", y);
+     "having (GROUP_CONCAT(distinct rg_status) = '%s' and GROUP_CONCAT(distinct rg_status) is not NULL) limit 1)", y);    
+// paranoid!?!
     for (unsigned int h=0;h<fc.size();++h) {
     cout << fc[h]["rg_status"] << "this is << " << fc[h]["PU"] << "\n"; 
  assert(fc[h]["rg_status"]==y);
