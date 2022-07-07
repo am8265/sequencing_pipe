@@ -52,11 +52,11 @@
 // add merge rescue object too?!?
 // add reset to bcl BUT with lock issue telling them to run it ONLY if they're sure!?!? : update Flowcell set fc_status = 'registered' where FCillumID = 'HMJCJDSXX' and fc_status = 'sequenced' and fail = 0 ; select row_count() locked
 
-#define BASE_DIR "/nfs/seqscratch09/informatics/"
+#define BASE_DIR "/nfs/seqscratch_ssd/informatics/"
 #define SCRIPT_DIR BASE_DIR "logs/merge/"
 #define LOG_DIR "/nfs/central/home/dh2880/.logs/"
 #define ALIGNSTATS "/nfs/goldstein/software/alignstats/alignstats"
-#define POSTMERGE "/nfs/seqscratch09/informatics/logs/postmerge/"
+#define POSTMERGE "/nfs/seqscratch_ssd/informatics/logs/postmerge/"
 
 // int merge_and_release(int, char **);
 // inline bool isregfile(const char* fn) { struct stat test; if (stat(fn, &test) != 0) { return false; }  return S_ISREG(test.st_mode); }                                   
@@ -1337,11 +1337,11 @@ class Core {
         // cout << _wes_ccds10x_val << std::endl; 
 
         // open the misc log file 
-        // char log_file[] = "/nfs/seqscratch09/informatics/logs/misc/misc_log.txt";
-        string log_file = "/nfs/seqscratch09/informatics/logs/misc/misc_log_core_test.txt";
+        // char log_file[] = "/nfs/seqscratch_ssd/informatics/logs/misc/misc_log.txt";
+        string log_file = "/nfs/seqscratch_ssd/informatics/logs/misc/misc_log_core_test.txt";
 
         if (run){
-            log_file = "/nfs/seqscratch09/informatics/logs/misc/misc_log_core.txt";
+            log_file = "/nfs/seqscratch_ssd/informatics/logs/misc/misc_log_core.txt";
         }
 
         misc_log.open(log_file, std::fstream::in | std::fstream::out | std::fstream::app);
@@ -3176,7 +3176,7 @@ int cleanup_pipeline_scratch(int argc, char **argv) {
         assert(strchr(REMOVE_LIST[o].data(),'*')==NULL);
         int ret = unlink(REMOVE_LIST[o].data());
         if(ret!=0) cout << "we got = " << ret << "\n";
-        // if(ret!=0) Lazy("echo '%s' >> /nfs/seqscratch09/dsth/play/could_not_wipe.txt",REMOVE_LIST[o].data());
+        // if(ret!=0) Lazy("echo '%s' >> /nfs/seqscratch_ssd/dsth/play/could_not_wipe.txt",REMOVE_LIST[o].data());
     } }
 
     { std::vector<string> REMOVE_LIST;
@@ -3191,7 +3191,7 @@ int cleanup_pipeline_scratch(int argc, char **argv) {
         assert(strchr(REMOVE_LIST[o].data(),'*')==NULL);
         int ret = rmdir(REMOVE_LIST[o].data());
         if(ret!=0) cout << "we got = " << ret << "\n";
-        // if(ret!=0) Lazy("echo '%s' >> /nfs/seqscratch09/dsth/play/could_not_wipe.txt",REMOVE_LIST[o].data());
+        // if(ret!=0) Lazy("echo '%s' >> /nfs/seqscratch_ssd/dsth/play/could_not_wipe.txt",REMOVE_LIST[o].data());
     } }
 
     query::silly_update("update dragen_sample_metadata set is_merged = 30 where is_merged = 31 and pseudo_prepid = %s",entry["pseudo_prepid"].data());
@@ -4230,7 +4230,7 @@ bool check_final_bam(
     char rg_counts[1024];
 
 {
-    char tmp[10240]; sprintf(tmp,"/nfs/seqscratch09/dsth/vcf_thing/bam_thing %s",final_bam.data()); Popen ns10(tmp,16*1024,"r");
+    char tmp[10240]; sprintf(tmp,"/nfs/seqscratch_ssd/dsth/vcf_thing/bam_thing %s",final_bam.data()); Popen ns10(tmp,16*1024,"r");
     char * z20;
     while( *( z20=ns10.getline() ) != '\0') { 
         //// don't use size of with string literals!?!?
@@ -5224,7 +5224,7 @@ for (rarp::NLIST::iterator it = dsm.begin(); it!=dsm.end(); it++ ) cout << " dsm
                 bool okay = false, error = false, warn = false;
                 char RGC[1024];
 
-                { char tmp[10240]; sprintf(tmp,"/nfs/seqscratch09/dsth/vcf_thing/bam_thing %s",se.data()); Popen ns1(tmp,16*1024,"r");
+                { char tmp[10240]; sprintf(tmp,"/nfs/seqscratch_ssd/dsth/vcf_thing/bam_thing %s",se.data()); Popen ns1(tmp,16*1024,"r");
                     char * z2;
                     while( *( z2=ns1.getline() ) != '\0') { 
                         if(memcmp(z2,"ERROR",strlen( "ERROR") )==0) error=true;

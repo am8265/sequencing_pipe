@@ -44,13 +44,13 @@
 // add merge rescue object too?!?
 // add reset to bcl BUT with lock issue telling them to run it ONLY if they're sure!?!? : update Flowcell set fc_status = 'registered' where FCillumID = 'HMJCJDSXX' and fc_status = 'sequenced' and fail = 0 ; select row_count() locked
 
-// #define BASE_DIR "/nfs/seqscratch09/informatics/"
+// #define BASE_DIR "/nfs/seqscratch_ssd/informatics/"
 // hc: never reference BASE_DIR, update anyway. 
 #define BASE_DIR "/nfs/seqscratch_ssd/informatics/"
 #define SCRIPT_DIR BASE_DIR "logs/merge/"
 #define LOG_DIR "/nfs/central/home/dh2880/.logs/"
 #define ALIGNSTATS "/nfs/goldstein/software/alignstats/alignstats"
-// #define POSTMERGE "/nfs/seqscratch09/informatics/logs/postmerge/"
+// #define POSTMERGE "/nfs/seqscratch_ssd/informatics/logs/postmerge/"
 #define POSTMERGE "/nfs/seqscratch_ssd/informatics/logs/postmerge/"
 
 // int merge_and_release(int, char **);

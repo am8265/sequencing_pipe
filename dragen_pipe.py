@@ -175,10 +175,10 @@ def main(reset_dragen,no_prerelease_align,experiment_id,no_gvcf):
     # if check_space("/nfs/seqscratch_ssd")<12.0:
         print("space is low - need to clear any backlog and continue on to alignment...")
         # time.sleep(30)
-        os.system("/nfs/seqscratch09/informatics/tmp/RunAux.pl")
+        os.system("/nfs/seqscratch_ssd/informatics/tmp/RunAux.pl")
     elif no_work(database) and no_gvcf==False:
         print("nothing to align - run variant calling")
-        os.system("/nfs/seqscratch09/informatics/tmp/RunAux.pl")
+        os.system("/nfs/seqscratch_ssd/informatics/tmp/RunAux.pl")
         exit(1)
     else:
         print("not running gvcf generation")
@@ -766,10 +766,10 @@ def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
     if no_prerelease_align==False:
 
         if False:
-            if os.system("/nfs/seqscratch09/informatics/bin/GoButton align")!=0:
+            if os.system("/nfs/seqscratch_ssd/informatics/bin/GoButton align")!=0:
                 raise Exception("\n\nproblem with se alignment process!\n\n")
         else:
-            os.system("/nfs/seqscratch09/informatics/bin/GoButton align")
+            os.system("/nfs/seqscratch_ssd/informatics/bin/GoButton align")
 
     else:
         print("no prerelease align")

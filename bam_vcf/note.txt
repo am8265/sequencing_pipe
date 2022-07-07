@@ -1,10 +1,10 @@
 There is bam_thing program required in the sequencing pipeline. 
-bam_thing program is genereated from /nfs/seqscratch09/dsth/vcf_thing/bam_eof_make_more_stringent_for_constant_checks.cpp
+bam_thing program is genereated from /nfs/seqscratch_ssd/dsth/vcf_thing/bam_eof_make_more_stringent_for_constant_checks.cpp
 But bam_thing caused segementation fault on the bam files generated from dragen4 machine. 
-I did a small hack to the source code /nfs/seqscratch09/dsth/vcf_thing/bam_eof_make_more_stringent_for_constant_checks.cpp to avoid the segementation fault issue. (bam_check_hack.cpp) 
+I did a small hack to the source code /nfs/seqscratch_ssd/dsth/vcf_thing/bam_eof_make_more_stringent_for_constant_checks.cpp to avoid the segementation fault issue. (bam_check_hack.cpp) 
 bam_thing_old: generated from bam_eof_make_more_stringent_for_constant_checks.cpp
 bam_thing: compiled from bam_check_hack.cpp
 
-bam_thing program is currently placed at /nfs/seqscratch09/dsth/vcf_thing/bam_thing in production. 
+bam_thing program is currently placed at /nfs/seqscratch_ssd/dsth/vcf_thing/bam_thing in production. 
 
 -- hc

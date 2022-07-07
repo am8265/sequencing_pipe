@@ -78,7 +78,7 @@ sub sample_age {
     my$x=shift; $x||=0;
     my@x=caller(0);
     my$p=qq{$x[3]\t:\t};
-    my$wd='/nfs/seqscratch09/informatics/tmp/WalDB.sample.sql'; # my$wd=$ENV{HOME}.'/WalDB.sample.sql';
+    my$wd='/nfs/seqscratch_ssd/informatics/tmp/WalDB.sample.sql'; # my$wd=$ENV{HOME}.'/WalDB.sample.sql';
     # my$wd='/nfs/seqscratch_ssd/informatics/tmp/WalDB.sample.sql'; # my$wd=$ENV{HOME}.'/WalDB.sample.sql';
     # why?!?
     chomp(my$wdf=`stat -c %Y ${wd} 2>/dev/null`);
@@ -304,7 +304,7 @@ sub get_running {
     return \%js;
 }
 
-sub get_sdir { return q{/nfs/seqscratch09/informatics/logs/gatk/}; }
+sub get_sdir { return q{/nfs/seqscratch_ssd/informatics/logs/gatk/}; }
 # sub get_sdir { return q{/nfs/seqscratch_ssd/informatics/logs/gatk/}; }
 
 sub get_uname {
