@@ -769,10 +769,10 @@ def get_next_sample(pid,database,debug,no_prerelease_align,experiment_id):
     if no_prerelease_align==False:
 
         if False:
-            if os.system("/nfs/seqscratch_ssd/informatics/bin/GoButtonAlign align")!=0:
+            if os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/Align/GoButtonAlign align")!=0:
                 raise Exception("\n\nproblem with se alignment process!\n\n")
         else:
-            os.system("/nfs/seqscratch_ssd/informatics/bin/GoButtonAlign align")
+            os.system("/nfs/goldstein/software/sequencing_pipe/master/sequencing_pipe/Align/GoButtonAlign align")
             # os.system("/nfs/seqscratch_ssd/informatics/bin/GoButton align")
 
 
