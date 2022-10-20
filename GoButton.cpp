@@ -4600,7 +4600,7 @@ void release_merged_rgs(
                 do_void_thing("update Experiment set is_released = 'not_released', merge_metrics_capturemean = %0.2f, RawCapCoverageBases10Pct = %0.2f where id = %s",capmean, ccds10x, dsm["experiment_id"].data());
                 
                 // do_void_thing("update Experiment set is_released = 'release_rejected' where id = %s",dsm["experiment_id"].data());
-                do_void_thing("update prepT set status = 'Release_Rejected_UnderCov(%0.2f)', status_time = unix_timestamp() where experiment_id = %s",capmean,dsm["experiment_id"].data());
+                do_void_thing("update prepT set status = 'Release_Rejected_UnderCov(%0.2f)', status_time = unix_timestamp() where status != 'ReturnToSampleQueue' and status != 'RemoveFromSampleQueue' and experiment_id = %s",capmean,dsm["experiment_id"].data());
                 return;
             }else{
                 do_void_thing("update Experiment set merge_metrics_capturemean = %0.2f, RawCapCoverageBases10Pct = %0.2f  where id = %s",capmean, ccds10x,  dsm["experiment_id"].data());
@@ -4621,7 +4621,7 @@ void release_merged_rgs(
                 do_void_thing("update Experiment set is_released = 'not_released', merge_metrics_capturemean = %0.2f , RawCapCoverageBases10Pct = %0.2f where id = %s",capmean, ccds10x, dsm["experiment_id"].data());
                 
                 // do_void_thing("update Experiment set is_released = 'not_released' where id = %s",dsm["experiment_id"].data());
-                do_void_thing("update prepT set status = 'Release_Rejected_UnderCov(%0.2f)', status_time = unix_timestamp() where experiment_id = %s",capmean,dsm["experiment_id"].data());
+                do_void_thing("update prepT set status = 'Release_Rejected_UnderCov(%0.2f)', status_time = unix_timestamp() where status != 'ReturnToSampleQueue' and status != 'RemoveFromSampleQueue' and experiment_id = %s",capmean,dsm["experiment_id"].data());
                 return;
             }else{
                 do_void_thing("update Experiment set merge_metrics_capturemean = %0.2f , RawCapCoverageBases10Pct = %0.2f where id = %s",capmean, ccds10x, dsm["experiment_id"].data());
@@ -4836,7 +4836,7 @@ void release_single_rg(
             do_void_thing("update Experiment set is_released = 'not_released', merge_metrics_capturemean = %0.2f where id = %s",capmean,dsm["experiment_id"].data());
             // do_void_thing("update dragen_sample_metadata set is_merged = 200001 where pseudo_prepid = %s",dsm["experiment_id"].data());
             // do_void_thing("update Experiment set is_released = 'release_rejected' where id = %s",dsm["experiment_id"].data());
-            do_void_thing("update prepT set status = 'Release_Rejected_Single_RG_UnderCov(%0.2f)', status_time = unix_timestamp() where experiment_id = %s",capmean,dsm["experiment_id"].data());
+            do_void_thing("update prepT set status = 'Release_Rejected_Single_RG_UnderCov(%0.2f)', status_time = unix_timestamp() where status != 'ReturnToSampleQueue' and status != 'RemoveFromSampleQueue' and experiment_id = %s",capmean,dsm["experiment_id"].data());
 
             return;
 
@@ -5466,7 +5466,7 @@ if(test) {
             cout << "w_experiment_id= " << cun2[i]["w_experiment_id"] << "\n";
             cout << "\n\n\tthis has been released already!?!\n\n";
             char msg[2048];
-            sprintf(msg,"update prepT set status = 'This requires full deprecation and re-release (synch samples:%s)' where ( failedprep=0 or failedprep>=100) and experiment_id = %s ; select row_count() updated ",borederer.data(),cun2[i]["e_experiment_id"].data());
+            sprintf(msg,"update prepT set status = 'This requires full deprecation and re-release (synch samples:%s)' where ( failedprep=0 or failedprep>=100) and status != 'ReturnToSampleQueue' and status != 'RemoveFromSampleQueue' and experiment_id = %s ; select row_count() updated ",borederer.data(),cun2[i]["e_experiment_id"].data());
             cout << "using " << msg << "\n";
             rarp::NLIST x = db::get_named_row("seqdb",msg);
             // cout << "got " << x["updated"]<<"\n";
@@ -5496,7 +5496,7 @@ if(test) {
             }else if(!core_info.is_releasable()) { // if(!core_info.is_approved()) {
                 // cout << "this is not an approved project!?! - blocking " << cun2[i]["sample_internal_name"] << " - " << cun2[i]["e_experiment_id"] << "\n";
                 char msg[2048];
-                sprintf(msg,"update prepT set status = 'Error - %s is not an approved subproject' where ( failedprep=0 or failedprep>=100) and experiment_id = %s ; select row_count() updated ",core_info.useful_name(),cun2[i]["e_experiment_id"].data());
+                sprintf(msg,"update prepT set status = 'Error - %s is not an approved subproject' where ( failedprep=0 or failedprep>=100) and status != 'ReturnToSampleQueue' and status != 'RemoveFromSampleQueue' and experiment_id = %s ; select row_count() updated ",core_info.useful_name(),cun2[i]["e_experiment_id"].data());
                 cout << "using " << msg << "\n";
                 rarp::NLIST x = db::get_named_row("seqdb",msg);
                 // cout << "updated="<<x["updated"]<<"\n";
@@ -5542,7 +5542,7 @@ if(test) {
                 wont++;
                 cout << "\n\t\tWON'T RELEASE '" << cun2[i]["sum_statuses"] << "'\n\n";
                 char arsv2 [2048];
-                if(terrible_mb_measure<500) sprintf(arsv2,"update prepT set status = 'Error - Requires HTS investigation' where ( failedprep=0 or failedprep>=100) and experiment_id = %s ; select row_count() updated ",cun2[i]["e_experiment_id"].data());
+                if(terrible_mb_measure<500) sprintf(arsv2,"update prepT set status = 'Error - Requires HTS investigation' where ( failedprep=0 or failedprep>=100) and status != 'ReturnToSampleQueue' and status != 'RemoveFromSampleQueue' and experiment_id = %s ; select row_count() updated ",cun2[i]["e_experiment_id"].data());
                 else sprintf(arsv2,"update prepT set status = 'Not eligible for autorelease - Requires manual HTS release or topup (yield=%.02f/%.02f)' where ( failedprep=0 or failedprep>=100) and status != 'ReturnToSampleQueue' and status != 'RemoveFromSampleQueue' and experiment_id = %s ; select row_count() updated ",terrible_mb_measure,rg_mean_sums,cun2[i]["e_experiment_id"].data());
                 cout << "using " << arsv2 << "\n";
                 rarp::NLIST x = db::get_named_row("seqdb",arsv2);
