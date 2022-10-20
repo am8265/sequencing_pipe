@@ -5543,7 +5543,7 @@ if(test) {
                 cout << "\n\t\tWON'T RELEASE '" << cun2[i]["sum_statuses"] << "'\n\n";
                 char arsv2 [2048];
                 if(terrible_mb_measure<500) sprintf(arsv2,"update prepT set status = 'Error - Requires HTS investigation' where ( failedprep=0 or failedprep>=100) and experiment_id = %s ; select row_count() updated ",cun2[i]["e_experiment_id"].data());
-                else sprintf(arsv2,"update prepT set status = 'Not eligible for autorelease - Requires manual HTS release or topup (yield=%.02f/%.02f)' where ( failedprep=0 or failedprep>=100) and experiment_id = %s ; select row_count() updated ",terrible_mb_measure,rg_mean_sums,cun2[i]["e_experiment_id"].data());
+                else sprintf(arsv2,"update prepT set status = 'Not eligible for autorelease - Requires manual HTS release or topup (yield=%.02f/%.02f)' where ( failedprep=0 or failedprep>=100) and status != 'ReturnToSampleQueue' and status != 'RemoveFromSampleQueue' and experiment_id = %s ; select row_count() updated ",terrible_mb_measure,rg_mean_sums,cun2[i]["e_experiment_id"].data());
                 cout << "using " << arsv2 << "\n";
                 rarp::NLIST x = db::get_named_row("seqdb",arsv2);
                 // cout << "updated="<<x["updated"]<<"\n";
