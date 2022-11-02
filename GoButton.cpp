@@ -616,6 +616,7 @@ namespace fastq {
             FCT.insert(make_pair("DMXX","NovaSeq S2 flowcell"));
             FCT.insert(make_pair("BCX3","NovaSeq S2 flowcell (hack)"));
             FCT.insert(make_pair("DSXX","NovaSeq S4 flowcell"));
+	    FCT.insert(make_pair("DSX5","NovaSeq S4 flowcell"));
             FCT.insert(make_pair("BGX5","NovaSeq S4 flowcell (hack EGI)")); 
             FCT.insert(make_pair("DSXY","NovaSeq S4 flowcell (hack)"));
             FCT.insert(make_pair("DSX3","NovaSeq S4 flowcell (hack)"));
