@@ -2920,7 +2920,7 @@ tinyxml2::XMLElement *& rp,
       "join adapter on adapter.id=p.adapter_id "
       "join pool on pool.id=p.poolid "
       "join samplesTOrun sr on sr.seqid=l.seqid " "join Experiment e on p.experiment_id=e.id " "join SampleT s on s.sample_id=e.sample_id "
-      "where fcillumid = '%s' and p.status != 'In DragenDB' and p.end_point != 'pgl_clia' order by lanenum, prepid",
+      "where fcillumid = '%s' and p.status != 'In DragenDB' and p.end_point != 'pgl_clia' and p.failedPrep = 0 order by lanenum, prepid",
       fcid.data()
     ); // ,l+1);
     
