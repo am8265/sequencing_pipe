@@ -2139,7 +2139,7 @@ void update_actual_lane_fractions_from_html(rarp::NLISTS & hs,rarp::NLISTS & rgs
     sprintf(subject,"Flowcell %s lane/sample yield summaries (%d/%s)",fcid.data(),ly,fcyield);
     // { char what[2048]; getcwd(what,sizeof what); cout << "using " << what << "\n"; }
     // sprintf(fer2, "/nfs/goldstein/software/mutt-1.5.23/bin/mutt -e \"set content_type=text/html\" -s \"Flowcell %s lane/sample yield summaries (%d/%s)\" dh2880@cumc.columbia.edu < " FLOWCELL_REPORT,fcid.data(),ly,fcyield);
-    // sendmail("nb2975@cumc.columbia.edu","nb2975@cumc.columbia.edu",subject,tmp.str().data(),true);
+    sendmail("igm-bioinfo@columbia.edu","igm-bioinfo@columbia.edu",subject,tmp.str().data(),true);
 
 }
     
