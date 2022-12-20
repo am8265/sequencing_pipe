@@ -6365,6 +6365,10 @@ int main(int argc, char **argv){
 
         }else if(strcmp(*(argv+1),"run")==0) {
 
+            if(!getenv("ATAV_USER")) cerr << "Need ATAV_USER env\n",exit(1);
+            if(!getenv("ATAV_PASS")) cerr << "Need ATAV_PASS env\n",exit(1);
+            if(!getenv("ATAV_HOST")) cerr << "Need ATAV_HOST env\n",exit(1);
+
             opts::commit=true;
             auto_merge();
             auto_release();
