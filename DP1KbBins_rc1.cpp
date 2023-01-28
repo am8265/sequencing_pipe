@@ -125,12 +125,17 @@ inline static long unsigned int base36dec(const char *text) { return strtoul(tex
 inline char get_dp(int dp) {
     // switch(dp) {
         /* if(dp<3) return 'a';
-        else */ if(dp<10) return 'b';
+        else 
+	if(dp<10) return 'b';
         else if(dp<20) return 'c';
         else if(dp<30) return 'd';
         else if(dp<50) return 'e';
         else if(dp<200) return 'f';
         else return 'g';
+	*/
+
+	if(dp<10) return 'b';
+        else return 'c';
 }
 
 ///// chr boundaries!?!?
