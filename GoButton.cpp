@@ -70,6 +70,7 @@ namespace opts {
     char const * serv = "seqprod";
 
     static bool email = true;
+    float required_space = 8.5;
 
     using std::cout;
     using std::cerr;
@@ -905,7 +906,8 @@ namespace md5 {
 
 namespace seq {
 
-    static char const * ARCHIVE_DIR = "/nfs/archive/p2018/FASTQ/"; /* ,
+    static char const * ARCHIVE_DIR = "/nfs/fastq_temp2/PIPE/FASTQ/"; /* ,
+    static char const * ARCHIVE_DIR = "/nfs/archive/p2018/FASTQ/"; ,
       * NETAPP_OUT_DIR = "/nfs/seqscratch_ssd/",
       * SEQ_RUN_DIR = "/nfs/hts/novaseq/sequence/Runs/"; */
 
@@ -2638,7 +2640,7 @@ int bcl(int argc, char **argv) {
     { 
     long long space = atol(get_single_line_output_as_string("df %s | grep -P '\\d+\\s+\\d+\\s+\\d+' | awk '{print $3}'",seq::NETAPP_OUT_DIR).data());
     cout << "we have " << space << " (" << (float)space/(1024*1024*1024) << ") available\n";
-    if( (float)space/(1024*1024*1024) < 10.0 ) cout << "insufficient space to run!\n",exit(1);
+    if( (float)space/(1024*1024*1024) < opts::required_space ) cout << "insufficient space to run!\n",exit(1);
     else cout << "will run\n";
     }
 
