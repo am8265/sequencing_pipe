@@ -70,7 +70,7 @@ namespace opts {
     char const * serv = "seqprod";
 
     static bool email = true;
-    float required_space = 8.5;
+    float required_space = 4.5;
 
     using std::cout;
     using std::cerr;
@@ -2115,7 +2115,11 @@ void update_actual_lane_fractions_from_html(rarp::NLISTS & hs,rarp::NLISTS & rgs
         }
         cur_lane=rgs[i2]["lanenum"];
 
-        assert(hs[i]["Sample"]==rgs[i2]["sample_internal_name"]);
+
+        if(hs[i]["Sample"]!=rgs[i2]["sample_internal_name"]) {
+	    cout << hs[i]["Sample"] << " - vs. - " << rgs[i2]["sample_internal_name"] << "\n";
+       	    assert(0); // hs[i]["Sample"]==rgs[i2]["sample_internal_name"]);
+	}
 
         tmp << "<tr><td>"<<rgs[i2]["sample_internal_name"]<<"</td><td>"<<rgs[i2]["lanenum"]<<"</td><td>"<<rgs[i2]["pool_name"]<<"</td><td>"<<rgs[i2]["sample_type"]
           <<"</td><td>"<<rgs[i2]["capture_kit"]<<"</td><td>"<<hs[i]["Yield (Mbases)"]<<"</td></tr>\n";
@@ -4761,14 +4765,16 @@ void merge_multiple(
     chmod(gg.data(),S_IRUSR|S_IWUSR|S_IXUSR);
 
 
-    char FER3[1024], /* bored1[1024], */ bored2[1024];
+    char FER3[1024]; /*, bored1[1024],  bored2[1024]; */
     sprintf(FER3,"qsub %s",gg.data()); // { Popen ns1(FER3,16*1024,"r"); char * z2 = ns1.getline(); 
 
     do_void_thing ( "update dragen_sample_metadata set is_merged = -1 where pseudo_prepid = %s", dsm["experiment_id"].data() );
     do_void_thing( "update prepT set status = 'Bam_Merging', status_time = unix_timestamp() where p_prepid = %s", dsm["experiment_id"].data() );
 
+    // qsub merge
+    // cout << "'" << FER3<< "'\n";
     if(system(FER3)!=0) { 
-        cout << "ouch: " << FER3 << "\n\n\n";
+        cout << __FILE__ << ":"<< __LINE__ << ":ouch: " << FER3 << "\n\n\n";
         exit(1);                
     }
 
@@ -4776,15 +4782,17 @@ void merge_multiple(
 
     do_void_thing( REPLACE_INTO_DPS, dsm["experiment_id"].data(),"started" );
 
+/*cout << "'" << bored2 << "'\n";
     if(system(bored2)!=0) {             
-        cout << "ouch: " << bored2 << "\n\n\n";               
+        cout << __FILE__ << ":"<< __LINE__ << ":ouch: " << bored2 << "\n\n\n";               
         exit(1);                
-    }
+    }*/
 
     fflush(stdout);
 
     time_t t = time(0); struct tm * tm_s = localtime(&t); char blah[1024]; strftime(blah,1024,"%c",tm_s); fputs(blah,log); fputc('\n',log);
-    fputs(bored2,log);
+    fputs("THIS_IS_BROKEN",log);
+    // fputs(bored2,log);
     fputc('\n',log);
 
     // fputs(bored1,log);
