@@ -6929,7 +6929,7 @@ void load(int argc, char **argv) {
 
             // cout << "NEW SAMPLE SO POPULATING WALDB\n";
             char YUCK[2048];
-            sprintf(YUCK,"mysql -upipeline -pPipeLine001 -h annodb06 WalDB -e \" "
+            sprintf(YUCK,"mysql -upipeline -pPipeLine001 -h 10.73.50.37 WalDB -e \" "
             " insert into sample (sample_name,sample_type,capture_kit,prep_id,priority) "
             " value ('%s','%s','%s',%s,%s ); "
             " select LAST_INSERT_ID()\" ",entry["dsm_sample_name"].data(),entry["dsm_sample_type"].data(),

@@ -185,6 +185,7 @@ def get_fastq_loc(database, sample, rarp ):
 
             #potential_locs.insert(0,'/nfs/seqscratch*/tx_temp/tx_*/')
             potential_locs.insert(0,'/nfs/tx/in/')
+            # potential_locs.insert(0,'/mnt/ext3nfsshare/tx-8272/')
 
             print(" > pure, evil name-coliding nonsense - in general will mix up multiply sequenced samples and truncate multiprep...")
             if sample["prepid"][0]<50000:
@@ -202,6 +203,7 @@ def get_fastq_loc(database, sample, rarp ):
                     break
 
             if fastq_loc == []:
+                # raise ValueError(potential_locs)
                 raise FastqError('{} Fastq files not found'.format(sample_name))
         else:
 
