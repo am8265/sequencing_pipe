@@ -704,7 +704,7 @@ sub push_back {
     { print qq{using wrapper files\n}; sleep(1); 
     # for my$l (qw{/nfs/seqscratch_ssd/ALIGNMENT/BUILD37/DRAGEN /nfs/fastq_temp2/ALIGNMENT/BUILD37/DRAGEN /nfs/fastq_temp/ALIGNMENT/BUILD37/DRAGEN/}) {
     for my$l (qw{/nfs/seqscratch_ssd/ALIGNMENT/BUILD37/DRAGEN}){
-        open(my$x,'-|',qq{find $l -name sge_wrapper.log -maxdepth 3})||die;
+        open(my$x,'-|',qq{find $l -maxdepth 3 -name sge_wrapper.log })||die;
         while(my$d=<$x>){
             chomp($d);
             my$pp;
