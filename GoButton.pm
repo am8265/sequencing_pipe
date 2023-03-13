@@ -707,6 +707,7 @@ sub push_back {
         open(my$x,'-|',qq{find $l -maxdepth 3 -name sge_wrapper.log })||die;
         while(my$d=<$x>){
             chomp($d);
+	    # print qq{checking $d\n};
             my$pp;
             # if($d=~/\.(\d+)\/sge_wrapper\.log/){ $pp=$1; }else{ die; }
             if($d=~/\.(\d+)\/sge_wrapper\.log/){ $pp=$1; }else{ last; }
