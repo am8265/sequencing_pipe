@@ -185,6 +185,7 @@ def get_fastq_loc(database, sample, rarp ):
 
             #potential_locs.insert(0,'/nfs/seqscratch*/tx_temp/tx_*/')
             potential_locs.insert(0,'/nfs/tx/in/')
+            potential_locs.insert(0,'/mnt/ext3nfsshare/')
             # potential_locs.insert(0,'/mnt/ext3nfsshare/tx-8272/')
 
             print(" > pure, evil name-coliding nonsense - in general will mix up multiply sequenced samples and truncate multiprep...")
@@ -196,6 +197,7 @@ def get_fastq_loc(database, sample, rarp ):
             for potential_loc in potential_locs:
 
                 potential_path = '{}/*[0-9]/{}/FASTQ/'.format(potential_loc,sample_name)
+                # print('checking {}'.format(potential_path))
                 fastq_loc = glob(potential_path)
                 if fastq_loc != []:
                     for folder in fastq_loc:
